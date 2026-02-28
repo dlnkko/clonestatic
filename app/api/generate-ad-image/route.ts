@@ -106,14 +106,15 @@ async function pollRecordInfo(apiKey: string, taskId: string): Promise<{ resultU
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { prompt, productImageBase64, aspectRatio: aspectRatioParam } = body as {
+    const { prompt, productImageBase64, productImageUrl: productImageUrlParam, aspectRatio: aspectRatioParam } = body as {
       prompt?: string;
       productImageBase64?: string;
+      productImageUrl?: string;
       aspectRatio?: string;
     };
-    if (!prompt || typeof prompt !== 'string' || !productImageBase64 || typeof productImageBase64 !== 'string') {
+    if (!prompt || typeof prompt !== 'string') {
       return NextResponse.json(
-        { error: 'Missing or invalid prompt and productImageBase64' },
+        { error: 'Missing or invalid prompt' },
         { status: 400 }
       );
     }
@@ -124,8 +125,19 @@ export async function POST(request: NextRequest) {
         ? aspectRatioParam
         : 'auto';
 
+    let productImageUrl: string;
+    if (productImageUrlParam && typeof productImageUrlParam === 'string' && productImageUrlParam.startsWith('http')) {
+      productImageUrl = productImageUrlParam;
+    } else if (productImageBase64 && typeof productImageBase64 === 'string') {
+      productImageUrl = await uploadImageToImgBB(productImageBase64);
+    } else {
+      return NextResponse.json(
+        { error: 'Missing productImageUrl or productImageBase64' },
+        { status: 400 }
+      );
+    }
+
     const apiKey = getKieApiKey();
-    const productImageUrl = await uploadImageToImgBB(productImageBase64);
     const callBackUrl = process.env.KIE_CALLBACK_URL || undefined;
 
     const taskId = await createKieTask(apiKey, prompt, productImageUrl, aspectRatio, callBackUrl);
