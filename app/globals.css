@@ -49,3 +49,77 @@ pre::-webkit-scrollbar-thumb {
 pre::-webkit-scrollbar-thumb:hover {
   background: #52525b;
 }
+
+/* Landing: animations & transitions */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes gradient-shift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.7s ease-out forwards;
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+.landing-gradient {
+  background: linear-gradient(135deg, #0c4a6e 0%, #0369a1 25%, #0284c7 50%, #0ea5e9 75%, #7dd3fc 100%);
+  background-size: 200% 200%;
+  animation: gradient-shift 12s ease infinite;
+}
+
+.landing-mesh {
+  background-color: #f0f9ff;
+  background-image:
+    radial-gradient(at 40% 20%, rgba(14, 165, 233, 0.15) 0px, transparent 50%),
+    radial-gradient(at 80% 0%, rgba(37, 99, 235, 0.12) 0px, transparent 50%),
+    radial-gradient(at 0% 50%, rgba(2, 132, 199, 0.08) 0px, transparent 50%);
+}
+
+.transition-smooth {
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px -12px rgba(14, 165, 233, 0.25);
+}
+
+.hover-glow:hover {
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.3), 0 12px 24px -8px rgba(37, 99, 235, 0.25);
+}
