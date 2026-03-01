@@ -50,7 +50,7 @@ async function createKieTask(
       image_input: [imageInputUrl],
       aspect_ratio: aspectRatio,
       google_search: false,
-      resolution: '1K',
+      resolution: '2K',
       output_format: 'jpg',
     },
   };
