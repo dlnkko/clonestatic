@@ -1,4 +1,5 @@
-import Link from 'next/link';
+import { BeforeAfterSlider } from './components/BeforeAfterSlider';
+import { PricingSection } from './components/PricingSection';
 
 const CHECKOUT = {
   standardMonthly: process.env.NEXT_PUBLIC_WHOP_CHECKOUT_STANDARD_MONTHLY || 'https://whop.com/checkout/plan_1qy7pizl7xAkx',
@@ -7,217 +8,211 @@ const CHECKOUT = {
   proYearly: process.env.NEXT_PUBLIC_WHOP_CHECKOUT_PRO_YEARLY || 'https://whop.com/checkout/plan_CNk2XegENVQGM',
 };
 
+const NAV_LINKS = [
+  { label: 'Home', href: '#' },
+  { label: 'Features', href: '#features' },
+  { label: 'Pricing', href: '#pricing' },
+];
+
 export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-[#f0f9ff] landing-mesh">
-      {/* Hero */}
-      <section className="relative overflow-hidden landing-gradient">
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_0%,rgba(0,0,0,0.03)_100%)]" aria-hidden />
-        <div className="relative mx-auto max-w-4xl px-4 py-20 sm:py-28 text-center">
-          <h1
-            className="text-4xl font-bold tracking-tight text-white drop-shadow-sm sm:text-5xl md:text-6xl animate-fade-in-up opacity-0"
-            style={{ animationDelay: '0.1s', animationFillMode: 'forwards' }}
-          >
-            AI Ad Prompt Generator
-          </h1>
-          <p
-            className="mt-5 text-lg text-white/90 max-w-2xl mx-auto sm:text-xl animate-fade-in-up opacity-0"
-            style={{ animationDelay: '0.25s', animationFillMode: 'forwards' }}
-          >
-            Turn any reference ad into a custom AI prompt. Upload your product, pick a style, and generate scroll-stopping creatives in minutes.
-          </p>
-          <div
-            className="mt-10 flex flex-wrap items-center justify-center gap-4 animate-fade-in-up opacity-0"
-            style={{ animationDelay: '0.4s', animationFillMode: 'forwards' }}
-          >
-            <Link
-              href="/app"
-              className="inline-flex items-center justify-center rounded-xl bg-white px-6 py-3.5 text-base font-semibold text-[#0369a1] shadow-xl shadow-black/10 transition-smooth hover:bg-white/95 hover:scale-[1.02] hover:shadow-2xl hover:shadow-black/15"
-            >
-              Launch App
-            </Link>
+    <main className="min-h-screen landing-dark landing-dark-grid text-white">
+      {/* Header */}
+      <header className="sticky top-0 z-50 landing-glass">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4">
+          <a href="#" className="text-lg font-bold tracking-tight text-sky-400 transition-colors hover:text-sky-300">
+            AI Ad Generator
+          </a>
+          <nav className="hidden items-center gap-1 sm:flex">
+            {NAV_LINKS.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                className="rounded-lg px-3 py-2 text-sm font-medium text-white/80 transition-colors hover:bg-white/5 hover:text-white"
+              >
+                {link.label}
+              </a>
+            ))}
+          </nav>
+          <div className="relative flex items-center gap-3">
+            <details className="sm:hidden">
+              <summary className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-lg border border-white/20 bg-white/5 text-white/80 hover:bg-white/10 [&::-webkit-details-marker]:hidden">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </summary>
+              <div className="absolute right-0 top-full mt-2 flex w-48 flex-col rounded-xl border border-white/10 bg-slate-900/95 py-2 shadow-xl backdrop-blur-xl">
+                {NAV_LINKS.map((link) => (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    className="px-4 py-2.5 text-sm font-medium text-white/90 hover:bg-white/10"
+                  >
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+            </details>
             <a
               href="#pricing"
-              className="inline-flex items-center justify-center rounded-xl border-2 border-white/80 bg-white/10 px-6 py-3.5 text-base font-medium text-white backdrop-blur-sm transition-smooth hover:bg-white/20 hover:border-white"
+              className="inline-flex shrink-0 items-center justify-center rounded-full bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-500/25 transition-all hover:bg-sky-400 hover:shadow-sky-500/30"
             >
               See plans
             </a>
           </div>
         </div>
-      </section>
+      </header>
 
-      {/* Features */}
-      <section className="mx-auto max-w-5xl px-4 py-20 sm:py-24">
-        <h2
-          className="text-center text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl animate-fade-in-up opacity-0"
-          style={{ animationDelay: '0.1s', animationFillMode: 'forwards' }}
-        >
-          Why creators choose us
-        </h2>
-        <p
-          className="mx-auto mt-3 max-w-xl text-center text-slate-600 animate-fade-in-up opacity-0"
-          style={{ animationDelay: '0.2s', animationFillMode: 'forwards' }}
-        >
-          Reference + product, 2K output, and brand-aware prompts in one flow.
-        </p>
-        <div className="mt-14 grid gap-8 sm:grid-cols-3 text-center">
-          {[
-            {
-              icon: (
-                <svg className="h-7 w-7" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              ),
-              title: 'Reference + product',
-              desc: 'Upload a reference ad and your product image. We generate the prompt and the final creative.',
-              delay: '0.3s',
-            },
-            {
-              icon: (
-                <svg className="h-7 w-7" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              ),
-              title: '2K output',
-              desc: 'High-resolution 2K images. Choose vertical 9:16, horizontal 16:9, square 1:1, or match your reference.',
-              delay: '0.45s',
-            },
-            {
-              icon: (
-                <svg className="h-7 w-7" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-              ),
-              title: 'Brand-aware',
-              desc: 'Paste your product URL and we scrape copy and branding so the ad stays on-brand.',
-              delay: '0.6s',
-            },
-          ].map((item) => (
-            <div
-              key={item.title}
-              className="group relative flex flex-col rounded-2xl border border-slate-200/80 bg-white/90 p-8 shadow-sm backdrop-blur-sm transition-smooth hover-lift animate-fade-in-up opacity-0"
-              style={{ animationDelay: item.delay, animationFillMode: 'forwards' }}
+      {/* Hero */}
+      <section className="relative px-4 pt-12 pb-8 sm:pt-16 sm:pb-12">
+        <div className="mx-auto max-w-3xl text-center">
+          <p
+            className="inline-block rounded-full bg-sky-500/15 px-4 py-1.5 text-xs font-medium text-sky-300 animate-fade-in-up opacity-0"
+            style={{ animationDelay: '0.1s', animationFillMode: 'forwards' }}
+          >
+            Trusted by creators who scale with AI
+          </p>
+          <h1
+            className="mt-5 text-3xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl animate-fade-in-up opacity-0"
+            style={{ animationDelay: '0.2s', animationFillMode: 'forwards' }}
+          >
+            Ad creatives,{' '}
+            <span className="text-sky-400">built with strategy</span>
+          </h1>
+          <p
+            className="mt-4 text-lg text-white/70 sm:text-xl animate-fade-in-up opacity-0"
+            style={{ animationDelay: '0.3s', animationFillMode: 'forwards' }}
+          >
+            Turn any reference ad into a custom AI prompt. Upload your product, pick a style, and generate scroll-stopping creatives in minutes.
+          </p>
+          <div
+            className="mt-8 flex flex-wrap items-center justify-center gap-3 animate-fade-in-up opacity-0"
+            style={{ animationDelay: '0.4s', animationFillMode: 'forwards' }}
+          >
+            <a
+              href="#pricing"
+              className="inline-flex items-center justify-center rounded-full bg-sky-500 px-6 py-3.5 text-base font-semibold text-white shadow-lg shadow-sky-500/25 transition-smooth hover:bg-sky-400 hover:scale-[1.02]"
             >
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#0ea5e9] to-[#0369a1] text-white shadow-lg shadow-blue-500/25 transition-smooth group-hover:scale-110 group-hover:shadow-blue-500/30">
-                {item.icon}
-              </div>
-              <h3 className="mt-4 text-base font-semibold text-slate-900">{item.title}</h3>
-              <p className="mt-2 text-sm text-slate-600 leading-relaxed">{item.desc}</p>
-            </div>
-          ))}
+              See plans
+            </a>
+            <a
+              href="#compare"
+              className="inline-flex items-center justify-center rounded-full border border-white/30 bg-white/5 px-6 py-3.5 text-base font-medium text-white backdrop-blur-sm transition-smooth hover:bg-white/10"
+            >
+              View example
+            </a>
+          </div>
         </div>
       </section>
 
-      {/* Pricing */}
-      <section id="pricing" className="relative border-t border-slate-200/80 bg-white/60 py-20 sm:py-28 backdrop-blur-sm">
-        <div className="mx-auto max-w-5xl px-4 text-center">
-          <h2
-            className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl animate-fade-in-up opacity-0"
-            style={{ animationDelay: '0.1s', animationFillMode: 'forwards' }}
-          >
-            Simple pricing
+      {/* Before/After slider: Original design (OMNI) ← → AI generated (Bloom) */}
+      <section id="compare" className="px-4 py-12 sm:py-16">
+        <p className="mx-auto max-w-2xl text-center text-sm text-white/60">
+          Drag to compare: original design → AI-generated creative
+        </p>
+        <div className="mt-6 animate-fade-in-up opacity-0" style={{ animationDelay: '0.5s', animationFillMode: 'forwards' }}>
+          <BeforeAfterSlider
+            imageBefore="/original-design.png"
+            imageAfter="/ai-generated.png"
+            labelBefore="Original design"
+            labelAfter="AI generated"
+          />
+        </div>
+      </section>
+
+      {/* Pricing - fondo claro, toggle Monthly/Annually, tarjetas blancas, checkmarks azul */}
+      <section id="pricing" className="border-t border-white/5 bg-gradient-to-b from-slate-50 to-white px-4 py-16 sm:py-20">
+        <div className="text-slate-900">
+          <PricingSection
+            standardMonthly={CHECKOUT.standardMonthly}
+            standardYearly={CHECKOUT.standardYearly}
+            proMonthly={CHECKOUT.proMonthly}
+            proYearly={CHECKOUT.proYearly}
+          />
+        </div>
+      </section>
+
+      {/* Core features - una tarjeta azul destacada + dos blancas con mockup/visual */}
+      <section id="features" className="border-t border-slate-200 bg-white px-4 py-16 sm:py-20">
+        <div className="mx-auto max-w-5xl">
+          <h2 className="text-center text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+            What you get
           </h2>
-          <p
-            className="mt-3 text-slate-600 animate-fade-in-up opacity-0"
-            style={{ animationDelay: '0.2s', animationFillMode: 'forwards' }}
-          >
-            Choose monthly or yearly. After payment you get instant access with your credits.
+          <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">
+            Reference + product, 2K output, and brand-aware prompts in one flow.
           </p>
-
-          <div className="mt-14 grid gap-8 sm:grid-cols-2 sm:gap-8 lg:gap-10">
-            {/* Standard */}
-            <div
-              className="relative flex flex-col rounded-2xl border-2 border-slate-200 bg-white p-8 shadow-lg transition-smooth hover-lift hover-glow animate-fade-in-up opacity-0"
-              style={{ animationDelay: '0.35s', animationFillMode: 'forwards' }}
-            >
-              <h3 className="text-xl font-semibold text-slate-900">Standard</h3>
-              <p className="mt-1 text-sm text-slate-500">25 images per month</p>
-              <ul className="mt-6 space-y-3 text-sm text-slate-600">
-                <li className="flex items-center gap-2">25 AI-generated ad images</li>
-                <li className="flex items-center gap-2">2K resolution</li>
-                <li className="flex items-center gap-2">All aspect ratios</li>
-                <li className="flex items-center gap-2">History & download</li>
-              </ul>
-              <div className="mt-8 space-y-3">
-                <a
-                  href={CHECKOUT.standardMonthly}
-                  className="inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-[#0284c7] to-[#0369a1] px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 transition-smooth hover:shadow-blue-500/40 hover:scale-[1.02]"
-                >
-                  $9.99 / month
-                </a>
-                <a
-                  href={CHECKOUT.standardYearly}
-                  className="inline-flex w-full items-center justify-center rounded-xl border-2 border-slate-200 bg-white px-4 py-3.5 text-sm font-medium text-slate-700 transition-smooth hover:border-[#0ea5e9] hover:bg-slate-50"
-                >
-                  $79.99 / year
-                </a>
+          <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
+            {/* Hero card - azul vibrante con visual */}
+            <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 p-6 text-white shadow-xl shadow-blue-500/20 sm:p-8 md:col-span-2">
+              <h3 className="text-lg font-semibold">Reference + product</h3>
+              <p className="mt-2 text-sm text-blue-100 leading-relaxed">
+                Upload a reference ad and your product image. We generate the prompt and the final creative.
+              </p>
+              <div className="mt-6 rounded-xl border border-white/20 bg-white/10 p-4 backdrop-blur-sm">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center">
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <div className="h-2 w-full rounded bg-white/30" />
+                    <div className="h-2 w-2/3 rounded bg-white/20" />
+                  </div>
+                </div>
+                <p className="mt-3 text-xs text-blue-100">Reference → Prompt → Creative</p>
               </div>
             </div>
-
-            {/* Pro */}
-            <div
-              className="relative flex flex-col rounded-2xl border-2 border-[#0ea5e9] bg-white p-8 shadow-xl shadow-blue-500/10 transition-smooth hover-lift hover-glow animate-fade-in-up opacity-0 ring-2 ring-[#0ea5e9]/20"
-              style={{ animationDelay: '0.5s', animationFillMode: 'forwards' }}
-            >
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-[#0ea5e9] to-[#0284c7] px-4 py-1 text-xs font-semibold text-white shadow-md">
-                Popular
-              </span>
-              <h3 className="text-xl font-semibold text-slate-900">Pro</h3>
-              <p className="mt-1 text-sm text-slate-500">100 images per month</p>
-              <ul className="mt-6 space-y-3 text-sm text-slate-600">
-                <li className="flex items-center gap-2">100 AI-generated ad images</li>
-                <li className="flex items-center gap-2">2K resolution</li>
-                <li className="flex items-center gap-2">All aspect ratios</li>
-                <li className="flex items-center gap-2">History & download</li>
-              </ul>
-              <div className="mt-8 space-y-3">
-                <a
-                  href={CHECKOUT.proMonthly}
-                  className="inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-[#0ea5e9] to-[#0284c7] px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 transition-smooth hover:shadow-blue-500/40 hover:scale-[1.02]"
-                >
-                  $29.99 / month
-                </a>
-                <a
-                  href={CHECKOUT.proYearly}
-                  className="inline-flex w-full items-center justify-center rounded-xl border-2 border-slate-200 bg-white px-4 py-3.5 text-sm font-medium text-slate-700 transition-smooth hover:border-[#0ea5e9] hover:bg-slate-50"
-                >
-                  $229.99 / year
-                </a>
+            {/* Tarjeta blanca - 2K output */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-lg shadow-slate-200/50 transition-shadow hover:shadow-xl sm:p-8">
+              <h3 className="text-lg font-semibold text-slate-900">2K output</h3>
+              <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+                High-resolution 2K images. Choose vertical 9:16, horizontal 16:9, square 1:1, or match your reference.
+              </p>
+              <div className="mt-6 rounded-xl border border-slate-100 bg-slate-50 p-4">
+                <div className="flex gap-2">
+                  <div className="h-12 w-9 rounded bg-slate-200/80" title="9:16" />
+                  <div className="h-12 w-16 rounded bg-slate-200/80" title="16:9" />
+                  <div className="h-12 w-12 rounded bg-slate-200/80" title="1:1" />
+                </div>
+                <p className="mt-2 text-xs text-slate-500">All aspect ratios</p>
               </div>
             </div>
-          </div>
-
-          <div
-            className="mt-12 rounded-2xl border border-slate-200 bg-white/90 p-6 sm:p-8 text-left max-w-2xl mx-auto shadow-sm transition-smooth hover:shadow-md animate-fade-in-up opacity-0"
-            style={{ animationDelay: '0.65s', animationFillMode: 'forwards' }}
-          >
-            <h3 className="text-base font-semibold text-slate-900">How it works</h3>
-            <ol className="mt-4 space-y-2 text-sm text-slate-600 list-decimal list-inside">
-              <li><strong>Pay button</strong> → Redirects you to Whop checkout.</li>
-              <li><strong>Whop charges</strong> → You pay securely on Whop&apos;s page.</li>
-              <li><strong>Webhook notifies us</strong> → Our endpoint receives the event and activates your access with the right credits.</li>
-            </ol>
-            <p className="mt-4 text-sm text-slate-500">Use the same email you paid with to access the app.</p>
+            {/* Tarjeta blanca - Brand-aware */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-lg shadow-slate-200/50 transition-shadow hover:shadow-xl sm:p-8">
+              <h3 className="text-lg font-semibold text-slate-900">Brand-aware</h3>
+              <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+                Paste your product URL and we scrape copy and branding so the ad stays on-brand.
+              </p>
+              <div className="mt-6 rounded-xl border border-slate-100 bg-slate-50 p-4">
+                <div className="flex items-center gap-2 text-slate-600">
+                  <svg className="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                  <span className="text-xs font-medium">Product URL → Copy + branding</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* CTA */}
-      <section className="relative overflow-hidden border-t border-slate-200/80 py-20 sm:py-24 landing-mesh">
-        <div className="mx-auto max-w-2xl px-4 text-center">
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Ready to create?</h2>
-          <p className="mt-3 text-slate-600">Launch the app to try the interface, or pick a plan above to get credits.</p>
-          <Link
-            href="/app"
-            className="mt-8 inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#0369a1] to-[#0c4a6e] px-8 py-4 text-base font-semibold text-white shadow-xl shadow-blue-900/25 transition-smooth hover:scale-[1.03] hover:shadow-2xl hover:shadow-blue-900/30"
+      <section className="border-t border-white/5 px-4 py-16 sm:py-20">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Ready to create?</h2>
+          <p className="mt-3 text-white/60">Pick a plan above to get credits and start generating ad creatives.</p>
+          <a
+            href="#pricing"
+            className="mt-8 inline-flex items-center justify-center rounded-full bg-sky-500 px-8 py-4 text-base font-semibold text-white shadow-lg shadow-sky-500/25 transition-smooth hover:bg-sky-400 hover:scale-[1.02]"
           >
-            Launch App →
-          </Link>
+            Choose a plan
+          </a>
         </div>
       </section>
 
-      <footer className="border-t border-slate-200/80 py-8 bg-white/50">
-        <div className="mx-auto max-w-4xl px-4 text-center text-sm text-slate-500">
+      <footer className="border-t border-white/5 py-8">
+        <div className="mx-auto max-w-4xl px-4 text-center text-sm text-white/50">
           AI Ad Prompt Generator · Payments powered by Whop
         </div>
       </footer>
