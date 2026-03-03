@@ -473,6 +473,7 @@ export default function StaticAdPromptGenerator() {
                   </p>
                   {pricingBilling === 'yearly' && <p className="mt-0.5 text-xs text-slate-500">Billed annually · ~$6.67/mo</p>}
                   <ul className="mt-2 sm:mt-3 space-y-1 sm:space-y-2 text-xs sm:text-sm text-slate-600">
+                    <li className="flex gap-1.5 sm:gap-2"><span className="mt-0.5 h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span><strong>20 credits</strong> per month (generate or edit)</li>
                     <li className="flex gap-1.5 sm:gap-2"><span className="mt-0.5 h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span>Generate ads from references</li>
                     <li className="flex gap-1.5 sm:gap-2"><span className="mt-0.5 h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span>History + downloads</li>
                   </ul>
@@ -495,8 +496,9 @@ export default function StaticAdPromptGenerator() {
                   </p>
                   {pricingBilling === 'yearly' && <p className="mt-0.5 text-xs text-white/70">Billed annually · ~$19.17/mo</p>}
                   <ul className="mt-2 sm:mt-3 space-y-1 sm:space-y-2 text-xs sm:text-sm text-white/80">
-                    <li className="flex gap-1.5 sm:gap-2"><span className="mt-0.5 h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full bg-white/15 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span>More credits for scale</li>
-                    <li className="flex gap-1.5 sm:gap-2"><span className="mt-0.5 h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full bg-white/15 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span>Faster iteration</li>
+                    <li className="flex gap-1.5 sm:gap-2"><span className="mt-0.5 h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full bg-white/15 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span><strong>75 credits</strong> per month (generate or edit)</li>
+                    <li className="flex gap-1.5 sm:gap-2"><span className="mt-0.5 h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full bg-white/15 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span>Generate ads from references</li>
+                    <li className="flex gap-1.5 sm:gap-2"><span className="mt-0.5 h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full bg-white/15 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span>History + downloads</li>
                   </ul>
                   <a
                     href={`/checkout-redirect?plan=${pricingBilling === 'yearly' ? 'pro_yearly' : 'pro_monthly'}`}
@@ -507,10 +509,7 @@ export default function StaticAdPromptGenerator() {
                 </div>
               </div>
 
-              <div className="mt-3 sm:mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <a href="/#pricing" className="text-xs sm:text-sm font-medium text-slate-600 hover:text-slate-900">
-                  View pricing on the landing
-                </a>
+              <div className="mt-3 sm:mt-4 flex justify-end">
                 <button
                   type="button"
                   onClick={() => setShowPricingModal(false)}
