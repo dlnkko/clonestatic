@@ -268,20 +268,17 @@ export default function StaticAdPromptGenerator() {
     });
   };
 
-  const handleDownloadImage = async () => {
-    if (!generatedImageUrl) return;
-    try {
-      const res = await fetch(generatedImageUrl, { mode: 'cors' });
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'generated-ad.jpg';
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      window.open(generatedImageUrl, '_blank');
-    }
+  const handleDownloadImage = (imageUrl?: string, filename = 'generated-ad.jpg') => {
+    const url = imageUrl ?? generatedImageUrl;
+    if (!url) return;
+    const downloadUrl = `/api/download-image?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`;
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = filename;
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   const getResolvedAspectRatio = useCallback((): string => {
@@ -637,7 +634,7 @@ export default function StaticAdPromptGenerator() {
                       <span className="truncate text-[10px] sm:text-xs text-slate-500">{c.aspect_ratio || '—'} · {new Date(c.created_at).toLocaleDateString()}</span>
                       <div className="flex shrink-0 gap-1">
                         <a href={c.image_url} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-slate-50" title="Open"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
-                        <a href={c.image_url} download="generated-ad.jpg" className="rounded-lg border border-sky-500 bg-sky-500 p-1.5 text-white hover:bg-sky-600" title="Download"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a>
+                        <button type="button" onClick={() => handleDownloadImage(c.image_url, 'generated-ad.jpg')} className="rounded-lg border border-sky-500 bg-sky-500 p-1.5 text-white hover:bg-sky-600" title="Download"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
                       </div>
                     </div>
                   </div>
@@ -702,17 +699,18 @@ export default function StaticAdPromptGenerator() {
                       <p className="mt-1 max-w-[360px] text-xs text-slate-500">Upload an ad, describe changes, then click Generate edit.</p>
                     </div>
                   ) : isEditing ? (
-                    <div className="flex flex-col items-center justify-center text-center">
+                    <div className="flex flex-col items-center justify-center text-center px-2">
                       <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-slate-200 bg-slate-50"><svg className="h-7 w-7 animate-spin text-sky-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg></div>
                       <p className="text-sm font-medium text-slate-700">Editing your ad…</p>
                       <p className="mt-1 text-xs text-slate-500">Generating edit prompt + rendering with Nano Banana 2</p>
+                      <p className="mt-3 max-w-[280px] text-xs text-slate-500">Takes around 90 seconds. You can switch tabs or lock your phone – generation continues in the background.</p>
                     </div>
                   ) : (
                     <div className="w-full flex flex-col items-center">
                       <div className="w-full max-w-lg rounded-xl overflow-hidden bg-slate-50 ring-1 ring-slate-200"><a href={editedImageUrl!} target="_blank" rel="noopener noreferrer" className="block"><img src={editedImageUrl!} alt="Edited ad" className="w-full h-auto object-contain" /></a></div>
                       <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
                         <a href={editedImageUrl!} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 min-h-[44px]"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>Open</a>
-                        <a href={editedImageUrl!} download="edited-ad.jpg" className="inline-flex items-center gap-1.5 rounded-xl border border-sky-500 bg-sky-500 px-4 py-2.5 text-xs font-medium text-white shadow-sm transition hover:bg-sky-600 min-h-[44px] touch-manipulation"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download</a>
+                        <button type="button" onClick={() => handleDownloadImage(editedImageUrl!, 'edited-ad.jpg')} className="inline-flex items-center gap-1.5 rounded-xl border border-sky-500 bg-sky-500 px-4 py-2.5 text-xs font-medium text-white shadow-sm transition hover:bg-sky-600 min-h-[44px] touch-manipulation"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download</button>
                       </div>
                     </div>
                   )}
@@ -836,10 +834,11 @@ export default function StaticAdPromptGenerator() {
                     <p className="mt-1 max-w-[260px] text-xs text-slate-500">Upload both images and tap Generate Image.</p>
                   </div>
                 ) : (isGenerating || isGeneratingImage) ? (
-                  <div className="flex flex-col items-center justify-center text-center">
+                  <div className="flex flex-col items-center justify-center text-center px-2">
                     <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-slate-200 bg-slate-50"><svg className="h-7 w-7 animate-spin text-sky-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg></div>
                     <p className="text-sm font-medium text-slate-700">Generating your ad…</p>
                     <p className="mt-1 text-xs text-slate-500">{isGeneratingImage ? 'Rendering with Nano Banana 2' : 'Preparing'}</p>
+                    <p className="mt-3 max-w-[280px] text-xs text-slate-500">Takes around 90 seconds. You can switch tabs, lock your phone, or leave the app – generation continues in the background.</p>
                   </div>
                 ) : generatedImageUrl ? (
                   <div className="w-full flex flex-col items-center">
@@ -848,7 +847,7 @@ export default function StaticAdPromptGenerator() {
                     </div>
                     <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
                       <a href={generatedImageUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 min-h-[44px]"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>Open</a>
-                      <button type="button" onClick={handleDownloadImage} className="inline-flex items-center gap-1.5 rounded-xl border border-sky-500 bg-sky-500 px-4 py-2.5 text-xs font-medium text-white shadow-sm transition hover:bg-sky-600 min-h-[44px] touch-manipulation"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download</button>
+                      <button type="button" onClick={() => handleDownloadImage(generatedImageUrl, 'generated-ad.jpg')} className="inline-flex items-center gap-1.5 rounded-xl border border-sky-500 bg-sky-500 px-4 py-2.5 text-xs font-medium text-white shadow-sm transition hover:bg-sky-600 min-h-[44px] touch-manipulation"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download</button>
                     </div>
                   </div>
                 ) : null}
