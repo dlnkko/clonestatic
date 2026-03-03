@@ -425,99 +425,99 @@ export default function StaticAdPromptGenerator() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 flex">
       {showPricingModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-2 sm:p-4">
           <div className="absolute inset-0 bg-black/40" aria-hidden onClick={() => setShowPricingModal(false)} />
-          <div className="relative w-full max-w-3xl rounded-2xl border border-slate-200 bg-white shadow-2xl">
-            <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-4 sm:p-5">
-              <div>
-                <h2 className="text-base font-semibold text-slate-900 sm:text-lg">Choose a plan to generate</h2>
-                <p className="mt-1 text-sm text-slate-600">You can access the dashboard for free. Generating images requires credits.</p>
+          <div className="relative w-full max-w-3xl max-h-[90vh] sm:max-h-[85vh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-200 p-3 sm:p-5 shrink-0">
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-slate-900 sm:text-lg">Choose a plan to generate</h2>
+                <p className="mt-0.5 text-xs text-slate-600 sm:text-sm">You can access the dashboard for free. Generating images requires credits.</p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowPricingModal(false)}
-                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 shrink-0"
                 aria-label="Close"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
 
-            <div className="p-4 sm:p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1">
+            <div className="p-3 sm:p-5 overflow-y-auto flex-1 min-h-0">
+              <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+                <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 sm:p-1">
                   <button
                     type="button"
                     onClick={() => setPricingBilling('monthly')}
-                    className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${pricingBilling === 'monthly' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`rounded-md sm:rounded-lg px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium transition-colors ${pricingBilling === 'monthly' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-600 hover:text-slate-900'}`}
                   >
                     Monthly
                   </button>
                   <button
                     type="button"
                     onClick={() => setPricingBilling('yearly')}
-                    className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${pricingBilling === 'yearly' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`rounded-md sm:rounded-lg px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium transition-colors ${pricingBilling === 'yearly' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-600 hover:text-slate-900'}`}
                   >
                     Annually
                   </button>
                 </div>
-                <p className="text-xs text-slate-500">Secure checkout via Whop. Use the same Google email.</p>
+                <p className="text-[10px] sm:text-xs text-slate-500">Secure checkout via Whop. Use the same Google email.</p>
               </div>
 
-              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+              <div className="mt-3 sm:mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-4">
+                <div className="rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-3 sm:p-5">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-slate-900">Standard</h3>
-                    <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[10px] font-medium text-sky-700">20 credits</span>
+                    <h3 className="text-xs font-semibold text-slate-900 sm:text-sm">Standard</h3>
+                    <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-medium text-sky-700">20 credits</span>
                   </div>
-                  <p className="mt-3 text-3xl font-bold tracking-tight text-slate-900">
+                  <p className="mt-2 sm:mt-3 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
                     {pricingBilling === 'yearly' ? '$79.99' : '$9.99'}
-                    <span className="text-base font-normal text-slate-500"> {pricingBilling === 'yearly' ? '/ year' : '/ month'}</span>
+                    <span className="text-xs sm:text-base font-normal text-slate-500"> {pricingBilling === 'yearly' ? '/ year' : '/ month'}</span>
                   </p>
-                  {pricingBilling === 'yearly' && <p className="mt-0.5 text-sm text-slate-500">Billed annually · ~$6.67/mo</p>}
-                  <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                    <li className="flex gap-2"><span className="mt-0.5 h-4 w-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold">✓</span>Generate ads from references</li>
-                    <li className="flex gap-2"><span className="mt-0.5 h-4 w-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold">✓</span>History + downloads</li>
+                  {pricingBilling === 'yearly' && <p className="mt-0.5 text-xs text-slate-500">Billed annually · ~$6.67/mo</p>}
+                  <ul className="mt-2 sm:mt-3 space-y-1 sm:space-y-2 text-xs sm:text-sm text-slate-600">
+                    <li className="flex gap-1.5 sm:gap-2"><span className="mt-0.5 h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span>Generate ads from references</li>
+                    <li className="flex gap-1.5 sm:gap-2"><span className="mt-0.5 h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span>History + downloads</li>
                   </ul>
                   <a
                     href={`/checkout-redirect?plan=${pricingBilling === 'yearly' ? 'standard_yearly' : 'standard_monthly'}`}
-                    className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-sky-500 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-600"
+                    className="mt-3 sm:mt-4 inline-flex w-full items-center justify-center rounded-lg sm:rounded-xl bg-sky-500 px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm font-semibold text-white shadow-sm transition hover:bg-sky-600"
                   >
                     Continue
                   </a>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-slate-900 p-4 sm:p-5 text-white">
+                <div className="rounded-xl sm:rounded-2xl border border-slate-200 bg-slate-900 p-3 sm:p-5 text-white">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">Pro</h3>
-                    <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-medium text-white">75 credits</span>
+                    <h3 className="text-xs font-semibold sm:text-sm">Pro</h3>
+                    <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white">75 credits</span>
                   </div>
-                  <p className="mt-3 text-3xl font-bold tracking-tight">
+                  <p className="mt-2 sm:mt-3 text-2xl sm:text-3xl font-bold tracking-tight">
                     {pricingBilling === 'yearly' ? '$229.99' : '$29.99'}
-                    <span className="text-base font-normal text-white/70"> {pricingBilling === 'yearly' ? '/ year' : '/ month'}</span>
+                    <span className="text-xs sm:text-base font-normal text-white/70"> {pricingBilling === 'yearly' ? '/ year' : '/ month'}</span>
                   </p>
-                  {pricingBilling === 'yearly' && <p className="mt-0.5 text-sm text-white/70">Billed annually · ~$19.17/mo</p>}
-                  <ul className="mt-3 space-y-2 text-sm text-white/80">
-                    <li className="flex gap-2"><span className="mt-0.5 h-4 w-4 rounded-full bg-white/15 text-white flex items-center justify-center text-[10px] font-bold">✓</span>More credits for scale</li>
-                    <li className="flex gap-2"><span className="mt-0.5 h-4 w-4 rounded-full bg-white/15 text-white flex items-center justify-center text-[10px] font-bold">✓</span>Faster iteration</li>
+                  {pricingBilling === 'yearly' && <p className="mt-0.5 text-xs text-white/70">Billed annually · ~$19.17/mo</p>}
+                  <ul className="mt-2 sm:mt-3 space-y-1 sm:space-y-2 text-xs sm:text-sm text-white/80">
+                    <li className="flex gap-1.5 sm:gap-2"><span className="mt-0.5 h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full bg-white/15 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span>More credits for scale</li>
+                    <li className="flex gap-1.5 sm:gap-2"><span className="mt-0.5 h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full bg-white/15 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span>Faster iteration</li>
                   </ul>
                   <a
                     href={`/checkout-redirect?plan=${pricingBilling === 'yearly' ? 'pro_yearly' : 'pro_monthly'}`}
-                    className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-900 shadow-sm transition hover:bg-slate-100"
+                    className="mt-3 sm:mt-4 inline-flex w-full items-center justify-center rounded-lg sm:rounded-xl bg-white px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm font-semibold text-slate-900 shadow-sm transition hover:bg-slate-100"
                   >
                     Continue
                   </a>
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <a href="/#pricing" className="text-sm font-medium text-slate-600 hover:text-slate-900">
+              <div className="mt-3 sm:mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <a href="/#pricing" className="text-xs sm:text-sm font-medium text-slate-600 hover:text-slate-900">
                   View pricing on the landing
                 </a>
                 <button
                   type="button"
                   onClick={() => setShowPricingModal(false)}
-                  className="text-sm font-medium text-slate-600 hover:text-slate-900"
+                  className="text-xs sm:text-sm font-medium text-slate-600 hover:text-slate-900"
                 >
                   Keep exploring
                 </button>
