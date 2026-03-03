@@ -1,7 +1,7 @@
 -- Table to store each user's generated ad images (for history tab).
 -- Run this in Supabase SQL Editor after linking your project.
 --
--- 1. In Supabase Dashboard: Authentication > Providers > enable "Anonymous" sign-in.
+-- 1. In Supabase Dashboard: Authentication > Providers > enable "Google" (and disable "Anonymous" for production).
 -- 2. Add to .env.local:
 --    NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
 --    NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key

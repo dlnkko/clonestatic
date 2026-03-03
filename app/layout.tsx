@@ -9,7 +9,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "AI Ad Prompt Generator",
+  title: "Clonestatic",
   description: "Generate high-quality AI image prompts from a reference static ad and your product image.",
 };
 

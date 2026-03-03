@@ -1,26 +1,48 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest) {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return NextResponse.json({ ok: false, error: 'Not configured' }, { status: 503 });
+export async function GET() {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user?.email) {
+    return NextResponse.json({ ok: false, error: 'Sign in required' }, { status: 401 });
   }
-  const email = request.nextUrl.searchParams.get('email')?.trim()?.toLowerCase();
-  if (!email || !email.includes('@')) {
+
+  const email = user.email.trim().toLowerCase();
+  if (!email.includes('@')) {
     return NextResponse.json({ ok: false, error: 'Valid email required' }, { status: 400 });
   }
+
+  const ownerEmailFromEnv = process.env.OWNER_EMAIL?.trim()?.toLowerCase();
+  const ownerEmail =
+    ownerEmailFromEnv && ownerEmailFromEnv.length > 0
+      ? ownerEmailFromEnv
+      : 'diegolinaresd10@gmail.com';
+  const isOwner = email === ownerEmail;
+  if (isOwner) {
+    return NextResponse.json({
+      ok: true,
+      plan: 'owner',
+      credits_remaining: 999999,
+      period_end: null,
+    });
+  }
+
   try {
-    const supabase = createAdminClient();
-    const { data, error } = await supabase
+    const admin = createAdminClient();
+    const { data, error } = await admin
       .from('subscriptions')
       .select('plan, credits_remaining, period_end')
       .eq('email', email)
       .single();
+
     if (error || !data) {
       return NextResponse.json({ ok: false, error: 'No subscription found' }, { status: 404 });
     }
+
     const credits = Math.max(0, data.credits_remaining ?? 0);
     return NextResponse.json({
       ok: true,

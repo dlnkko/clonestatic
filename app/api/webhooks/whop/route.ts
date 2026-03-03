@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
 
   const planId = getPlanIdFromPayload(body);
   const plan = getPlanFromPayload(planId);
-  const credits = plan === 'pro' ? 100 : 25;
+  const credits = plan === 'pro' ? 75 : 20;
   const periodEnd = new Date();
   periodEnd.setMonth(periodEnd.getMonth() + 1);
 
