@@ -1,34 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 /** Proxies an image and returns it with Content-Disposition: attachment so mobile browsers trigger download. */
-const ALLOWED_HOSTS = [
-  'replicate.delivery',
-  'pbxt.replicate.delivery',
-  'replicate.com',
-  'imgbb.com',
-  'i.ibb.co',
-  'ibb.co',
-  'kie.ai',
-  'localhost',
-];
-
-function isAllowedUrl(url: string): boolean {
+function isValidImageUrl(url: string): boolean {
   try {
     const u = new URL(url);
-    if (u.protocol !== 'https:' && u.protocol !== 'http:') return false;
-    const host = u.hostname.toLowerCase();
-    return ALLOWED_HOSTS.some((allowed) => host === allowed || host.endsWith('.' + allowed));
+    return u.protocol === 'https:' || u.protocol === 'http:';
   } catch {
     return false;
   }
+}
+
+function isImageContentType(ct: string | null): boolean {
+  if (!ct) return false;
+  const main = ct.split(';')[0].trim().toLowerCase();
+  return main === 'image/jpeg' || main === 'image/jpg' || main === 'image/png' || main === 'image/webp' || main === 'image/gif' || main.startsWith('image/');
 }
 
 export async function GET(request: NextRequest) {
   const url = request.nextUrl.searchParams.get('url');
   const filename = request.nextUrl.searchParams.get('filename') || 'generated-ad.jpg';
 
-  if (!url || !isAllowedUrl(url)) {
-    return NextResponse.json({ error: 'Invalid or disallowed URL' }, { status: 400 });
+  if (!url || !isValidImageUrl(url)) {
+    return NextResponse.json({ error: 'Invalid URL' }, { status: 400 });
   }
 
   try {
@@ -39,13 +32,16 @@ export async function GET(request: NextRequest) {
     if (!res.ok) {
       return NextResponse.json({ error: 'Failed to fetch image' }, { status: 502 });
     }
-    const contentType = res.headers.get('content-type') || 'image/jpeg';
+    const contentType = res.headers.get('content-type');
+    if (!isImageContentType(contentType)) {
+      return NextResponse.json({ error: 'URL did not return an image' }, { status: 400 });
+    }
     const blob = await res.arrayBuffer();
 
     return new NextResponse(blob, {
       status: 200,
       headers: {
-        'Content-Type': contentType,
+        'Content-Type': contentType || 'image/jpeg',
         'Content-Disposition': `attachment; filename="${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}"`,
         'Cache-Control': 'no-store',
       },
