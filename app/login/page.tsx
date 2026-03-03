@@ -96,9 +96,6 @@ function LoginContent() {
             </>
           )}
         </button>
-        <p className="mt-4 text-center text-xs text-white/50">
-          By continuing, you agree to complete the purchase on Whop with the same email.
-        </p>
       </div>
       <a href="/" className="mt-6 text-sm text-white/60 hover:text-white">
         ← Back to home

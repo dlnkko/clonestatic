@@ -35,6 +35,7 @@ export default function StaticAdPromptGenerator() {
   const [creations, setCreations] = useState<CreationItem[]>([]);
   const [creationsLoading, setCreationsLoading] = useState(false);
   const [user, setUser] = useState<{ email: string; name?: string } | null>(null);
+  const [creditsRemaining, setCreditsRemaining] = useState<number | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [pricingBilling, setPricingBilling] = useState<'monthly' | 'yearly'>('monthly');
@@ -97,6 +98,22 @@ export default function StaticAdPromptGenerator() {
     }
   };
 
+  const fetchCredits = useCallback(async () => {
+    if (!hasSupabase) return;
+    try {
+      const subRes = await fetch('/api/subscription', { credentials: 'include' });
+      if (subRes.ok) {
+        const subData = await subRes.json();
+        const credits = Number(subData?.credits_remaining ?? 0);
+        if (Number.isFinite(credits)) setCreditsRemaining(credits);
+      } else {
+        setCreditsRemaining(0);
+      }
+    } catch {
+      setCreditsRemaining(null);
+    }
+  }, [hasSupabase]);
+
   const gatePaidActionOrShowPricing = async (): Promise<boolean> => {
     if (!hasSupabase) return true;
     try {
@@ -115,6 +132,7 @@ export default function StaticAdPromptGenerator() {
         setShowPricingModal(true);
         return false;
       }
+      setCreditsRemaining(credits);
       return true;
     } catch {
       setShowPricingModal(true);
@@ -368,6 +386,10 @@ export default function StaticAdPromptGenerator() {
   }, []);
 
   useEffect(() => {
+    if (hasSupabase) fetchCredits();
+  }, [hasSupabase, fetchCredits]);
+
+  useEffect(() => {
     if (hasSupabase && activeTab === 'history') loadCreations();
   }, [activeTab, hasSupabase, loadCreations]);
 
@@ -382,11 +404,12 @@ export default function StaticAdPromptGenerator() {
           body: JSON.stringify({ image_url: imageUrl, aspect_ratio: aspectRatio, prompt }),
         });
         await loadCreations();
+        await fetchCredits();
       } catch {
         // ignore
       }
     },
-    [hasSupabase, loadCreations]
+    [hasSupabase, loadCreations, fetchCredits]
   );
 
   const handleSignOut = async () => {
@@ -543,6 +566,12 @@ export default function StaticAdPromptGenerator() {
           </button>
         </nav>
         <div className="border-t border-slate-200 p-4 space-y-2">
+          {creditsRemaining !== null && (
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+              <p className="text-xs font-medium text-slate-500">Credits</p>
+              <p className="text-lg font-bold text-slate-900 tabular-nums">{creditsRemaining}</p>
+            </div>
+          )}
           <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700 font-semibold">
               {user?.name ? user.name.charAt(0).toUpperCase() : user?.email?.charAt(0).toUpperCase() ?? '?'}
