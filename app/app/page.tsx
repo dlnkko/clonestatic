@@ -31,7 +31,7 @@ export default function StaticAdPromptGenerator() {
   const [referenceAdDimensions, setReferenceAdDimensions] = useState<{ width: number; height: number } | null>(null);
 
   const hasSupabase = isSupabaseConfigured();
-  const [activeTab, setActiveTab] = useState<'new' | 'history' | 'edit'>('new');
+  const [activeTab, setActiveTab] = useState<'new' | 'history' | 'edit' | 'support'>('new');
   const [creations, setCreations] = useState<CreationItem[]>([]);
   const [creationsLoading, setCreationsLoading] = useState(false);
   const [user, setUser] = useState<{ email: string; name?: string } | null>(null);
@@ -564,8 +564,24 @@ export default function StaticAdPromptGenerator() {
             <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 7.125L16.875 4.5"/></svg>
             Edit
           </button>
+          <button
+            type="button"
+            onClick={() => { setActiveTab('support'); setSidebarOpen(false); }}
+            className={`mt-1 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'support' ? 'bg-sky-50 text-sky-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+          >
+            <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Support
+          </button>
         </nav>
         <div className="border-t border-slate-200 p-4 space-y-2">
+          <button
+            type="button"
+            onClick={() => { setShowPricingModal(true); setSidebarOpen(false); }}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-sky-600"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+            Upgrade plan
+          </button>
           {creditsRemaining !== null && (
             <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
               <p className="text-xs font-medium text-slate-500">Credits</p>
@@ -706,6 +722,27 @@ export default function StaticAdPromptGenerator() {
             </div>
           </div>
         </>
+          ) : activeTab === 'support' ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm max-w-2xl">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Support</h1>
+          <p className="mt-3 text-slate-600 leading-relaxed">
+            Need help with an issue, custom deals for more credits, or anything else? We’re here for you.
+          </p>
+          <ul className="mt-4 space-y-2 text-sm text-slate-600">
+            <li>• Help with technical problems or bugs</li>
+            <li>• Custom credit packs and bulk pricing</li>
+            <li>• Feature requests or feedback</li>
+          </ul>
+          <a
+            href="https://t.me/dlnkko"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-sky-600"
+          >
+            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+            Chat with Founder
+          </a>
+        </div>
           ) : (
         <>
           {/* Replicate section header */}
