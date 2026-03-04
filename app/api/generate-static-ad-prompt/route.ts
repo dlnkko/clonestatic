@@ -196,6 +196,7 @@ Your task:
 3. **Identify VISUAL STYLE / DESIGN TYPE** (CRITICAL — do not add people or gym if reference has none):
     - Does the reference ad show ANY person, athlete, or human? (yes/no)
     - Does the reference ad show ANY environment like gym, sport setting, or location? (yes/no)
+    - **Number of main visual elements:** Does the reference have ONE single hero element (e.g. one cookie, one product item only) or multiple (e.g. product + packaging, two items)? Answer: "one-hero-only" if there is exactly one main focal subject; "multiple" if there are two or more distinct main elements (e.g. packaging + item). This will be used to avoid adding packaging when the reference has only one hero.
     - If NO person and NO gym/environment: the ad is "graphic/product-only" (product + background/graphics only). The adaptation must STAY graphic — do not insert people or gym.
     - If it HAS a person or environment: we may adapt that to the new product context (e.g. creatine → gym) or per user guidelines.
 
@@ -229,6 +230,7 @@ Format your response EXACTLY as:
 **VISUAL STYLE (REFERENCE AD):**
 - Has person/character: [yes/no]
 - Has gym, sport setting, or location environment: [yes/no]
+- Main elements: [one-hero-only OR multiple] — if one-hero-only, the reference has a single main focal subject (e.g. one food item, one product); do not add packaging or a second element when adapting.
 - Design type: [graphic-product-only OR has-person OR has-environment]
 If "graphic-product-only": the ad is purely product + background/graphics (no people, no gym). The generated prompt must NOT add people or gym/sport imagery — only adapt product and keep the same graphic style. Only add person/gym if the user explicitly requests it in Guidelines.
 
@@ -277,7 +279,7 @@ If "graphic-product-only": the ad is purely product + background/graphics (no pe
     let analysisText = '';
     let referencePrompt = '';
     let referenceTypography = '';
-    let referenceVisualStyle: { hasPerson: boolean; hasEnvironment: boolean; designType: string } | null = null;
+    let referenceVisualStyle: { hasPerson: boolean; hasEnvironment: boolean; designType: string; oneHeroOnly?: boolean } | null = null;
     let copywritingProfile = null;
     let rhetoricalFigures = null;
     let step1Usage = null;
@@ -306,10 +308,13 @@ If "graphic-product-only": the ad is purely product + background/graphics (no pe
           const hasPerson = /Has person\/character:\s*yes/i.test(vsText);
           const hasEnv = /Has gym, sport setting, or location environment:\s*yes/i.test(vsText);
           const designMatch = vsText.match(/Design type:\s*(graphic-product-only|has-person|has-environment)/i);
+          const mainElementsMatch = vsText.match(/Main elements:\s*(one-hero-only|multiple)/i);
+          const oneHeroOnly = mainElementsMatch ? mainElementsMatch[1].toLowerCase() === 'one-hero-only' : false;
           referenceVisualStyle = {
             hasPerson,
             hasEnvironment: hasEnv,
             designType: designMatch ? designMatch[1].toLowerCase() : (hasPerson || hasEnv ? 'has-person-or-environment' : 'graphic-product-only'),
+            oneHeroOnly,
           };
           console.log('\n=== REFERENCE VISUAL STYLE EXTRACTED ===', referenceVisualStyle);
         }
@@ -411,7 +416,13 @@ If "graphic-product-only": the ad is purely product + background/graphics (no pe
     console.log('- Style:', copywritingProfile?.styleCategory);
     console.log('- Reference typography extracted:', !!referenceTypography);
     const isGraphicOnly = referenceVisualStyle?.designType === 'graphic-product-only';
+    const oneHeroOnly = referenceVisualStyle?.oneHeroOnly === true;
+    const guidelinesAskSingleHero = guidelinesTrimmed && /main\s*element|as\s*(the\s*)?main\s*element|only\s*one\s*(main\s*)?element|single\s*(main\s*)?element/i.test(guidelinesTrimmed);
+    const enforceOneMainElement = oneHeroOnly || guidelinesAskSingleHero;
     console.log('- Reference is graphic/product-only (no person, no gym):', isGraphicOnly);
+    console.log('- Reference has one hero only:', oneHeroOnly);
+    console.log('- Guidelines ask for single main element:', guidelinesAskSingleHero);
+    console.log('- Enforce one main element (no packaging):', enforceOneMainElement);
 
     if (scrapedBranding) {
       console.log('- Branding colors available:', scrapedBranding.colors ? Object.keys(scrapedBranding.colors).join(', ') : 'none');
@@ -514,6 +525,8 @@ You MUST replicate the same typography style, font appearance, sizes, weights, p
 **Your Task:**
 Adapt the reference prompt above to create a NEW prompt for the product in the provided image. The new prompt must:
 
+${enforceOneMainElement ? `**CRITICAL — ONE MAIN ELEMENT ONLY (no packaging):**
+The reference ad has only ONE main visual hero (e.g. one cookie, one food item).${guidelinesAskSingleHero ? ' The user\'s Guidelines also specify a single main element (e.g. "gummy as the main element").' : ''} Your prompt MUST describe only that ONE hero as the focal subject — do NOT include product packaging, pouch, bag, or a second product in the scene. The main element is the product item itself (e.g. the gummy, the cookie) as the user requested or as the reference shows — not the packaging. If the product image shows packaging, ignore it for the hero; use only the single main element (e.g. the gummy itself) so the ad matches the reference\'s one-hero composition.` : ''}
 ${isGraphicOnly ? `**CRITICAL — REFERENCE AD IS GRAPHIC/PRODUCT-ONLY (no people, no gym):**
 The reference ad has NO person and NO gym/sport environment — it is purely product + background/graphics (e.g. product, liquid splashes, fruits, gradients). You MUST keep the same style: do NOT add any person, athlete, gym, or sport environment. Do NOT insert "gym in background", "athletic couple", "person training", etc. Only product, background, and graphic elements. The ONLY exception: if the user explicitly asks for it in the Guidelines section below, then follow their request. Otherwise keep it graphic/product-only.` : `**Person/Environment (reference has person or setting):** You may adapt the person/action or environment to match the new product context (e.g. creatine → gym) or follow user Guidelines.`}
 
@@ -547,6 +560,7 @@ ${scrapedBranding ? '- Prefer REFERENCE AD typography for headline and main copy
 
 4. **Replace/Adapt product references**${isGraphicOnly ? '' : ' AND adapt people/actions to match product context (CRITICAL):'}
    - Analyze the product image: type, category, purpose, colors, branding, shape, characteristics
+   ${enforceOneMainElement ? '- **ONE MAIN ELEMENT ONLY:** The reference has one hero (e.g. one cookie). Show ONLY that one element for the new product — e.g. the gummy itself as the hero, NOT the product packaging or pouch. Do not describe or include packaging in the scene; the single focal subject is the product item (the gummy, the cookie, etc.) only.' : ''}
    - Replace product descriptions with the NEW product from the provided image
    - **Product presentation (CRITICAL — match reference style, never change product design):** The USER'S product (packaging, labels, logo, shape) must stay exactly as in the product image — never alter its design. Replicate the reference ad's product PRESENTATION exactly: (1) **Position:** same inclination/tilt and direction (e.g. leaning down and to the right, or tilted left); (2) **Placement:** same "submerged/nestled" look — the product must appear partially buried or integrated into the pile of fruits/objects, with those elements wrapping around its base and sides and partially obscuring edges, not sitting on top of a flat layer; (3) shadows, lighting, reflections, texture (e.g. water droplets) as in the reference. So: same product design always; position, angle, submerged placement, shadow, light, texture must match the reference ad as closely as possible.
    ${isGraphicOnly ? '- Keep the ad graphic: only product(s), background, and graphic elements (splashes, fruits, etc.). No people, no gym, no sport environment.' : `- **ADAPT PEOPLE AND ACTIONS TO MATCH PRODUCT CONTEXT:**
@@ -559,9 +573,9 @@ ${scrapedBranding ? '- Prefer REFERENCE AD typography for headline and main copy
    - If reference shows multiple products: show multiple instances of NEW product in SAME arrangement
    - Maintain same angles, lighting, shadows as reference but for NEW product (product design unchanged; presentation adapted)
 
-5. **Create Copywriting (SAME BREVITY + WELL-PHRASED — CRITICAL):**
+5. **Create Copywriting (SAME TONE + CLEAR, PERFECT COPY — CRITICAL):**
 ${copywritingInstructions}
-**The reference ad has SHORT text.** In your prompt you MUST specify copy with the same brevity: a short tagline (${headlineWords} words or fewer) and a short main line (${mainCopyWords} words or fewer). Every phrase MUST be grammatically correct and natural in English — e.g. prefer "Gummies to get lean" or "Get lean with every gummy" over awkward "gummies you can get lean". Keep the same tone and style; only output clear, well-phrased headlines. Do NOT describe one long headline. Instead describe two short, well-written phrases, e.g. first line: "[occasion/tagline]" (${headlineWords} words), second line: "[offer/slogan]" (${mainCopyWords} words). Use the scraped product info to derive the concepts but condense into these short, correct lines.
+**The reference ad has SHORT text.** Match its tone and style exactly, but every phrase MUST be clear, understandable, and effective copywriting — no confusing or vague wordplay (e.g. avoid "GUMMIES YOU CAN BUILD WITH A POP" which is unclear; use clear lines like "TASTES LIKE BERRY", "BOOST YOUR STRENGTH", "5G CREATINE ZERO SUGAR"). Same brevity: short tagline (${headlineWords} words or fewer) and short main line (${mainCopyWords} words or fewer). Grammatically correct and natural in English. The copy must be immediately understandable and conversion-ready while keeping the reference's tone, rhetorical figure, and style. Do NOT describe one long headline. Describe two short, well-phrased lines that read like professional ad copy.
 ${guidelinesTrimmed ? `
 6. **Guidelines from the user (apply these changes):**
 ${guidelinesTrimmed}
@@ -573,7 +587,8 @@ Provide ONLY the final, complete, EXTREMELY DETAILED prompt ready for AI image g
 - **Full-bleed composition (CRITICAL):** Describe the scene so that background and surrounding elements (e.g. fruits, objects, textures, scenery) fill the ENTIRE image edge to edge; the product is centered. There must be NO blank or white margins — the composition must be full-bleed like the reference ad, with elements reaching all sides of the frame.
 - **Product position and placement (CRITICAL):** Describe the product in the SAME position as the reference: same inclination/tilt and direction (e.g. product leaning down and to the right, or tilted left). Describe the SAME "submerged/nestled" placement: fruit or objects surrounding the product, wrapping around its base and sides, partially covering its edges, so the product looks integrated into the pile — not floating or sitting on a flat layer. Same shadows, lighting, reflections, texture (e.g. water droplets) as reference. Never change the product's actual design (packaging, labels, logo, shape stay as in the product image).
 ${scrapedBranding ? '- Where the reference ad shows brand name or logo, specify that the product\'s brand logo (from the scraped page) appears in the same position and style for a personalized look.' : ''}
-- **Copy length and phrasing:** Describe the exact SHORT phrases to appear (tagline + main line, each ${headlineWords} and ${mainCopyWords} words or fewer). Every phrase must be grammatically correct and natural-sounding — no awkward or incomplete constructions. Never one long sentence as the headline.
+- **Copy length and phrasing:** Describe the exact SHORT phrases to appear (tagline + main line, each ${headlineWords} and ${mainCopyWords} words or fewer). Same tone as reference; every phrase must be clear, understandable, and effective ad copy — no confusing wordplay or vague phrases. Grammatically correct and natural. Never one long sentence as the headline.
+${enforceOneMainElement ? "- **One main element only:** The scene must have ONE hero (e.g. the gummy or product item only). Do NOT describe product packaging, pouch, or a second element in the image." : ''}
 ${isGraphicOnly ? '- Keep the ad GRAPHIC: product + background/graphics only. No person, no gym, no sport environment (unless user requested it in Guidelines).' : "- Adapt contextual elements (person styling, actions/pose, setting) to match the NEW product's use case. Ensure the person is in coherent pose/action (e.g. exercising for fitness products)."}
 - Feature the NEW product from the provided image in contextually appropriate use
 ${scrapedBranding ? '- Integrate product brand colors and typography where appropriate' : ''}
