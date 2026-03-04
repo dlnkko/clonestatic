@@ -470,16 +470,17 @@ Integrate these brand elements while maintaining the reference ad's overall desi
     let copywritingInstructions = '';
     if (isUrlScraped && scrapedSummary && copywritingProfile && rhetoricalFigures) {
       // Use scraped data to create copywriting with same rhetorical figure AND same brevity as reference
-      copywritingInstructions = `**Copywriting Creation (CRITICAL — SAME BREVITY AS REFERENCE AD):**
-The reference ad uses SHORT, punchy text — your prompt MUST describe copy with the SAME brevity:
+      copywritingInstructions = `**Copywriting Creation (CRITICAL — SAME BREVITY + CORRECT PHRASING):**
+The reference ad uses SHORT, punchy text — your prompt MUST describe copy with the SAME brevity AND with grammatically correct, natural-sounding phrasing:
 - **Line 1 (tagline/headline):** MAX ${headlineWords} words. Short phrase like "VALENTINE'S DAY EXCLUSIVE" (3 words). Do NOT use a long sentence.
-- **Line 2 (main copy/slogan):** MAX ${mainCopyWords} words. Short offer/slogan like "39% OFF BUNDLES FOR TWO" (5 words). Do NOT use a long sentence like "UNLOCK YOUR PEAK PERFORMANCE WITH THESE STRONGER TOGETHER GUMMY BUNDLES".
-Using the scraped product page information below, DISTILL the key concepts (offer, product benefit, occasion) into these two SHORT lines. Same rhetorical figure: "${rhetoricalFigures.primary || 'match style'}", tone: "${copywritingProfile.tone || 'professional'}", style: "${copywritingProfile.styleCategory || 'persuasive'}".
+- **Line 2 (main copy/slogan):** MAX ${mainCopyWords} words. Short offer/slogan like "39% OFF BUNDLES FOR TWO" (5 words). Do NOT use a long sentence.
+- **Phrasing (CRITICAL):** Every phrase MUST be well-written and grammatically correct. Avoid awkward constructions (e.g. "gummies you can get lean" is poor — use "Gummies to get lean", "Get lean with every gummy", or "Lean gains in gummy form"). Keep the same tone, rhetorical figure, and style — only output phrases that read naturally and correctly in English.
+Using the scraped product page information below, DISTILL the key concepts (offer, product benefit, occasion) into these two SHORT, WELL-PHRASED lines. Same rhetorical figure: "${rhetoricalFigures.primary || 'match style'}", tone: "${copywritingProfile.tone || 'professional'}", style: "${copywritingProfile.styleCategory || 'persuasive'}".
 
 **Scraped Product Page Data (distill into brief copy — do not paste long text):**
 ${scrapedSummary}
 
-Create two short phrases: (1) a brief tagline (${headlineWords} words or fewer), (2) a brief main line (${mainCopyWords} words or fewer). In your final prompt, specify the exact short text to appear, e.g. centered text: "[TAGLINE]" and below "[MAIN COPY]".`;
+Create two short phrases: (1) a brief tagline (${headlineWords} words or fewer), (2) a brief main line (${mainCopyWords} words or fewer). Both must be grammatically correct and natural-sounding. In your final prompt, specify the exact short text to appear, e.g. centered text: "[TAGLINE]" and below "[MAIN COPY]".`;
       
       console.log('\n📝 Creating copywriting from scraped data with brevity:', { headlineWords, mainCopyWords });
     } else if (copywriting && !isUrlScraped) {
@@ -489,7 +490,7 @@ Use this exact copywriting in the prompt: "${copywriting}"`;
       console.log('\n📝 Using manual copywriting');
     } else {
       copywritingInstructions = `**Copywriting:**
-Create copywriting matching the reference style and BREVITY:
+Create copywriting matching the reference style and BREVITY. Every phrase MUST be grammatically correct and natural-sounding — no awkward constructions. Keep tone, rhetorical figure, and style; only output well-phrased copy.
 - Line 1 (tagline): max ${headlineWords} words. Line 2 (main copy): max ${mainCopyWords} words. Do NOT use one long headline.
 - Rhetorical figure: ${rhetoricalFigures?.primary || 'match reference'}
 - Tone: ${copywritingProfile?.tone || 'professional'}
@@ -558,9 +559,9 @@ ${scrapedBranding ? '- Prefer REFERENCE AD typography for headline and main copy
    - If reference shows multiple products: show multiple instances of NEW product in SAME arrangement
    - Maintain same angles, lighting, shadows as reference but for NEW product (product design unchanged; presentation adapted)
 
-5. **Create Copywriting (SAME BREVITY AS REFERENCE — CRITICAL):**
+5. **Create Copywriting (SAME BREVITY + WELL-PHRASED — CRITICAL):**
 ${copywritingInstructions}
-**The reference ad has SHORT text.** In your prompt you MUST specify copy with the same brevity: a short tagline (${headlineWords} words or fewer) and a short main line (${mainCopyWords} words or fewer). Do NOT describe one long headline like "UNLOCK YOUR PEAK PERFORMANCE WITH THESE STRONGER TOGETHER GUMMY BUNDLES". Instead describe two short phrases, e.g. first line: "[occasion/tagline]" (${headlineWords} words), second line: "[offer/slogan]" (${mainCopyWords} words). Use the scraped product info to derive the concepts but condense into these short lines.
+**The reference ad has SHORT text.** In your prompt you MUST specify copy with the same brevity: a short tagline (${headlineWords} words or fewer) and a short main line (${mainCopyWords} words or fewer). Every phrase MUST be grammatically correct and natural in English — e.g. prefer "Gummies to get lean" or "Get lean with every gummy" over awkward "gummies you can get lean". Keep the same tone and style; only output clear, well-phrased headlines. Do NOT describe one long headline. Instead describe two short, well-written phrases, e.g. first line: "[occasion/tagline]" (${headlineWords} words), second line: "[offer/slogan]" (${mainCopyWords} words). Use the scraped product info to derive the concepts but condense into these short, correct lines.
 ${guidelinesTrimmed ? `
 6. **Guidelines from the user (apply these changes):**
 ${guidelinesTrimmed}
@@ -572,7 +573,7 @@ Provide ONLY the final, complete, EXTREMELY DETAILED prompt ready for AI image g
 - **Full-bleed composition (CRITICAL):** Describe the scene so that background and surrounding elements (e.g. fruits, objects, textures, scenery) fill the ENTIRE image edge to edge; the product is centered. There must be NO blank or white margins — the composition must be full-bleed like the reference ad, with elements reaching all sides of the frame.
 - **Product position and placement (CRITICAL):** Describe the product in the SAME position as the reference: same inclination/tilt and direction (e.g. product leaning down and to the right, or tilted left). Describe the SAME "submerged/nestled" placement: fruit or objects surrounding the product, wrapping around its base and sides, partially covering its edges, so the product looks integrated into the pile — not floating or sitting on a flat layer. Same shadows, lighting, reflections, texture (e.g. water droplets) as reference. Never change the product's actual design (packaging, labels, logo, shape stay as in the product image).
 ${scrapedBranding ? '- Where the reference ad shows brand name or logo, specify that the product\'s brand logo (from the scraped page) appears in the same position and style for a personalized look.' : ''}
-- **Copy length:** Describe the exact SHORT phrases to appear (tagline + main line, each ${headlineWords} and ${mainCopyWords} words or fewer). Never one long sentence as the headline.
+- **Copy length and phrasing:** Describe the exact SHORT phrases to appear (tagline + main line, each ${headlineWords} and ${mainCopyWords} words or fewer). Every phrase must be grammatically correct and natural-sounding — no awkward or incomplete constructions. Never one long sentence as the headline.
 ${isGraphicOnly ? '- Keep the ad GRAPHIC: product + background/graphics only. No person, no gym, no sport environment (unless user requested it in Guidelines).' : "- Adapt contextual elements (person styling, actions/pose, setting) to match the NEW product's use case. Ensure the person is in coherent pose/action (e.g. exercising for fitness products)."}
 - Feature the NEW product from the provided image in contextually appropriate use
 ${scrapedBranding ? '- Integrate product brand colors and typography where appropriate' : ''}
