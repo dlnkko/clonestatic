@@ -17,7 +17,7 @@ export function PricingSection() {
         Simple pricing
       </h2>
       <p className="mt-3 text-center text-slate-600 sm:text-lg">
-        Choose monthly or yearly. After payment you get instant access with your credits.
+        Try one generation free, or choose a plan. After payment you get instant access with your credits.
       </p>
 
       <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
@@ -42,7 +42,34 @@ export function PricingSection() {
         </div>
       </div>
 
-      <div className="mt-12 grid gap-8 sm:grid-cols-2 sm:gap-10">
+      <div className="mt-12 grid gap-8 sm:grid-cols-3 sm:gap-10">
+        {/* Free Trial */}
+        <div className="relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white p-8 shadow-lg shadow-slate-200/30 transition-all duration-300 hover:shadow-xl hover:shadow-slate-200/40 sm:p-10">
+          <h3 className="text-xl font-bold text-slate-900">Free Trial</h3>
+          <p className="mt-1 text-sm text-slate-500">1 generation only</p>
+          <p className="mt-6 flex items-baseline gap-1">
+            <span className="text-4xl font-bold tracking-tight text-slate-900">$0</span>
+          </p>
+          <ul className="mt-8 space-y-4 text-sm text-slate-600">
+            <li className="flex items-start gap-3">
+              {CHECKMARK}
+              <span>1 free generation (no payment required)</span>
+            </li>
+            <li className="flex items-start gap-3">
+              {CHECKMARK}
+              <span>Sign up with Google to get started</span>
+            </li>
+          </ul>
+          <div className="mt-10">
+            <a
+              href="/login?next=/app"
+              className="inline-flex w-full items-center justify-center rounded-2xl border-2 border-slate-900 bg-white px-5 py-4 text-base font-semibold text-slate-900 transition-colors hover:bg-slate-50"
+            >
+              Sign up with Google
+            </a>
+          </div>
+        </div>
+
         {/* Standard */}
         <div className="relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40 transition-all duration-300 hover:shadow-2xl hover:shadow-slate-200/50 sm:p-10">
           <div className="absolute right-0 top-0 h-32 w-32 translate-x-8 -translate-y-8 rounded-full bg-slate-100/80" aria-hidden />

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getClientIpHash, tryClaimFreeTrial } from '@/lib/free-trial';
 
 const KIE_BASE = 'https://api.kie.ai/api/v1/jobs';
 const POLL_INTERVAL_MS = 2500;
@@ -116,20 +117,24 @@ export async function POST(request: NextRequest) {
         .select('credits_remaining')
         .eq('email', email)
         .single();
-      if (fetchError || !row) {
-        return NextResponse.json({ error: 'No subscription found' }, { status: 404 });
-      }
-      const current = Math.max(0, row.credits_remaining ?? 0);
-      if (current < 1) {
-        return NextResponse.json({ error: 'No credits remaining', credits_remaining: 0 }, { status: 402 });
-      }
-      const { error: updateError } = await admin
-        .from('subscriptions')
-        .update({ credits_remaining: current - 1, updated_at: new Date().toISOString() })
-        .eq('email', email);
-      if (updateError) {
-        console.error('edit-ad-image use-credit:', updateError);
-        return NextResponse.json({ error: 'Failed to use credit' }, { status: 500 });
+      const hasSubscription = !fetchError && row;
+      const current = hasSubscription ? Math.max(0, row.credits_remaining ?? 0) : 0;
+
+      if (hasSubscription && current >= 1) {
+        const { error: updateError } = await admin
+          .from('subscriptions')
+          .update({ credits_remaining: current - 1, updated_at: new Date().toISOString() })
+          .eq('email', email);
+        if (updateError) {
+          console.error('edit-ad-image use-credit:', updateError);
+          return NextResponse.json({ error: 'Failed to use credit' }, { status: 500 });
+        }
+      } else {
+        const ipHash = getClientIpHash(request);
+        const claimed = await tryClaimFreeTrial(admin, ipHash);
+        if (!claimed) {
+          return NextResponse.json({ error: 'No credits remaining', credits_remaining: 0 }, { status: 402 });
+        }
       }
     }
 
