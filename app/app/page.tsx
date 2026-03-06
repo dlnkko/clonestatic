@@ -465,7 +465,7 @@ export default function StaticAdPromptGenerator() {
                 <div className="rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-3 sm:p-5">
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-semibold text-slate-900 sm:text-sm">Standard</h3>
-                    <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-medium text-sky-700">20 credits</span>
+                    <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-medium text-sky-700">20 AI images</span>
                   </div>
                   <p className="mt-2 sm:mt-3 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
                     {pricingBilling === 'yearly' ? '$79.99' : '$9.99'}
@@ -473,7 +473,7 @@ export default function StaticAdPromptGenerator() {
                   </p>
                   {pricingBilling === 'yearly' && <p className="mt-0.5 text-xs text-slate-500">Billed annually · ~$6.67/mo</p>}
                   <ul className="mt-2 sm:mt-3 space-y-1 sm:space-y-2 text-xs sm:text-sm text-slate-600">
-                    <li className="flex gap-1.5 sm:gap-2"><span className="mt-0.5 h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span><strong>20 credits</strong> per month (generate or edit)</li>
+                    <li className="flex gap-1.5 sm:gap-2"><span className="mt-0.5 h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span><strong>20 AI images</strong> (generate or edit)</li>
                     <li className="flex gap-1.5 sm:gap-2"><span className="mt-0.5 h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span>Generate ads from references</li>
                     <li className="flex gap-1.5 sm:gap-2"><span className="mt-0.5 h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span>History + downloads</li>
                   </ul>
@@ -488,7 +488,7 @@ export default function StaticAdPromptGenerator() {
                 <div className="rounded-xl sm:rounded-2xl border border-slate-200 bg-slate-900 p-3 sm:p-5 text-white">
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-semibold sm:text-sm">Pro</h3>
-                    <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white">75 credits</span>
+                    <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white">75 AI images</span>
                   </div>
                   <p className="mt-2 sm:mt-3 text-2xl sm:text-3xl font-bold tracking-tight">
                     {pricingBilling === 'yearly' ? '$229.99' : '$29.99'}
@@ -496,7 +496,7 @@ export default function StaticAdPromptGenerator() {
                   </p>
                   {pricingBilling === 'yearly' && <p className="mt-0.5 text-xs text-white/70">Billed annually · ~$19.17/mo</p>}
                   <ul className="mt-2 sm:mt-3 space-y-1 sm:space-y-2 text-xs sm:text-sm text-white/80">
-                    <li className="flex gap-1.5 sm:gap-2"><span className="mt-0.5 h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full bg-white/15 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span><strong>75 credits</strong> per month (generate or edit)</li>
+                    <li className="flex gap-1.5 sm:gap-2"><span className="mt-0.5 h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full bg-white/15 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span><strong>75 AI images</strong> (generate or edit)</li>
                     <li className="flex gap-1.5 sm:gap-2"><span className="mt-0.5 h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full bg-white/15 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span>Generate ads from references</li>
                     <li className="flex gap-1.5 sm:gap-2"><span className="mt-0.5 h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full bg-white/15 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span>History + downloads</li>
                   </ul>
@@ -508,6 +508,8 @@ export default function StaticAdPromptGenerator() {
                   </a>
                 </div>
               </div>
+
+              <p className="mt-3 text-center text-xs text-slate-500">Editing an image counts as one generation.</p>
 
               <div className="mt-3 sm:mt-4 flex justify-end">
                 <button
