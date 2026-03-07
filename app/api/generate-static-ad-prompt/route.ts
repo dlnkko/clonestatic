@@ -200,10 +200,11 @@ Your task:
     - If NO person and NO gym/environment: the ad is "graphic/product-only" (product + background/graphics only). The adaptation must STAY graphic — do not insert people or gym.
     - If it HAS a person or environment: we may adapt that to the new product context (e.g. creatine → gym) or per user guidelines.
 
-4. **PRODUCT POSITION AND PLACEMENT (CRITICAL — identify exactly for replication):**
+4. **PRODUCT POSE, POSITION AND PLACEMENT (CRITICAL — identify exactly for replication):**
+    - **Product pose/orientation:** How is the product displayed? (e.g. **lying down** flat or at an angle, **standing upright**, on its side, **scattered** at various angles, grouped in a row, stacked). Describe precisely: "lying down and slightly angled", "standing upright facing camera", "multiple items scattered with different tilts", etc. This MUST be replicated in the generated ad so the new product appears in the SAME pose — e.g. if the reference shows earplugs lying down and scattered, the new product must also be shown lying down and at similar angles, NOT standing upright.
     - Is the product **inclined/tilted**? Describe the angle (e.g. leaning down and to the right, tilted left, diagonal). Exact orientation matters.
     - Is the product **"submerged" or nestled** among the background elements? (e.g. fruit/objects surrounding the product, wrapping around its base and sides, partially covering its edges, product sitting inside the pile rather than on top). Describe: do the background elements rise around the product, partially obscure it, create depth so the product looks integrated into the scene?
-    - Summarize in one clear line: "Product position: [inclined/tilted yes/no, direction]; Placement: [submerged/nestled among X / sitting on top of X / floating]." This will be copied into the final prompt.
+    - Summarize in one clear line: "Product pose: [lying down / standing upright / scattered / etc.]; Position: [inclined/tilted yes/no, direction]; Placement: [submerged/nestled among X / sitting on top of X / floating]." This will be copied into the final prompt.
 
 5. **Generate a DETAILED Prompt** that recreates EVERY visual element:
     - EXACT composition and layout (where every element is positioned: person, product, text, buttons, etc.). Note whether the background/surrounding elements (e.g. fruits, objects, scenery) fill the entire frame edge to edge with the product centered (full-bleed, no blank margins) — describe this so it can be replicated.
@@ -239,12 +240,14 @@ If "graphic-product-only": the ad is purely product + background/graphics (no pe
 - Headline/Tagline Word Count: [exact number of words in the first/short line, e.g. 3]
 - Main Copy Word Count: [exact number of words in the main slogan/second line, e.g. 5]
 - Word Count: [total or main line word count]
-- Rhetorical Figure: [primary figure: metaphor/personification/hyperbole/analogy/slogan/motivational/aspirational/other]
-- Tone: [tone]
+- Rhetorical Figure: [primary figure: metaphor/personification/hyperbole/analogy/slogan/motivational/aspirational/wordplay/sarcasm/other]
+- Tone: [tone: e.g. playful, sarcastic, humorous, serious, professional]
 - Style: [style category]
+- **Function of Line 2 (CRITICAL):** What does the second line do? (e.g. wordplay on a word like "uninterrupted" → "sleep interrupted", punchline, sarcastic twist, metaphor, benefit with a joke, double meaning). Describe so the generated ad can replicate the SAME function — the second line must NOT become a generic product spec (e.g. "45db noise cancelling") but must fulfill the same rhetorical role (e.g. clever twist, joke, wordplay).
+- **Linguistic device of second line:** [wordplay / sarcasm / metaphor / joke / punchline / double meaning / straight benefit / other]. The new copy must use the same kind of device.
 
 **REFERENCE AD PROMPT:**
-[Generate a COMPREHENSIVE, EXTREMELY DETAILED prompt that would recreate this exact static ad. Include ALL visual elements: composition, colors, typography with exact text placement, background, product presentation (especially: product position — inclined/tilted and exact angle; product placement — submerged/nestled among fruits or objects, with those elements wrapping around the product's base and sides, partially obscuring edges; lighting, shadows, reflections), person/character (if present), effects, buttons (if present). The prompt should be ready to use in an AI image generator and would produce an identical image.]`;
+[Generate a COMPREHENSIVE, EXTREMELY DETAILED prompt that would recreate this exact static ad. Include ALL visual elements: composition, colors, typography with exact text placement, background, product presentation (especially: **product pose** — lying down / standing upright / scattered / on its side and exact angles; **product position** — inclined/tilted and direction; **product placement** — submerged/nestled among fruits or objects, with those elements wrapping around the product's base and sides, partially obscuring edges; lighting, shadows, reflections), person/character (if present), effects, buttons (if present). The prompt should be ready to use in an AI image generator and would produce an identical image.]`;
 
     let staticAdAnalysis;
     try {
@@ -330,6 +333,8 @@ If "graphic-product-only": the ad is purely product + background/graphics (no pe
           const rhetoricalMatch = analysisText2.match(/Rhetorical Figure:\s*(.+)/i);
           const toneMatch = analysisText2.match(/Tone:\s*(.+)/i);
           const styleMatch = analysisText2.match(/Style:\s*(.+)/i);
+          const functionLine2Match = analysisText2.match(/Function of Line 2 \(CRITICAL\):\s*([\s\S]+?)(?=\n-\s*\*\*|\n\*\*|$)/i);
+          const linguisticDeviceMatch = analysisText2.match(/Linguistic device of second line:\s*\[?\s*(.+?)\s*\]/i);
 
           copywritingProfile = {
             wordCount: wordCountMatch ? parseInt(wordCountMatch[1]) : null,
@@ -338,6 +343,8 @@ If "graphic-product-only": the ad is purely product + background/graphics (no pe
             textStructure: textStructureMatch ? textStructureMatch[1].trim() : null,
             tone: toneMatch ? toneMatch[1].trim() : null,
             styleCategory: styleMatch ? styleMatch[1].trim() : null,
+            functionOfLine2: functionLine2Match ? functionLine2Match[1].trim() : null,
+            linguisticDeviceLine2: linguisticDeviceMatch ? linguisticDeviceMatch[1].trim() : null,
           };
 
           rhetoricalFigures = {
@@ -352,6 +359,8 @@ If "graphic-product-only": the ad is purely product + background/graphics (no pe
           console.log('Rhetorical Figure:', rhetoricalFigures.primary);
           console.log('Tone:', copywritingProfile.tone);
           console.log('Style:', copywritingProfile.styleCategory);
+          console.log('Function of Line 2:', (copywritingProfile as any).functionOfLine2);
+          console.log('Linguistic device (line 2):', (copywritingProfile as any).linguisticDeviceLine2);
         }
 
         // Extract the reference ad prompt
@@ -484,8 +493,8 @@ Integrate these brand elements while maintaining the reference ad's overall desi
       copywritingInstructions = `**Copywriting Creation (CRITICAL — SAME BREVITY + CORRECT PHRASING):**
 The reference ad uses SHORT, punchy text — your prompt MUST describe copy with the SAME brevity AND with grammatically correct, natural-sounding phrasing:
 - **Line 1 (tagline/headline):** MAX ${headlineWords} words. Short phrase like "VALENTINE'S DAY EXCLUSIVE" (3 words). Do NOT use a long sentence.
-- **Line 2 (main copy/slogan):** MAX ${mainCopyWords} words. Short offer/slogan like "39% OFF BUNDLES FOR TWO" (5 words). Do NOT use a long sentence.
-- **Phrasing (CRITICAL):** Every phrase MUST be well-written and grammatically correct. Avoid awkward constructions (e.g. "gummies you can get lean" is poor — use "Gummies to get lean", "Get lean with every gummy", or "Lean gains in gummy form"). Keep the same tone, rhetorical figure, and style — only output phrases that read naturally and correctly in English.
+- **Line 2 (main copy/slogan) — CRITICAL — SAME FUNCTION AS REFERENCE:** MAX ${mainCopyWords} words. The reference's second line has a specific function (e.g. wordplay, punchline, sarcasm, metaphor). Your Line 2 MUST fulfill the SAME function for the new product — e.g. if the reference uses a playful twist like "earplugs that help you sleep interrupted" (wordplay on "uninterrupted"), write an equivalent clever/sarcastic/playful line for the new product. Do NOT replace with generic product specs (e.g. "45db noise cancelling sleep interrupted" is wrong — it is not copy, has no wordplay, and doesn't match the reference's tone). Same linguistic device: ${copywritingProfile.functionOfLine2 ? `Reference function: "${copywritingProfile.functionOfLine2}". Device: ${copywritingProfile.linguisticDeviceLine2 || 'match reference'}.` : 'match reference tone and device (wordplay/sarcasm/metaphor/joke where applicable).'}
+- **Phrasing (CRITICAL):** Every phrase MUST be well-written and grammatically correct. Avoid awkward constructions. Keep the same tone, rhetorical figure, and style — only output phrases that read naturally and correctly in English. Line 2 must be proper ad copy with the same effect as the reference, never a feature list or spec dump.
 Using the scraped product page information below, DISTILL the key concepts (offer, product benefit, occasion) into these two SHORT, WELL-PHRASED lines. Same rhetorical figure: "${rhetoricalFigures.primary || 'match style'}", tone: "${copywritingProfile.tone || 'professional'}", style: "${copywritingProfile.styleCategory || 'persuasive'}".
 
 **Scraped Product Page Data (distill into brief copy — do not paste long text):**
@@ -503,6 +512,7 @@ Use this exact copywriting in the prompt: "${copywriting}"`;
       copywritingInstructions = `**Copywriting:**
 Create copywriting matching the reference style and BREVITY. Every phrase MUST be grammatically correct and natural-sounding — no awkward constructions. Keep tone, rhetorical figure, and style; only output well-phrased copy.
 - Line 1 (tagline): max ${headlineWords} words. Line 2 (main copy): max ${mainCopyWords} words. Do NOT use one long headline.
+- **Line 2 must fulfill the SAME function as the reference's second line** (e.g. wordplay, punchline, sarcasm, metaphor) — never replace with generic product specs or feature dumps (e.g. "45db noise cancelling" as main copy is wrong). Same linguistic device and effect as reference.
 - Rhetorical figure: ${rhetoricalFigures?.primary || 'match reference'}
 - Tone: ${copywritingProfile?.tone || 'professional'}
 - Style: ${copywritingProfile?.styleCategory || 'persuasive'}`;
@@ -542,6 +552,7 @@ The reference ad has NO person and NO gym/sport environment — it is purely pro
 
 2. **Maintain ALL design elements** from the reference prompt:
    - Keep the EXACT same composition structure
+   - **Product POSE (CRITICAL — replicate exactly):** In the reference ad the product has a specific pose/orientation (e.g. lying down, scattered at angles, standing upright, on its side). Your prompt MUST describe the NEW product in the SAME pose: if the reference shows the product lying down and slightly scattered (e.g. earplugs lying flat at various angles), the generated ad must show the user's product the same way — lying down, same arrangement and angles — NOT standing upright or in a different pose. Match "lying down / standing / scattered / grouped" exactly.
    - **Product position and placement (CRITICAL — replicate exactly):** Identify in the reference ad how the product is positioned (inclined/tilted? which direction/angle?) and how it is placed relative to the background (e.g. submerged/nestled among fruit, with fruit wrapping around its base and sides, partially covering edges; or sitting on top). Your prompt MUST describe the SAME for the new product: same inclination/tilt and direction, same "submerged/nestled" relationship — background elements (fruits, objects) must surround the product, rise around its base and sides, partially obscure it where the reference does, so the product looks integrated into the scene, not floating or simply on top of a flat layer.
    - **Composition and framing (CRITICAL — match reference):** In the reference ad, background elements (e.g. fruits, objects, textures, scenery) fill the ENTIRE frame edge to edge; the product is centered. There are NO blank margins or empty white space around the edges. Your prompt MUST describe this: background and decorative elements must extend to all sides and fill the frame completely; full-bleed composition; no empty borders or white space.
    - Keep the EXACT same layout and positioning of all elements
@@ -562,7 +573,7 @@ ${scrapedBranding ? '- Prefer REFERENCE AD typography for headline and main copy
    - Analyze the product image: type, category, purpose, colors, branding, shape, characteristics
    ${enforceOneMainElement ? '- **ONE MAIN ELEMENT ONLY:** The reference has one hero (e.g. one cookie). Show ONLY that one element for the new product — e.g. the gummy itself as the hero, NOT the product packaging or pouch. Do not describe or include packaging in the scene; the single focal subject is the product item (the gummy, the cookie, etc.) only.' : ''}
    - Replace product descriptions with the NEW product from the provided image
-   - **Product presentation (CRITICAL — match reference style, never change product design):** The USER'S product (packaging, labels, logo, shape) must stay exactly as in the product image — never alter its design. Replicate the reference ad's product PRESENTATION exactly: (1) **Position:** same inclination/tilt and direction (e.g. leaning down and to the right, or tilted left); (2) **Placement:** same "submerged/nestled" look — the product must appear partially buried or integrated into the pile of fruits/objects, with those elements wrapping around its base and sides and partially obscuring edges, not sitting on top of a flat layer; (3) shadows, lighting, reflections, texture (e.g. water droplets) as in the reference. So: same product design always; position, angle, submerged placement, shadow, light, texture must match the reference ad as closely as possible.
+   - **Product presentation (CRITICAL — match reference style, never change product design):** The USER'S product (packaging, labels, logo, shape) must stay exactly as in the product image — never alter its design. Replicate the reference ad's product PRESENTATION exactly: (1) **Pose:** same orientation as reference — if the reference shows the product lying down, scattered, or at specific angles, the new product MUST be described in the same pose (e.g. "earplugs lying down on a white surface at slight angles" → user's earplugs also lying down at similar angles; never "standing upright" if reference shows lying down); (2) **Position:** same inclination/tilt and direction (e.g. leaning down and to the right, or tilted left); (3) **Placement:** same "submerged/nestled" look — the product must appear partially buried or integrated into the pile of fruits/objects, with those elements wrapping around its base and sides and partially obscuring edges, not sitting on top of a flat layer; (4) shadows, lighting, reflections, texture as in the reference. So: same product design always; pose, position, angle, submerged placement, shadow, light, texture must match the reference ad as closely as possible.
    ${isGraphicOnly ? '- Keep the ad graphic: only product(s), background, and graphic elements (splashes, fruits, etc.). No people, no gym, no sport environment.' : `- **ADAPT PEOPLE AND ACTIONS TO MATCH PRODUCT CONTEXT:**
      * If product is fitness/sports (e.g., creatine, protein): show person in gym/sports setting, working out, athletic clothing and active pose
      * If product is beauty/cosmetics: show person in beauty context, applying product or beauty-focused pose
@@ -585,9 +596,9 @@ You MUST take these instructions into account when generating the final prompt.`
 Provide ONLY the final, complete, EXTREMELY DETAILED prompt ready for AI image generation. The prompt should:
 - Maintain ALL visual design elements from the reference prompt (composition, layout, typography placement, background style, effects)
 - **Full-bleed composition (CRITICAL):** Describe the scene so that background and surrounding elements (e.g. fruits, objects, textures, scenery) fill the ENTIRE image edge to edge; the product is centered. There must be NO blank or white margins — the composition must be full-bleed like the reference ad, with elements reaching all sides of the frame.
-- **Product position and placement (CRITICAL):** Describe the product in the SAME position as the reference: same inclination/tilt and direction (e.g. product leaning down and to the right, or tilted left). Describe the SAME "submerged/nestled" placement: fruit or objects surrounding the product, wrapping around its base and sides, partially covering its edges, so the product looks integrated into the pile — not floating or sitting on a flat layer. Same shadows, lighting, reflections, texture (e.g. water droplets) as reference. Never change the product's actual design (packaging, labels, logo, shape stay as in the product image).
+- **Product pose, position and placement (CRITICAL):** Describe the product in the SAME pose as the reference: if the reference shows the product lying down, scattered, or at specific angles, the new product MUST be in the same pose (e.g. lying down on surface at similar angles — NOT standing upright). Same inclination/tilt and direction. Same "submerged/nestled" placement where applicable: fruit or objects surrounding the product, wrapping around its base and sides, partially covering its edges. Same shadows, lighting, reflections, texture as reference. Never change the product's actual design (packaging, labels, logo, shape stay as in the product image).
 ${scrapedBranding ? '- Where the reference ad shows brand name or logo, specify that the product\'s brand logo (from the scraped page) appears in the same position and style for a personalized look.' : ''}
-- **Copy length and phrasing:** Describe the exact SHORT phrases to appear (tagline + main line, each ${headlineWords} and ${mainCopyWords} words or fewer). Same tone as reference; every phrase must be clear, understandable, and effective ad copy — no confusing wordplay or vague phrases. Grammatically correct and natural. Never one long sentence as the headline.
+- **Copy length and phrasing:** Describe the exact SHORT phrases to appear (tagline + main line, each ${headlineWords} and ${mainCopyWords} words or fewer). Same tone as reference; every phrase must be clear, understandable, and effective ad copy. **The second line must fulfill the SAME function as the reference** (wordplay, punchline, sarcasm, metaphor) — never use generic product specs (e.g. "45db noise cancelling") as the main copy; it must read as intentional ad copy with the same rhetorical effect. Grammatically correct and natural. Never one long sentence as the headline.
 ${enforceOneMainElement ? "- **One main element only:** The scene must have ONE hero (e.g. the gummy or product item only). Do NOT describe product packaging, pouch, or a second element in the image." : ''}
 ${isGraphicOnly ? '- Keep the ad GRAPHIC: product + background/graphics only. No person, no gym, no sport environment (unless user requested it in Guidelines).' : "- Adapt contextual elements (person styling, actions/pose, setting) to match the NEW product's use case. Ensure the person is in coherent pose/action (e.g. exercising for fitness products)."}
 - Feature the NEW product from the provided image in contextually appropriate use
