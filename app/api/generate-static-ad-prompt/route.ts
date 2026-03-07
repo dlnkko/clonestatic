@@ -246,6 +246,15 @@ If "graphic-product-only": the ad is purely product + background/graphics (no pe
 - **Function of Line 2 (CRITICAL):** What does the second line do? (e.g. wordplay on a word like "uninterrupted" → "sleep interrupted", punchline, sarcastic twist, metaphor, benefit with a joke, double meaning). Describe so the generated ad can replicate the SAME function — the second line must NOT become a generic product spec (e.g. "45db noise cancelling") but must fulfill the same rhetorical role (e.g. clever twist, joke, wordplay).
 - **Linguistic device of second line:** [wordplay / sarcasm / metaphor / joke / punchline / double meaning / straight benefit / other]. The new copy must use the same kind of device.
 
+**PRODUCT POSE AND ARRANGEMENT (REFERENCE AD) — CRITICAL, OUTPUT THIS BLOCK:**
+Write ONE detailed paragraph that describes EXACTLY how the product(s) are positioned and arranged in the reference ad. This block will be used verbatim (with only the product name swapped for "the user's product") so the image generator places the user's product in this SAME pose and order — not in the pose of the user's uploaded image. Include:
+- Number of product units visible (e.g. two pairs, four earplugs; or one item).
+- Pose: lying down flat / standing upright / on their side / scattered / grouped. All lying horizontally or all standing?
+- Orientation: which way do the parts point? (e.g. conical tips pointing outwards left and right, flanged bases toward center; or rounded ends up, narrow tips down).
+- Arrangement and order: overlapping (which in front?), clustered left and right, one slightly above the other, angles (gentle upward/downward tilt from horizontal).
+- Surface and lighting: on a flat white surface, soft shadows beneath, etc.
+Write it so that if we replace "[product type]" with "the user's product from the provided image", the image model can render the user's product in this exact layout. Example style: "Four earplugs lying horizontally on a white surface, arranged as two pairs. Conical tips point outwards to left and right, flanged bases toward center with slight overlap. Left pair: one slightly above the other, both at a gentle upward angle. Right pair: similar, at a gentle downward angle. Soft shadows beneath. No standing upright — all lying flat."
+
 **REFERENCE AD PROMPT:**
 [Generate a COMPREHENSIVE, EXTREMELY DETAILED prompt that would recreate this exact static ad. Include ALL visual elements: composition, colors, typography with exact text placement, background, product presentation (especially: **product pose** — lying down / standing upright / scattered / on its side and exact angles; **product position** — inclined/tilted and direction; **product placement** — submerged/nestled among fruits or objects, with those elements wrapping around the product's base and sides, partially obscuring edges; lighting, shadows, reflections), person/character (if present), effects, buttons (if present). The prompt should be ready to use in an AI image generator and would produce an identical image.]`;
 
@@ -282,6 +291,7 @@ If "graphic-product-only": the ad is purely product + background/graphics (no pe
     let analysisText = '';
     let referencePrompt = '';
     let referenceTypography = '';
+    let referenceProductPoseAndArrangement = '';
     let referenceVisualStyle: { hasPerson: boolean; hasEnvironment: boolean; designType: string; oneHeroOnly?: boolean } | null = null;
     let copywritingProfile = null;
     let rhetoricalFigures = null;
@@ -361,6 +371,15 @@ If "graphic-product-only": the ad is purely product + background/graphics (no pe
           console.log('Style:', copywritingProfile.styleCategory);
           console.log('Function of Line 2:', (copywritingProfile as any).functionOfLine2);
           console.log('Linguistic device (line 2):', (copywritingProfile as any).linguisticDeviceLine2);
+        }
+
+        // Extract product pose and arrangement (CRITICAL — used to place user's product in same layout)
+        const productPoseMatch = analysisText.match(/\*\*PRODUCT POSE AND ARRANGEMENT \(REFERENCE AD\)[^\n]*\n([\s\S]*?)(?=\n\*\*REFERENCE AD PROMPT:\*\*|\*\*REFERENCE AD PROMPT:\*\*|$)/i);
+        if (productPoseMatch) {
+          referenceProductPoseAndArrangement = productPoseMatch[1].trim();
+          console.log('\n=== REFERENCE PRODUCT POSE AND ARRANGEMENT EXTRACTED ===');
+          console.log('Pose block length:', referenceProductPoseAndArrangement.length);
+          console.log('Pose block preview:', referenceProductPoseAndArrangement.substring(0, 400) + (referenceProductPoseAndArrangement.length > 400 ? '...' : ''));
         }
 
         // Extract the reference ad prompt
@@ -531,6 +550,14 @@ ${referenceTypography ? `
 **Typography from Reference Ad (COPY this typography into the final prompt):**
 ${referenceTypography}
 You MUST replicate the same typography style, font appearance, sizes, weights, placement and text effects from the reference ad in your output.` : ''}
+${referenceProductPoseAndArrangement ? `
+**PRODUCT POSE AND ARRANGEMENT (MANDATORY — do not skip):**
+The reference ad shows the product in a specific pose and arrangement. The image generator will use your description to COMPOSE the scene; if you describe the product in the reference's pose, it will render the user's product in that pose. If you describe the product as in the user's uploaded image, the result will just add text to that image (wrong).
+You MUST include the following product pose and arrangement in your final prompt. Describe the USER'S product (from the provided image) in THIS exact pose and arrangement — not in the pose of the uploaded image:
+---
+${referenceProductPoseAndArrangement}
+---
+Adapt only the product name: write "the product from the provided image" or "the user's [product type] from the provided image" so the design/color/branding come from the image but the POSE, ORDER, ANGLE and ARRANGEMENT come from this block. Your final prompt must contain a paragraph or bullet list that replicates this pose/arrangement for the user's product.` : ''}
 
 **Your Task:**
 Adapt the reference prompt above to create a NEW prompt for the product in the provided image. The new prompt must:
@@ -552,7 +579,7 @@ The reference ad has NO person and NO gym/sport environment — it is purely pro
 
 2. **Maintain ALL design elements** from the reference prompt:
    - Keep the EXACT same composition structure
-   - **Product POSE (CRITICAL — replicate exactly):** In the reference ad the product has a specific pose/orientation (e.g. lying down, scattered at angles, standing upright, on its side). Your prompt MUST describe the NEW product in the SAME pose: if the reference shows the product lying down and slightly scattered (e.g. earplugs lying flat at various angles), the generated ad must show the user's product the same way — lying down, same arrangement and angles — NOT standing upright or in a different pose. Match "lying down / standing / scattered / grouped" exactly.
+   - **Product POSE AND ARRANGEMENT (CRITICAL — you MUST use the block above):** The reference ad has a specific product pose, order, and arrangement (e.g. lying horizontally, tips out, bases in, two pairs clustered, soft shadows). You MUST describe the user's product in THAT pose/arrangement in your final prompt — use the exact "PRODUCT POSE AND ARRANGEMENT" block provided, adapting only the product name to "the product from the provided image". Do NOT describe the product as it appears in the user's uploaded image (e.g. if their photo shows earplugs standing upright, ignore that — describe them in the reference pose: lying down, same angles and order). The image generator needs this so it composes a NEW scene with the user's product in the reference's layout; otherwise it will just overlay text on the upload.
    - **Product position and placement (CRITICAL — replicate exactly):** Identify in the reference ad how the product is positioned (inclined/tilted? which direction/angle?) and how it is placed relative to the background (e.g. submerged/nestled among fruit, with fruit wrapping around its base and sides, partially covering edges; or sitting on top). Your prompt MUST describe the SAME for the new product: same inclination/tilt and direction, same "submerged/nestled" relationship — background elements (fruits, objects) must surround the product, rise around its base and sides, partially obscure it where the reference does, so the product looks integrated into the scene, not floating or simply on top of a flat layer.
    - **Composition and framing (CRITICAL — match reference):** In the reference ad, background elements (e.g. fruits, objects, textures, scenery) fill the ENTIRE frame edge to edge; the product is centered. There are NO blank margins or empty white space around the edges. Your prompt MUST describe this: background and decorative elements must extend to all sides and fill the frame completely; full-bleed composition; no empty borders or white space.
    - Keep the EXACT same layout and positioning of all elements
@@ -596,7 +623,7 @@ You MUST take these instructions into account when generating the final prompt.`
 Provide ONLY the final, complete, EXTREMELY DETAILED prompt ready for AI image generation. The prompt should:
 - Maintain ALL visual design elements from the reference prompt (composition, layout, typography placement, background style, effects)
 - **Full-bleed composition (CRITICAL):** Describe the scene so that background and surrounding elements (e.g. fruits, objects, textures, scenery) fill the ENTIRE image edge to edge; the product is centered. There must be NO blank or white margins — the composition must be full-bleed like the reference ad, with elements reaching all sides of the frame.
-- **Product pose, position and placement (CRITICAL):** Describe the product in the SAME pose as the reference: if the reference shows the product lying down, scattered, or at specific angles, the new product MUST be in the same pose (e.g. lying down on surface at similar angles — NOT standing upright). Same inclination/tilt and direction. Same "submerged/nestled" placement where applicable: fruit or objects surrounding the product, wrapping around its base and sides, partially covering its edges. Same shadows, lighting, reflections, texture as reference. Never change the product's actual design (packaging, labels, logo, shape stay as in the product image).
+- **Product pose, position and placement (CRITICAL):** You MUST include the exact product pose and arrangement from the "PRODUCT POSE AND ARRANGEMENT" block above, adapted for "the product from the provided image". Describe the user's product in the REFERENCE pose (lying down, same angles, same order and overlap) — do NOT describe it as it appears in the uploaded image, or the generator will just add text to that image. Same "submerged/nestled" placement where applicable. Same shadows, lighting, reflections. Product design (colors, branding, shape) comes from the provided image; pose, angle, and arrangement come from the reference block.
 ${scrapedBranding ? '- Where the reference ad shows brand name or logo, specify that the product\'s brand logo (from the scraped page) appears in the same position and style for a personalized look.' : ''}
 - **Copy length and phrasing:** Describe the exact SHORT phrases to appear (tagline + main line, each ${headlineWords} and ${mainCopyWords} words or fewer). Same tone as reference; every phrase must be clear, understandable, and effective ad copy. **The second line must fulfill the SAME function as the reference** (wordplay, punchline, sarcasm, metaphor) — never use generic product specs (e.g. "45db noise cancelling") as the main copy; it must read as intentional ad copy with the same rhetorical effect. Grammatically correct and natural. Never one long sentence as the headline.
 ${enforceOneMainElement ? "- **One main element only:** The scene must have ONE hero (e.g. the gummy or product item only). Do NOT describe product packaging, pouch, or a second element in the image." : ''}
@@ -733,6 +760,7 @@ ${scrapedBranding ? '- Integrate product brand colors and typography where appro
         rhetoricalFigures: rhetoricalFigures,
         referenceVisualStyle: referenceVisualStyle,
         referenceTypography: referenceTypography ? referenceTypography.substring(0, 500) + '...' : null,
+        referenceProductPoseAndArrangement: referenceProductPoseAndArrangement ? referenceProductPoseAndArrangement.substring(0, 500) + (referenceProductPoseAndArrangement.length > 500 ? '...' : '') : null,
         referencePrompt: referencePrompt.substring(0, 1000) + '...',
         scrapedSummary: scrapedSummary ? scrapedSummary.substring(0, 500) + '...' : null,
         scrapedBranding: scrapedBranding ? {
