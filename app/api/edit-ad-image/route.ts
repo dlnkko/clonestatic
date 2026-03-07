@@ -5,7 +5,7 @@ import { getClientIpHash, tryClaimFreeTrial } from '@/lib/free-trial';
 
 const KIE_BASE = 'https://api.kie.ai/api/v1/jobs';
 const POLL_INTERVAL_MS = 2500;
-const POLL_TIMEOUT_MS = 120000;
+const POLL_TIMEOUT_MS = 240000; // 4 min
 
 function getKieApiKey(): string {
   const key = process.env.KIE_AI_API_KEY;
@@ -42,7 +42,7 @@ async function createKieTask(
       image_input: [imageInputUrl],
       aspect_ratio: resolvedRatio,
       google_search: false,
-      resolution: '2K',
+      resolution: '1K',
       output_format: 'jpg',
     },
   };
