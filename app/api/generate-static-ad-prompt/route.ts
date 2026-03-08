@@ -251,13 +251,13 @@ If "graphic-product-only": the ad is purely product + background/graphics (no pe
 - **DO NOT COPY when adapting (product-specific data):** List any discount percentages (e.g. "64% OFF"), review numbers (e.g. "4.8/5 From 27,000+"), or other numerical claims in the reference. These must come ONLY from the scraped product page — never copy from reference.
 
 **PRODUCT POSE AND ARRANGEMENT (REFERENCE AD) — CRITICAL, OUTPUT THIS BLOCK:**
-Write ONE detailed paragraph that describes EXACTLY how the product(s) are positioned and arranged in the reference ad. This block will be used verbatim (with only the product name swapped for "the user's product") so the image generator places the user's product in this SAME pose and order — not in the pose of the user's uploaded image. Include:
-- Number of product units visible (e.g. two pairs, four earplugs; or one item).
-- Pose: lying down flat / standing upright / on their side / scattered / grouped. All lying horizontally or all standing?
-- Orientation: which way do the parts point? (e.g. conical tips pointing outwards left and right, flanged bases toward center; or rounded ends up, narrow tips down).
-- Arrangement and order: overlapping (which in front?), clustered left and right, one slightly above the other, angles (gentle upward/downward tilt from horizontal).
-- Surface and lighting: on a flat white surface, soft shadows beneath, etc.
-Write it so that if we replace "[product type]" with "the user's product from the provided image", the image model can render the user's product in this exact layout. Example style: "Four earplugs lying horizontally on a white surface, arranged as two pairs. Conical tips point outwards to left and right, flanged bases toward center with slight overlap. Left pair: one slightly above the other, both at a gentle upward angle. Right pair: similar, at a gentle downward angle. Soft shadows beneath. No standing upright — all lying flat."
+Write ONE detailed paragraph that describes how the product(s) should be positioned. **PREFER arrangements that look best in ads:** When the reference shows multiple bottles/products in a pyramid or triangle stack, describe them instead as **in a horizontal row** (side by side) — a row looks cleaner and more professional than a triangle. Only use pyramid/triangle if the reference has a strong, intentional reason for it. Include:
+- Number of product units visible (e.g. three bottles, four earplugs).
+- **Arrangement:** Prefer "in a row", "side by side", "horizontal line" over pyramid/triangle. E.g. "Three bottles arranged in a horizontal row, side by side" not "stacked in a pyramid".
+- Pose: lying down flat / standing upright / on their side. Orientation of parts.
+- Overlap and angles if applicable.
+- Surface and lighting: on a flat surface, soft shadows beneath.
+Write it so the image model renders the user's product in this layout. Example: "Three bottles in a horizontal row, side by side on a white surface, slight diagonal from left to right. Soft shadows beneath. No pyramid or triangle stack — a clean row."
 
 **REFERENCE AD PROMPT:**
 [Generate a COMPREHENSIVE, EXTREMELY DETAILED prompt that would recreate this exact static ad. Include ALL visual elements: composition, colors, typography with exact text placement, background, product presentation (especially: **product pose** — lying down / standing upright / scattered / on its side and exact angles; **product position** — inclined/tilted and direction; **product placement** — submerged/nestled among fruits or objects, with those elements wrapping around the product's base and sides, partially obscuring edges; lighting, shadows, reflections), person/character (if present), effects, buttons (if present). The prompt should be ready to use in an AI image generator and would produce an identical image.]`;
@@ -570,7 +570,7 @@ You MUST include the following product pose and arrangement in your final prompt
 ---
 ${referenceProductPoseAndArrangement}
 ---
-Adapt only the product name: write "the product from the provided image" or "the user's [product type] from the provided image" so the design/color/branding come from the image but the POSE, ORDER, ANGLE and ARRANGEMENT come from this block. Your final prompt must contain a paragraph or bullet list that replicates this pose/arrangement for the user's product.` : ''}
+Adapt only the product name: write "the product from the provided image" or "the user's [product type] from the provided image" so the design/color/branding come from the image but the POSE, ORDER, ANGLE and ARRANGEMENT come from this block. **Prefer "in a row" / "side by side" over pyramid/triangle stacks** — a row looks cleaner. Your final prompt must contain a paragraph or bullet list that replicates this pose/arrangement for the user's product.` : ''}
 
 **Your Task:**
 Adapt the reference prompt above to create a NEW prompt for the product in the provided image. The new prompt must:

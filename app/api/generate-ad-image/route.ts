@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const allowedRatios = ['9:16', '16:9', '1:1', 'auto'];
+    const allowedRatios = ['9:16', '16:9', '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '1:4', '1:8', '4:1', '8:1', '21:9', 'auto'];
     const aspectRatio =
       typeof aspectRatioParam === 'string' && allowedRatios.includes(aspectRatioParam)
         ? aspectRatioParam

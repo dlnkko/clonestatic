@@ -4,7 +4,25 @@ import { useState, useCallback, useEffect } from 'react';
 import { createClient as createSupabaseClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { ClonestaticLogo } from '../components/ClonestaticLogo';
 
-export type ImageSizeOption = '9:16' | '16:9' | '1:1' | 'auto';
+export type ImageSizeOption = '9:16' | '16:9' | '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '1:4' | '1:8' | '4:1' | '8:1' | '21:9' | 'auto';
+
+const ASPECT_RATIO_OPTIONS: { value: ImageSizeOption; label: string }[] = [
+  { value: 'auto', label: 'Auto (match reference)' },
+  { value: '9:16', label: 'Vertical 9:16' },
+  { value: '16:9', label: 'Horizontal 16:9' },
+  { value: '1:1', label: 'Square 1:1' },
+  { value: '2:3', label: '2:3' },
+  { value: '3:2', label: '3:2' },
+  { value: '3:4', label: '3:4' },
+  { value: '4:3', label: '4:3' },
+  { value: '4:5', label: '4:5' },
+  { value: '5:4', label: '5:4' },
+  { value: '1:4', label: '1:4' },
+  { value: '1:8', label: '1:8' },
+  { value: '4:1', label: '4:1' },
+  { value: '8:1', label: '8:1' },
+  { value: '21:9', label: '21:9' },
+];
 
 export type CreationItem = {
   id: string;
@@ -788,13 +806,17 @@ export default function StaticAdPromptGenerator() {
               </div>
               <div className="pt-4 border-t border-slate-100">
                 <label className="mb-2 block text-xs font-medium text-slate-600">Output size</label>
-                <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
-                  {(['9:16', '16:9', '1:1', 'auto'] as const).map((size) => (
-                    <button key={size} type="button" onClick={() => setImageSize(size)} className={`min-h-[44px] rounded-xl border px-3 py-2.5 text-xs font-medium transition-all touch-manipulation ${imageSize === size ? 'border-sky-500 bg-sky-500 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}>
-                      {size === '9:16' && 'Vertical 9:16'}{size === '16:9' && 'Horizontal 16:9'}{size === '1:1' && 'Square 1:1'}{size === 'auto' && (referenceAdDimensions ? `Auto (${referenceAdDimensions.width}×${referenceAdDimensions.height})` : 'Auto (match reference)')}
-                    </button>
+                <select
+                  value={imageSize}
+                  onChange={(e) => setImageSize(e.target.value as ImageSizeOption)}
+                  className="w-full min-h-[44px] rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
+                >
+                  {ASPECT_RATIO_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.value === 'auto' && referenceAdDimensions ? `Auto (${referenceAdDimensions.width}×${referenceAdDimensions.height})` : opt.label}
+                    </option>
                   ))}
-                </div>
+                </select>
                 <p className="mt-1.5 text-[11px] text-slate-500">{imageSize === 'auto' && referenceAdDimensions ? `Using aspect ratio from reference ad (${getResolvedAspectRatio()}).` : imageSize === 'auto' ? 'Match reference ad proportions (vertical by default).' : `Fixed aspect ratio: ${imageSize}.`}</p>
               </div>
             </section>
