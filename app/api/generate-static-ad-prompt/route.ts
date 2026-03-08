@@ -245,6 +245,7 @@ If "graphic-product-only": the ad is purely product + background/graphics (no pe
 - Style: [style category]
 - **Function of Line 2 (CRITICAL):** What does the second line do? (e.g. wordplay on a word like "uninterrupted" → "sleep interrupted", punchline, sarcastic twist, metaphor, benefit with a joke, double meaning). Describe so the generated ad can replicate the SAME function — the second line must NOT become a generic product spec (e.g. "45db noise cancelling") but must fulfill the same rhetorical role (e.g. clever twist, joke, wordplay).
 - **Linguistic device of second line:** [wordplay / sarcasm / metaphor / joke / punchline / double meaning / straight benefit / other]. The new copy must use the same kind of device.
+- **DO NOT COPY when adapting (product-specific data):** List any discount percentages (e.g. "64% OFF"), review numbers (e.g. "4.8/5 From 27,000+"), or other numerical claims in the reference. These must come ONLY from the scraped product page — never copy from reference.
 
 **PRODUCT POSE AND ARRANGEMENT (REFERENCE AD) — CRITICAL, OUTPUT THIS BLOCK:**
 Write ONE detailed paragraph that describes EXACTLY how the product(s) are positioned and arranged in the reference ad. This block will be used verbatim (with only the product name swapped for "the user's product") so the image generator places the user's product in this SAME pose and order — not in the pose of the user's uploaded image. Include:
@@ -519,6 +520,8 @@ Using the scraped product page information below, DISTILL the key concepts (offe
 **Scraped Product Page Data (distill into brief copy — do not paste long text):**
 ${scrapedSummary}
 
+**CRITICAL — Data source for numbers:** Discount percentages (X% OFF) and review counts (X.X/5 From X,XXX+) must come ONLY from the scraped data above. If the scraped data does NOT mention a specific discount or review count, do NOT include them — use generic text like "SALE" or "Highly rated" without numbers. NEVER copy these from the reference ad.
+
 Create two short phrases: (1) a brief tagline (${headlineWords} words or fewer), (2) a brief main line (${mainCopyWords} words or fewer). Both must be grammatically correct and natural-sounding. In your final prompt, specify the exact short text to appear, e.g. centered text: "[TAGLINE]" and below "[MAIN COPY]".`;
       
       console.log('\n📝 Creating copywriting from scraped data with brevity:', { headlineWords, mainCopyWords });
@@ -532,6 +535,7 @@ Use this exact copywriting in the prompt: "${copywriting}"`;
 Create copywriting matching the reference style and BREVITY. Every phrase MUST be grammatically correct and natural-sounding — no awkward constructions. Keep tone, rhetorical figure, and style; only output well-phrased copy.
 - Line 1 (tagline): max ${headlineWords} words. Line 2 (main copy): max ${mainCopyWords} words. Do NOT use one long headline.
 - **Line 2 must fulfill the SAME function as the reference's second line** (e.g. wordplay, punchline, sarcasm, metaphor) — never replace with generic product specs or feature dumps (e.g. "45db noise cancelling" as main copy is wrong). Same linguistic device and effect as reference.
+- **PROHIBITED:** Do NOT copy discount percentages (X% OFF) or review numbers (X.X/5 From X,XXX+) from the reference. Without scraped data, use generic text like "SALE" or "Highly rated" without numbers, or omit.
 - Rhetorical figure: ${rhetoricalFigures?.primary || 'match reference'}
 - Tone: ${copywritingProfile?.tone || 'professional'}
 - Style: ${copywritingProfile?.styleCategory || 'persuasive'}`;
@@ -611,11 +615,16 @@ ${scrapedBranding ? '- Prefer REFERENCE AD typography for headline and main copy
    - If reference shows multiple products: show multiple instances of NEW product in SAME arrangement
    - Maintain same angles, lighting, shadows as reference but for NEW product (product design unchanged; presentation adapted)
 
-5. **Create Copywriting (SAME TONE + CLEAR, PERFECT COPY — CRITICAL):**
+5. **PROHIBITED — NEVER copy these from the reference ad:**
+- **Discount percentages:** Do NOT copy "UP TO 64% OFF", "50% OFF", or any discount % from the reference. Use discounts ONLY if they appear in the scraped product page data. If not in scraped data, use generic text like "SALE" or "SPECIAL OFFER" without a percentage, or omit.
+- **Review numbers and ratings:** Do NOT copy "4.8/5 From 27,000+ Cat Owners" or similar. Use review/rating text ONLY if it appears in the scraped product page. If not in scraped data, use generic text like "Highly rated" or "Rated by customers" WITHOUT specific numbers, or omit entirely. Never invent or copy fake review counts.
+- **Any product-specific numerical claims** from the reference (prices, quantities, percentages) must come ONLY from scraped data. If not in scraped data, omit or use generic phrasing.
+
+6. **Create Copywriting (SAME TONE + CLEAR, PERFECT COPY — CRITICAL):**
 ${copywritingInstructions}
-**The reference ad has SHORT text.** Match its tone and style exactly, but every phrase MUST be clear, understandable, and effective copywriting — no confusing or vague wordplay (e.g. avoid "GUMMIES YOU CAN BUILD WITH A POP" which is unclear; use clear lines like "TASTES LIKE BERRY", "BOOST YOUR STRENGTH", "5G CREATINE ZERO SUGAR"). Same brevity: short tagline (${headlineWords} words or fewer) and short main line (${mainCopyWords} words or fewer). Grammatically correct and natural in English. The copy must be immediately understandable and conversion-ready while keeping the reference's tone, rhetorical figure, and style. Do NOT describe one long headline. Describe two short, well-phrased lines that read like professional ad copy.
+**The reference ad has SHORT text.** Match its tone and style exactly, but every phrase MUST be clear, understandable, and effective copywriting — no confusing or vague wordplay (e.g. avoid "GUMMIES YOU CAN BUILD WITH A POP" which is unclear; use clear lines like "TASTES LIKE BERRY", "BOOST YOUR STRENGTH", "5G CREATINE ZERO SUGAR"). Same brevity: short tagline (${headlineWords} words or fewer) and short main line (${mainCopyWords} words or fewer). Grammatically correct and natural in English. The copy must be immediately understandable and conversion-ready while keeping the reference's tone, rhetorical figure, and style. Do NOT describe one long headline. Describe two short, well-phrased lines that read like professional ad copy. **REMEMBER: Discounts and review numbers come from scraped data only — never from the reference.**
 ${guidelinesTrimmed ? `
-6. **Guidelines from the user (apply these changes):**
+7. **Guidelines from the user (apply these changes):**
 ${guidelinesTrimmed}
 You MUST take these instructions into account when generating the final prompt.` : ''}
 
@@ -626,6 +635,7 @@ Provide ONLY the final, complete, EXTREMELY DETAILED prompt ready for AI image g
 - **Product pose, position and placement (CRITICAL):** You MUST include the exact product pose and arrangement from the "PRODUCT POSE AND ARRANGEMENT" block above, adapted for "the product from the provided image". Describe the user's product in the REFERENCE pose (lying down, same angles, same order and overlap) — do NOT describe it as it appears in the uploaded image, or the generator will just add text to that image. Same "submerged/nestled" placement where applicable. Same shadows, lighting, reflections. Product design (colors, branding, shape) comes from the provided image; pose, angle, and arrangement come from the reference block.
 ${scrapedBranding ? '- Where the reference ad shows brand name or logo, specify that the product\'s brand logo (from the scraped page) appears in the same position and style for a personalized look.' : ''}
 - **Copy length and phrasing:** Describe the exact SHORT phrases to appear (tagline + main line, each ${headlineWords} and ${mainCopyWords} words or fewer). Same tone as reference; every phrase must be clear, understandable, and effective ad copy. **The second line must fulfill the SAME function as the reference** (wordplay, punchline, sarcasm, metaphor) — never use generic product specs (e.g. "45db noise cancelling") as the main copy; it must read as intentional ad copy with the same rhetorical effect. Grammatically correct and natural. Never one long sentence as the headline.
+- **NEVER copy from reference:** Discount percentages (X% OFF), review numbers (X.X/5 From X,XXX+), or any product-specific numbers. Use ONLY scraped data for these. If not in scraped data: "SALE" without %, "Highly rated" without numbers, or omit.
 ${enforceOneMainElement ? "- **One main element only:** The scene must have ONE hero (e.g. the gummy or product item only). Do NOT describe product packaging, pouch, or a second element in the image." : ''}
 ${isGraphicOnly ? '- Keep the ad GRAPHIC: product + background/graphics only. No person, no gym, no sport environment (unless user requested it in Guidelines).' : "- Adapt contextual elements (person styling, actions/pose, setting) to match the NEW product's use case. Ensure the person is in coherent pose/action (e.g. exercising for fitness products)."}
 - Feature the NEW product from the provided image in contextually appropriate use
