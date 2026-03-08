@@ -179,6 +179,7 @@ export default function StaticAdPromptGenerator() {
           copywritingInput = JSON.stringify({
             summary: scrapeData.summary,
             branding: scrapeData.branding || null,
+            markdown: scrapeData.markdown || null,
           });
         } catch (scrapeError: any) {
           setError(`URL Error: ${scrapeError.message}`);

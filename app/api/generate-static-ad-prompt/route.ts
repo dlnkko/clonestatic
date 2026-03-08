@@ -58,12 +58,15 @@ export async function POST(request: NextRequest) {
     // Parse scraped data if it's a JSON string
     let scrapedSummary = null;
     let scrapedBranding = null;
+    let scrapedMarkdown = null;
     if (isUrlScraped && copywriting) {
       try {
         const scrapedData = JSON.parse(copywriting);
         scrapedSummary = scrapedData.summary || null;
         scrapedBranding = scrapedData.branding || null;
+        scrapedMarkdown = scrapedData.markdown || null;
         console.log('- Scraped summary length:', scrapedSummary?.length || 0);
+        console.log('- Scraped markdown length:', scrapedMarkdown?.length || 0);
         console.log('- Has branding data:', !!scrapedBranding);
         if (scrapedBranding) {
           console.log('- Branding colors:', scrapedBranding.colors ? Object.keys(scrapedBranding.colors) : 'none');
@@ -517,10 +520,16 @@ The reference ad uses SHORT, punchy text — your prompt MUST describe copy with
 - **Phrasing (CRITICAL):** Every phrase MUST be well-written and grammatically correct. Avoid awkward constructions. Keep the same tone, rhetorical figure, and style — only output phrases that read naturally and correctly in English. Line 2 must be proper ad copy with the same effect as the reference, never a feature list or spec dump.
 Using the scraped product page information below, DISTILL the key concepts (offer, product benefit, occasion) into these two SHORT, WELL-PHRASED lines. Same rhetorical figure: "${rhetoricalFigures.primary || 'match style'}", tone: "${copywritingProfile.tone || 'professional'}", style: "${copywritingProfile.styleCategory || 'persuasive'}".
 
-**Scraped Product Page Data (distill into brief copy — do not paste long text):**
-${scrapedSummary}
+**Scraped Product Page Data — USE THIS DATA when it contains discounts, offers, reviews:**
+Summary: ${scrapedSummary}
+${scrapedMarkdown ? `
+Full page content (markdown) — extract exact discount %, offers, review numbers from here:
+---
+${scrapedMarkdown.length > 8000 ? scrapedMarkdown.slice(0, 8000) + '\n\n[...]' : scrapedMarkdown}
+---
+If the page says "70% off" or any discount/offer, USE IT. If it has review numbers, USE THEM. The scraped data is the source of truth.` : ''}
 
-**STRICT DATA RULE — Only use what is in the scraped data above:** Do NOT add "FREE GIFTS", "BIG DISCOUNTS", discount percentages, review numbers, or any promotional claim that is NOT explicitly in the scraped data. If the scraped page doesn't say it, do NOT include it. Never invent, assume, or copy from the reference ad.
+**STRICT DATA RULE:** Use ONLY what is in the scraped data above. When the scraped data CONTAINS discount %, offers, reviews — USE THEM (e.g. if it says "70% off", put "70% OFF" in the ad). Do NOT add "FREE GIFTS" or other claims NOT in the scraped data. Never invent or copy from the reference ad.
 
 Create two short phrases: (1) a brief tagline (${headlineWords} words or fewer), (2) a brief main line (${mainCopyWords} words or fewer). Both must be grammatically correct and natural-sounding. In your final prompt, specify the exact short text to appear, e.g. centered text: "[TAGLINE]" and below "[MAIN COPY]".`;
       
@@ -615,13 +624,10 @@ ${scrapedBranding ? '- Prefer REFERENCE AD typography for headline and main copy
    - If reference shows multiple products: show multiple instances of NEW product in SAME arrangement
    - Maintain same angles, lighting, shadows as reference but for NEW product (product design unchanged; presentation adapted)
 
-5. **STRICT DATA RULE — ALL promotional copy MUST come ONLY from scraped data:**
-- **NEVER invent or copy from the reference.** Every promotional claim (discounts, free gifts, offers, review counts, etc.) must appear VERBATIM or be directly derivable from the scraped product page. If it's not in the scraped data, do NOT include it.
-- **"FREE GIFTS"** — Do NOT add unless the scraped page explicitly mentions free gifts. Never copy from reference.
-- **"BIG DISCOUNTS"** — Do NOT add unless the scraped page explicitly mentions it. Never copy from reference.
-- **Discount percentages (X% OFF)** — Only if in scraped data. If not, use "SALE" without %, or omit.
-- **Review numbers (X.X/5 From X,XXX+)** — Only if in scraped data. If not, use "Highly rated" without numbers, or omit.
-- **Any offer, promo, or claim** — If not in scraped data, OMIT. Do not assume, invent, or copy from the reference ad.
+5. **STRICT DATA RULE — Use scraped data when it HAS the info; omit when it doesn't:**
+- **When scraped data CONTAINS discount %, offers, reviews — USE THEM.** E.g. if the page says "70% off", the ad must say "70% OFF". The scraped markdown has the full page content; extract and use exact numbers.
+- **When scraped data does NOT contain it — OMIT.** Do NOT add "FREE GIFTS", "BIG DISCOUNTS", or invent numbers. Never copy from the reference ad.
+- **Summary:** Use scraped data as source of truth. If 70% is in the data → use it. If free gifts are not in the data → do not add them.
 
 6. **Create Copywriting (SAME TONE + CLEAR, PERFECT COPY — CRITICAL):**
 ${copywritingInstructions}

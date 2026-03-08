@@ -62,17 +62,15 @@ export async function POST(request: NextRequest) {
 
     console.log('Scraping URL:', url);
 
-    // Scrape the URL with summary and branding formats
-    // Try scrape method first, fallback to scrapeUrl if needed
+    // Scrape the URL with summary, branding, and markdown (markdown has full page content for discounts/offers)
     let doc: any;
     try {
-      // Try the scrape method (as per user's example) with both summary and branding
-      doc = await (firecrawl as any).scrape(url, { formats: ['summary', 'branding'] });
+      doc = await (firecrawl as any).scrape(url, { formats: ['summary', 'branding', 'markdown'] });
     } catch (scrapeError: any) {
       // If scrape doesn't work, try scrapeUrl (the actual SDK method)
       console.log('scrape method failed, trying scrapeUrl:', scrapeError.message);
       try {
-        doc = await (firecrawl as any).scrapeUrl(url, { formats: ['summary', 'branding'] as any });
+        doc = await (firecrawl as any).scrapeUrl(url, { formats: ['summary', 'branding', 'markdown'] as any });
       } catch (scrapeUrlError: any) {
         console.error('Both methods failed:', {
           scrape: scrapeError.message,
@@ -87,10 +85,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const markdown = doc.data?.markdown || doc.markdown || null;
+    // Truncate markdown to ~12k chars to avoid token limits; keep discounts/offers usually in first part
+    const markdownForPrompt = markdown ? (markdown.length > 12000 ? markdown.slice(0, 12000) + '\n\n[...truncated]' : markdown) : null;
+
     console.log('Scrape response received:', {
       hasData: !!doc.data,
       hasSummary: !!doc.data?.summary,
       hasBranding: !!doc.data?.branding,
+      hasMarkdown: !!markdown,
+      markdownLength: markdown?.length,
       keys: Object.keys(doc || {}),
     });
 
@@ -163,6 +167,7 @@ export async function POST(request: NextRequest) {
       success: true,
       summary: summary,
       branding: branding,
+      markdown: markdownForPrompt ?? markdown,
       metadata: doc.data?.metadata || doc.metadata || null,
     });
 
