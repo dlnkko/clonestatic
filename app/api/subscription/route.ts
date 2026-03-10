@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getClientIpHash, hasUsedFreeTrial } from '@/lib/free-trial';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user?.email) {
@@ -33,6 +34,8 @@ export async function GET() {
 
   try {
     const admin = createAdminClient();
+    const ipHash = getClientIpHash(request);
+
     const { data, error } = await admin
       .from('subscriptions')
       .select('plan, credits_remaining, period_end')
@@ -40,6 +43,18 @@ export async function GET() {
       .single();
 
     if (error || !data) {
+      // No paid subscription. Check if this IP still has a free trial available.
+      const usedFreeTrial = await hasUsedFreeTrial(admin, ipHash);
+      if (!usedFreeTrial) {
+        // Expose 1 "virtual" credit from free trial so the UI shows 1 and allows one generation.
+        return NextResponse.json({
+          ok: true,
+          plan: 'free_trial',
+          credits_remaining: 1,
+          period_end: null,
+        });
+      }
+
       return NextResponse.json({ ok: false, error: 'No subscription found' }, { status: 404 });
     }
 
