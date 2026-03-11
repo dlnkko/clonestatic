@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getClientIpHash, hasUsedFreeTrial } from '@/lib/free-trial';
+import { getClientIpHash, getFreeTrialRemaining } from '@/lib/free-trial';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,18 +43,20 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (error || !data) {
-      // No paid subscription. Check if this IP still has a free trial available.
-      const usedFreeTrial = await hasUsedFreeTrial(admin, ipHash);
-      if (!usedFreeTrial) {
-        // Expose 1 "virtual" credit from free trial so the UI shows 1 and allows one generation.
+      // No paid subscription. See if this IP still has free-trial credits available.
+      const freeTrialRemaining = await getFreeTrialRemaining(admin, ipHash);
+      if (freeTrialRemaining > 0) {
+        // Expose the remaining free-trial credits so the UI can let them generate
+        // without showing the pricing modal.
         return NextResponse.json({
           ok: true,
           plan: 'free_trial',
-          credits_remaining: 1,
+          credits_remaining: freeTrialRemaining,
           period_end: null,
         });
       }
 
+      // No subscription and no free-trial credits left.
       return NextResponse.json({ ok: false, error: 'No subscription found' }, { status: 404 });
     }
 

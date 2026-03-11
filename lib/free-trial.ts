@@ -16,31 +16,70 @@ export function getClientIpHash(request: NextRequest): string {
 }
 
 /**
- * Try to claim the 1 free trial for this IP.
- * Returns true if this IP had not used the free trial yet (and we inserted it).
- * Returns false if this IP already used the free trial (unique violation) or insert failed.
+ * Try to claim ONE free-trial generation for this IP.
+ *
+ * We allow up to 2 total free uses per IP:
+ * - On first claim: create row with uses_remaining = 1 (2 - 1)
+ * - On second claim: decrement uses_remaining from 1 → 0
+ * - After that: return false (no free-trial credits left)
  */
 export async function tryClaimFreeTrial(admin: SupabaseClient, ipHash: string): Promise<boolean> {
-  const { data, error } = await admin
+  // Fetch current uses_remaining if any.
+  const { data: existing, error: fetchError } = await admin
     .from(FREE_TRIAL_TABLE)
-    .insert({ ip_hash: ipHash })
-    .select('ip_hash')
-    .single();
-  if (error) {
-    if (error.code === '23505') return false; // unique_violation = already used
+    .select('ip_hash, uses_remaining')
+    .eq('ip_hash', ipHash)
+    .maybeSingle();
+
+  if (fetchError) {
+    console.error('tryClaimFreeTrial fetch error:', fetchError);
     return false;
   }
-  return !!data;
+
+  if (!existing) {
+    // First ever claim for this IP: create with uses_remaining = 1 (2 total - this one).
+    const { error: insertError } = await admin
+      .from(FREE_TRIAL_TABLE)
+      .insert({ ip_hash: ipHash, uses_remaining: 1 });
+    if (insertError) {
+      console.error('tryClaimFreeTrial insert error:', insertError);
+      return false;
+    }
+    return true;
+  }
+
+  const remaining = Math.max(0, existing.uses_remaining ?? 0);
+  if (remaining < 1) {
+    // No free-trial credits left.
+    return false;
+  }
+
+  const { error: updateError } = await admin
+    .from(FREE_TRIAL_TABLE)
+    .update({ uses_remaining: remaining - 1, used_at: new Date().toISOString() })
+    .eq('ip_hash', ipHash);
+  if (updateError) {
+    console.error('tryClaimFreeTrial update error:', updateError);
+    return false;
+  }
+  return true;
 }
 
 /**
- * Check if this IP has already used the free trial (read-only check).
+ * Get remaining free-trial generations for this IP.
+ * Returns 2 if there is no row yet (never used), or the current uses_remaining otherwise.
  */
-export async function hasUsedFreeTrial(admin: SupabaseClient, ipHash: string): Promise<boolean> {
+export async function getFreeTrialRemaining(admin: SupabaseClient, ipHash: string): Promise<number> {
   const { data, error } = await admin
     .from(FREE_TRIAL_TABLE)
-    .select('ip_hash')
+    .select('uses_remaining')
     .eq('ip_hash', ipHash)
     .maybeSingle();
-  return !error && !!data;
+
+  if (error) {
+    console.error('getFreeTrialRemaining error:', error);
+    return 0;
+  }
+  if (!data) return 2;
+  return Math.max(0, data.uses_remaining ?? 0);
 }
