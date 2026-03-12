@@ -4,6 +4,23 @@ import { useState, useCallback, useEffect } from 'react';
 import { createClient as createSupabaseClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { ClonestaticLogo } from '../components/ClonestaticLogo';
 
+/** Parse response as JSON; if body is not JSON (e.g. "Request Entity Too Large"), return null and set friendly error. */
+async function parseJsonResponse<T = unknown>(res: Response): Promise<{ data: T | null; errorMessage: string | null }> {
+  const text = await res.text();
+  try {
+    const data = (text ? JSON.parse(text) : {}) as T;
+    return { data, errorMessage: null };
+  } catch {
+    if (res.status === 413) {
+      return { data: null, errorMessage: 'Images are too large. Try smaller images or compress them.' };
+    }
+    if (res.status >= 500) {
+      return { data: null, errorMessage: 'Server error. Please try again in a moment.' };
+    }
+    return { data: null, errorMessage: text?.slice(0, 200) || 'Invalid response from server. Please try again.' };
+  }
+}
+
 export type ImageSizeOption = '9:16' | '16:9' | '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '1:4' | '1:8' | '4:1' | '8:1' | '21:9' | 'auto';
 
 const ASPECT_RATIO_OPTIONS: { value: ImageSizeOption; label: string }[] = [
@@ -186,10 +203,12 @@ export default function StaticAdPromptGenerator() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: copywriting.trim() }),
           });
-          const scrapeData = await scrapeResponse.json();
-
-          if (!scrapeResponse.ok) {
-            throw new Error(scrapeData.error || scrapeData.details || 'Failed to scrape URL.');
+          const { data: scrapeData, errorMessage: scrapeErr } = await parseJsonResponse<{ summary?: string; error?: string; details?: string }>(scrapeResponse);
+          if (scrapeErr) {
+            throw new Error(scrapeErr);
+          }
+          if (!scrapeResponse.ok || !scrapeData) {
+            throw new Error(scrapeData?.error || scrapeData?.details || 'Failed to scrape URL.');
           }
           if (!scrapeData.summary || scrapeData.summary === 'No summary available') {
             throw new Error('Could not extract content from the URL. Please try another one or enter copy manually.');
@@ -228,16 +247,24 @@ export default function StaticAdPromptGenerator() {
         }),
       ]);
 
-      const data = await response.json();
+      const { data: promptData, errorMessage: promptErr } = await parseJsonResponse<{ prompt?: string; error?: string; cost?: unknown }>(response);
+      if (promptErr) {
+        throw new Error(promptErr);
+      }
+      const data = promptData!;
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate prompt.');
+        throw new Error(data?.error || 'Failed to generate prompt.');
       }
 
-      setGeneratedPrompt(data.prompt);
-      setCostInfo(data.cost || null);
+      setGeneratedPrompt(data.prompt!);
+      setCostInfo(data.cost ?? null);
 
-      const productImageUrl = uploadRes.ok ? (await uploadRes.json()).url : null;
+      let productImageUrl: string | null = null;
+      const { data: uploadData } = await parseJsonResponse<{ url?: string }>(uploadRes);
+      if (uploadRes.ok && uploadData?.url) {
+        productImageUrl = uploadData.url;
+      }
 
       setIsGeneratingImage(true);
       try {
@@ -250,10 +277,14 @@ export default function StaticAdPromptGenerator() {
             aspectRatio: getResolvedAspectRatio(),
           }),
         });
-        const imgData = await imgRes.json();
-        if (imgRes.ok && imgData.imageUrl) {
+        const { data: imgData, errorMessage: imgErrMsg } = await parseJsonResponse<{ imageUrl?: string; error?: string }>(imgRes);
+        if (imgErrMsg) {
+          setError(imgErrMsg);
+          return;
+        }
+        if (imgRes.ok && imgData?.imageUrl) {
           setGeneratedImageUrl(imgData.imageUrl);
-          saveCreation(imgData.imageUrl, getResolvedAspectRatio(), data.prompt);
+          saveCreation(imgData.imageUrl, getResolvedAspectRatio(), data.prompt!);
         } else if (!imgRes.ok) {
           if (imgRes.status === 401) {
             window.location.href = '/login?next=/app';
@@ -264,7 +295,7 @@ export default function StaticAdPromptGenerator() {
             setShowPricingModal(true);
             return;
           }
-          setError(imgData.error || 'Failed to generate image.');
+          setError(imgData?.error || 'Failed to generate image.');
         }
       } catch (imgErr: any) {
         setError(imgErr.message || 'Failed to generate image.');
@@ -338,7 +369,10 @@ export default function StaticAdPromptGenerator() {
           instructions: editInstructions.trim(),
         }),
       });
-      const promptData = await promptRes.json();
+      const { data: promptData, errorMessage: promptErr } = await parseJsonResponse<{ prompt?: string; error?: string }>(promptRes);
+      if (promptErr) {
+        throw new Error(promptErr);
+      }
       if (!promptRes.ok || !promptData?.prompt) {
         throw new Error(promptData?.error || 'Failed to generate edit prompt.');
       }
@@ -353,10 +387,13 @@ export default function StaticAdPromptGenerator() {
           aspectRatio: 'auto',
         }),
       });
-      const editData = await editRes.json();
-      if (editRes.ok && editData.imageUrl) {
+      const { data: editData, errorMessage: editErr } = await parseJsonResponse<{ imageUrl?: string; error?: string }>(editRes);
+      if (editErr) {
+        throw new Error(editErr);
+      }
+      if (editRes.ok && editData?.imageUrl) {
         setEditedImageUrl(editData.imageUrl);
-        saveCreation(editData.imageUrl, 'auto', promptData.prompt);
+        saveCreation(editData.imageUrl, 'auto', promptData.prompt!);
       } else {
         if (editRes.status === 401) {
           window.location.href = '/login?next=/app';
