@@ -203,7 +203,7 @@ export default function StaticAdPromptGenerator() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: copywriting.trim() }),
           });
-          const { data: scrapeData, errorMessage: scrapeErr } = await parseJsonResponse<{ summary?: string; error?: string; details?: string }>(scrapeResponse);
+          const { data: scrapeData, errorMessage: scrapeErr } = await parseJsonResponse<{ summary?: string; branding?: unknown; markdown?: string; error?: string; details?: string }>(scrapeResponse);
           if (scrapeErr) {
             throw new Error(scrapeErr);
           }
