@@ -109,12 +109,14 @@ async function pollRecordInfo(apiKey: string, taskId: string): Promise<{ resultU
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { prompt, productImageBase64, productImageUrl: productImageUrlParam, aspectRatio: aspectRatioParam } = body as {
+    const { prompt, productImageBase64, productImageUrl: productImageUrlParam, aspectRatio: aspectRatioParam, creationId: creationIdParam } = body as {
       prompt?: string;
       productImageBase64?: string;
       productImageUrl?: string;
       aspectRatio?: string;
+      creationId?: string;
     };
+    const creationId = typeof creationIdParam === 'string' && creationIdParam.trim() ? creationIdParam.trim() : null;
     if (!prompt || typeof prompt !== 'string') {
       return NextResponse.json(
         { error: 'Missing or invalid prompt' },
@@ -194,10 +196,22 @@ export async function POST(request: NextRequest) {
     const taskId = await createKieTask(apiKey, prompt, productImageUrl, aspectRatio, callBackUrl);
     const { resultUrls } = await pollRecordInfo(apiKey, taskId);
 
+    const imageUrl = resultUrls[0];
+
+    if (creationId && user?.id) {
+      const admin = createAdminClient();
+      await admin
+        .from('creations')
+        .update({ image_url: imageUrl, status: 'completed' })
+        .eq('id', creationId)
+        .eq('user_id', user.id);
+    }
+
     return NextResponse.json({
-      imageUrl: resultUrls[0],
+      imageUrl,
       resultUrls,
       taskId,
+      creationId: creationId ?? undefined,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to generate image';

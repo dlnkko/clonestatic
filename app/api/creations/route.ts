@@ -26,7 +26,7 @@ export async function GET() {
     }
     const { data, error } = await supabase
       .from('creations')
-      .select('id, image_url, aspect_ratio, created_at')
+      .select('id, image_url, aspect_ratio, created_at, status')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(50);
@@ -55,23 +55,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
     const body = await request.json();
-    const { image_url, aspect_ratio, prompt } = body as {
+    const { image_url, aspect_ratio, prompt, status: statusParam } = body as {
       image_url?: string;
       aspect_ratio?: string;
       prompt?: string;
+      status?: 'generating' | 'completed';
     };
-    if (!image_url || typeof image_url !== 'string') {
-      return NextResponse.json({ error: 'image_url is required' }, { status: 400 });
+    const status = statusParam === 'generating' ? 'generating' : 'completed';
+    if (status === 'completed' && (!image_url || typeof image_url !== 'string')) {
+      return NextResponse.json({ error: 'image_url is required when status is not generating' }, { status: 400 });
     }
     const { data, error } = await supabase
       .from('creations')
       .insert({
         user_id: user.id,
-        image_url,
+        image_url: image_url ?? null,
         aspect_ratio: aspect_ratio ?? null,
         prompt: prompt ?? null,
+        status,
       })
-      .select('id, created_at')
+      .select('id, created_at, status')
       .single();
     if (error) {
       console.error('Supabase creations insert error:', error);

@@ -43,9 +43,10 @@ const ASPECT_RATIO_OPTIONS: { value: ImageSizeOption; label: string }[] = [
 
 export type CreationItem = {
   id: string;
-  image_url: string;
+  image_url: string | null;
   aspect_ratio: string | null;
   created_at: string;
+  status?: 'generating' | 'completed';
 };
 
 export default function StaticAdPromptGenerator() {
@@ -267,6 +268,26 @@ export default function StaticAdPromptGenerator() {
       }
 
       setIsGeneratingImage(true);
+      let creationId: string | null = null;
+      if (hasSupabase) {
+        try {
+          const createRes = await fetch('/api/creations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              status: 'generating',
+              aspect_ratio: getResolvedAspectRatio(),
+              prompt: data.prompt,
+            }),
+          });
+          const createData = await createRes.json();
+          if (createRes.ok && createData?.id) creationId = createData.id;
+        } catch {
+          // continue without creationId; we'll save on success
+        }
+      }
+
       try {
         const imgRes = await fetch('/api/generate-ad-image', {
           method: 'POST',
@@ -275,16 +296,22 @@ export default function StaticAdPromptGenerator() {
             prompt: data.prompt,
             ...(productImageUrl ? { productImageUrl } : { productImageBase64: productBase64 }),
             aspectRatio: getResolvedAspectRatio(),
+            ...(creationId ? { creationId } : {}),
           }),
         });
-        const { data: imgData, errorMessage: imgErrMsg } = await parseJsonResponse<{ imageUrl?: string; error?: string }>(imgRes);
+        const { data: imgData, errorMessage: imgErrMsg } = await parseJsonResponse<{ imageUrl?: string; error?: string; creationId?: string }>(imgRes);
         if (imgErrMsg) {
           setError(imgErrMsg);
           return;
         }
         if (imgRes.ok && imgData?.imageUrl) {
           setGeneratedImageUrl(imgData.imageUrl);
-          saveCreation(imgData.imageUrl, getResolvedAspectRatio(), data.prompt!);
+          if (creationId) {
+            await loadCreations();
+            await fetchCredits();
+          } else {
+            saveCreation(imgData.imageUrl, getResolvedAspectRatio(), data.prompt!);
+          }
         } else if (!imgRes.ok) {
           if (imgRes.status === 401) {
             window.location.href = '/login?next=/app';
@@ -445,6 +472,13 @@ export default function StaticAdPromptGenerator() {
   useEffect(() => {
     if (hasSupabase && activeTab === 'history') loadCreations();
   }, [activeTab, hasSupabase, loadCreations]);
+
+  const hasGenerating = creations.some((c) => c.status === 'generating' || !c.image_url);
+  useEffect(() => {
+    if (!hasSupabase || activeTab !== 'history' || !hasGenerating) return;
+    const interval = setInterval(loadCreations, 8000);
+    return () => clearInterval(interval);
+  }, [hasSupabase, activeTab, hasGenerating, loadCreations]);
 
   const saveCreation = useCallback(
     async (imageUrl: string, aspectRatio: string, prompt: string) => {
@@ -684,18 +718,30 @@ export default function StaticAdPromptGenerator() {
               <p className="py-12 text-center text-sm text-slate-500">No creations yet. Generate an image in Replicate.</p>
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4">
-                {creations.map((c) => (
-                  <div key={c.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                    <a href={c.image_url} target="_blank" rel="noopener noreferrer" className="block aspect-[9/16] w-full bg-slate-100"><img src={c.image_url} alt="" className="h-full w-full object-cover" /></a>
-                    <div className="flex items-center justify-between gap-2 p-2 sm:p-3">
-                      <span className="truncate text-[10px] sm:text-xs text-slate-500">{c.aspect_ratio || '—'} · {new Date(c.created_at).toLocaleDateString()}</span>
-                      <div className="flex shrink-0 gap-1">
-                        <a href={c.image_url} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-slate-50" title="Open"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
-                        <button type="button" onClick={() => handleDownloadImage(c.image_url, 'generated-ad.jpg')} className="rounded-lg border border-sky-500 bg-sky-500 p-1.5 text-white hover:bg-sky-600" title="Download"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+                {creations.map((c) => {
+                  const isGenerating = c.status === 'generating' || !c.image_url;
+                  return (
+                    <div key={c.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                      {isGenerating ? (
+                        <div className="flex aspect-[9/16] w-full flex-col items-center justify-center gap-2 bg-slate-100 p-4">
+                          <svg className="h-6 w-6 animate-spin text-sky-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                          <span className="text-xs font-medium text-slate-600">Generating...</span>
+                        </div>
+                      ) : (
+                        <a href={c.image_url!} target="_blank" rel="noopener noreferrer" className="block aspect-[9/16] w-full bg-slate-100"><img src={c.image_url!} alt="" className="h-full w-full object-cover" /></a>
+                      )}
+                      <div className="flex items-center justify-between gap-2 p-2 sm:p-3">
+                        <span className="truncate text-[10px] sm:text-xs text-slate-500">{c.aspect_ratio || '—'} · {new Date(c.created_at).toLocaleDateString()}</span>
+                        {!isGenerating && (
+                          <div className="flex shrink-0 gap-1">
+                            <a href={c.image_url!} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-slate-50" title="Open"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+                            <button type="button" onClick={() => handleDownloadImage(c.image_url!, 'generated-ad.jpg')} className="rounded-lg border border-sky-500 bg-sky-500 p-1.5 text-white hover:bg-sky-600" title="Download"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
