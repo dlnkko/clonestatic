@@ -12,13 +12,76 @@ async function parseJsonResponse<T = unknown>(res: Response): Promise<{ data: T 
     return { data, errorMessage: null };
   } catch {
     if (res.status === 413) {
-      return { data: null, errorMessage: 'Images are too large. Try smaller images or compress them.' };
+      return { data: null, errorMessage: 'Request too large. Please try again.' };
     }
     if (res.status >= 500) {
       return { data: null, errorMessage: 'Server error. Please try again in a moment.' };
     }
     return { data: null, errorMessage: text?.slice(0, 200) || 'Invalid response from server. Please try again.' };
   }
+}
+
+const MAX_IMAGE_BYTES = 320000; // ~320KB blob → ~430KB base64; 2 images stay under 1MB body
+
+/** Compress image to JPEG data URL under maxSizeBytes (blob size). */
+function compressImageForApi(file: File, maxSizeBytes: number = MAX_IMAGE_BYTES): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const maxDim = 1920;
+      let w = img.naturalWidth;
+      let h = img.naturalHeight;
+      if (w > maxDim || h > maxDim) {
+        if (w > h) {
+          h = Math.round((h * maxDim) / w);
+          w = maxDim;
+        } else {
+          w = Math.round((w * maxDim) / h);
+          h = maxDim;
+        }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Canvas not supported'));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, w, h);
+
+      const tryQuality = (quality: number): Promise<string> =>
+        new Promise((res, rej) => {
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                rej(new Error('Failed to compress image'));
+                return;
+              }
+              if (blob.size <= maxSizeBytes || quality <= 0.2) {
+                const reader = new FileReader();
+                reader.onloadend = () => res(reader.result as string);
+                reader.onerror = () => rej(new Error('Read failed'));
+                reader.readAsDataURL(blob);
+                return;
+              }
+              tryQuality(Math.max(0.2, quality - 0.15)).then(res).catch(rej);
+            },
+            'image/jpeg',
+            quality
+          );
+        });
+
+      tryQuality(0.9).then(resolve).catch(reject);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Invalid image'));
+    };
+    img.src = url;
+  });
 }
 
 export type ImageSizeOption = '9:16' | '16:9' | '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '1:4' | '1:8' | '4:1' | '8:1' | '21:9' | 'auto';
@@ -190,8 +253,10 @@ export default function StaticAdPromptGenerator() {
     setGeneratedImageUrl(null);
 
     try {
-      const staticAdBase64 = await fileToBase64(staticAdImage);
-      const productBase64 = await fileToBase64(productImage);
+      const [staticAdBase64, productBase64] = await Promise.all([
+        compressImageForApi(staticAdImage),
+        compressImageForApi(productImage),
+      ]);
 
       const isUrl = copywriting.trim() && isValidUrl(copywriting.trim());
       let copywritingInput = copywriting || null;
@@ -336,15 +401,6 @@ export default function StaticAdPromptGenerator() {
     }
   };
 
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = (error) => reject(error);
-    });
-  };
-
   const handleDownloadImage = (imageUrl?: string, filename = 'generated-ad.jpg') => {
     const url = imageUrl ?? generatedImageUrl;
     if (!url) return;
@@ -388,11 +444,12 @@ export default function StaticAdPromptGenerator() {
     setEditedImageUrl(null);
 
     try {
+      const editImageBase64 = await compressImageForApi(editSourceImage);
       const promptRes = await fetch('/api/generate-edit-prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          imageBase64: editSourcePreview,
+          imageBase64: editImageBase64,
           instructions: editInstructions.trim(),
         }),
       });
@@ -410,7 +467,7 @@ export default function StaticAdPromptGenerator() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: promptData.prompt,
-          imageBase64: editSourcePreview,
+          imageBase64: editImageBase64,
           aspectRatio: 'auto',
         }),
       });
@@ -642,7 +699,7 @@ export default function StaticAdPromptGenerator() {
             className={`mt-1 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'new' ? 'bg-sky-50 text-sky-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
           >
             <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"/></svg>
-            Replicate
+            Clone
           </button>
           <button
             type="button"
@@ -715,7 +772,7 @@ export default function StaticAdPromptGenerator() {
             {creationsLoading ? (
               <div className="flex items-center justify-center py-12"><svg className="h-8 w-8 animate-spin text-sky-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></div>
             ) : creations.length === 0 ? (
-              <p className="py-12 text-center text-sm text-slate-500">No creations yet. Generate an image in Replicate.</p>
+              <p className="py-12 text-center text-sm text-slate-500">No creations yet. Generate an image in Clone.</p>
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4">
                 {creations.map((c) => {
@@ -846,9 +903,9 @@ export default function StaticAdPromptGenerator() {
         </div>
           ) : (
         <>
-          {/* Replicate section header */}
+          {/* Clone section header */}
           <div className="mb-6 sm:mb-8">
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl md:text-3xl">Replicate any static ad with your product</h1>
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl md:text-3xl">Clone any static ad with your product</h1>
             <p className="mt-1.5 text-slate-600 sm:text-base md:text-lg">Upload a reference ad and your product image. We&apos;ll recreate it in seconds.</p>
           </div>
 
