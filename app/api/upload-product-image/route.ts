@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { uploadBase64ToImgBB } from '@/lib/imgbb';
 
 /** Upload base64 image to ImgBB and return public URL. Used in parallel with prompt generation to save time. */
 export async function POST(request: NextRequest) {
@@ -12,32 +13,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const key = process.env.IMGBB_API_KEY;
-    if (!key) {
-      return NextResponse.json(
-        { error: 'IMGBB_API_KEY is not set. Add it to .env.local' },
-        { status: 503 }
-      );
-    }
-
-    const base64Only = productImageBase64.replace(/^data:image\/\w+;base64,/, '');
-    const form = new FormData();
-    form.set('key', key);
-    form.set('image', base64Only);
-
-    const res = await fetch('https://api.imgbb.com/1/upload', {
-      method: 'POST',
-      body: form,
-    });
-    const json = await res.json();
-    if (!json.success || !json.data?.url) {
-      return NextResponse.json(
-        { error: json?.error?.message || 'Failed to upload image to ImgBB' },
-        { status: 502 }
-      );
-    }
-
-    return NextResponse.json({ url: json.data.url as string });
+    const url = await uploadBase64ToImgBB(productImageBase64);
+    return NextResponse.json({ url });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Upload failed';
     return NextResponse.json({ error: message }, { status: 500 });

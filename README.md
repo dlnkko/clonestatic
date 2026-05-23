@@ -9,8 +9,14 @@ Web app que clona solo la herramienta **Static Ad Prompt Generator**: subes un a
    cp .env.example .env.local
    ```
    Edita `.env.local` y añade:
-   - `GOOGLE_GENAI_API_KEY` — obligatorio para generar prompts (Gemini).
+   - `GOOGLE_GENAI_API_KEY` — obligatorio para generar prompts (Gemini `gemini-3.5-flash` en todo el backend).
    - `FIRECRAWL_API_KEY` — obligatorio si quieres usar "Product URL" (scraping de la página del producto). Si no lo configuras, esa opción fallará; puedes dejar el copywriting en blanco o escribir texto a mano.
+   - `SCRAPECREATORS_API_KEY` — obligatorio para la pestaña **Competitor Ads** (búsqueda de anuncios de Facebook/Instagram por categoría).
+   - `USE_ADAPTATION_AGENT` — Step 2 de adaptación (opcional):
+     - `true` o sin definir → **agente multi-paso** (copy + visual + síntesis + QA). Por defecto.
+     - `false` → comportamiento **legacy** (una sola llamada Gemini, como antes).
+     - Reinicia el servidor tras cambiar. Ejemplo para desactivar al instante: `USE_ADAPTATION_AGENT=false`
+   - `ADAPTATION_AGENT_FALLBACK_LEGACY` — si el agente falla, vuelve al legacy (`true` por defecto).
 
 2. **Instalar dependencias y arrancar**
    ```bash

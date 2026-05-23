@@ -2,3 +2,4 @@ node_modules
 .next
 .env.local
 .env*.local
+last-static-ad-prompt.txt

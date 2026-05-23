@@ -19,9 +19,5 @@ export function createClient() {
 
 /** Returns true if Supabase env vars are set (for feature flags like History tab). */
 export function isSupabaseConfigured(): boolean {
-  return Boolean(
-    typeof window !== 'undefined' &&
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      getSupabaseAnonKey()
-  );
+  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && getSupabaseAnonKey());
 }

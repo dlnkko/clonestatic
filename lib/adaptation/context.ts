@@ -1,0 +1,371 @@
+import {
+  copyLanguageInstruction,
+  resolveCopyLanguage,
+  type CopyLanguageOption,
+} from '@/lib/copy-languages';
+import { buildPricingInstructions } from './pricing-rules';
+import type {
+  AdaptationContext,
+  CopywritingProfile,
+  MatchedProductVisual,
+  ReferenceLogoAnalysis,
+  ReferenceLogoPlacement,
+  ReferenceVisualStyle,
+  RhetoricalFigures,
+} from './types';
+
+export function defaultReferenceLogoAnalysis(): ReferenceLogoAnalysis {
+  return {
+    placement: 'unknown',
+    standaloneLogoInLayout: false,
+    logoOnProductOnly: true,
+    notes: '',
+  };
+}
+
+export function parseReferenceLogoPlacement(text: string): ReferenceLogoAnalysis {
+  const standalone = /Standalone brand logo in layout:\s*yes/i.test(text);
+  const onProduct = /Logo appears only on product packaging:\s*yes/i.test(text);
+  const typeMatch = text.match(
+    /Brand identity in layout type:\s*(copy-only-text|logo-on-product-only|standalone-logo|standalone-and-product)/i
+  );
+  const notesMatch = text.match(/Logo placement notes:\s*([\s\S]+?)(?=\n\*\*|$)/i);
+
+  let placement: ReferenceLogoPlacement = 'unknown';
+  if (typeMatch) {
+    const t = typeMatch[1].toLowerCase();
+    if (t === 'copy-only-text') placement = 'copy-only';
+    else if (t === 'logo-on-product-only') placement = 'logo-on-product-only';
+    else if (t === 'standalone-logo') placement = 'standalone-logo';
+    else if (t === 'standalone-and-product') placement = 'standalone-and-product';
+  } else if (!standalone && onProduct) {
+    placement = 'logo-on-product-only';
+  } else if (!standalone && !onProduct) {
+    placement = 'copy-only';
+  } else if (standalone && onProduct) {
+    placement = 'standalone-and-product';
+  } else if (standalone) {
+    placement = 'standalone-logo';
+  }
+
+  return {
+    placement,
+    standaloneLogoInLayout: standalone,
+    logoOnProductOnly: onProduct,
+    notes: notesMatch ? notesMatch[1].trim() : '',
+  };
+}
+
+export type BuildContextInput = {
+  referencePrompt: string;
+  referenceTypography: string;
+  referenceProductPoseAndArrangement: string;
+  referenceReviewModule: string;
+  hasReferenceReviewModule: boolean;
+  referenceFeatureRow: string;
+  hasReferenceFeatureRow: boolean;
+  referenceLogoAnalysis: ReferenceLogoAnalysis;
+  referenceVisualStyle: ReferenceVisualStyle | null;
+  copywritingProfile: CopywritingProfile | null;
+  rhetoricalFigures: RhetoricalFigures | null;
+  scrapedSummary: string | null;
+  scrapedBranding: Record<string, unknown> | null;
+  scrapedMarkdown: string | null;
+  isUrlScraped: boolean;
+  copywriting: string | null;
+  guidelinesTrimmed: string;
+  copyLanguage?: string;
+  matchedProductVisuals?: MatchedProductVisual[];
+  productName?: string | null;
+  allowedPrice?: string | null;
+};
+
+export function buildAdaptationContext(input: BuildContextInput): AdaptationContext {
+  const {
+    referencePrompt,
+    referenceTypography,
+    referenceProductPoseAndArrangement,
+    referenceReviewModule,
+    hasReferenceReviewModule,
+    referenceFeatureRow = '',
+    hasReferenceFeatureRow = false,
+    referenceLogoAnalysis,
+    referenceVisualStyle,
+    copywritingProfile,
+    rhetoricalFigures,
+    scrapedSummary,
+    scrapedBranding,
+    scrapedMarkdown,
+    isUrlScraped,
+    copywriting,
+    guidelinesTrimmed,
+    copyLanguage,
+    matchedProductVisuals = [],
+    productName = null,
+    allowedPrice = null,
+  } = input;
+
+  const pricingInstructions = buildPricingInstructions(allowedPrice);
+
+  const resolvedLang: CopyLanguageOption = resolveCopyLanguage(copyLanguage);
+  const langInstruction = copyLanguageInstruction(resolvedLang);
+
+  const isGraphicOnly = referenceVisualStyle?.designType === 'graphic-product-only';
+  const oneHeroOnly = referenceVisualStyle?.oneHeroOnly === true;
+  const guidelinesAskSingleHero =
+    !!guidelinesTrimmed &&
+    /main\s*element|as\s*(the\s*)?main\s*element|only\s*one\s*(main\s*)?element|single\s*(main\s*)?element/i.test(
+      guidelinesTrimmed
+    );
+  const enforceOneMainElement = oneHeroOnly || guidelinesAskSingleHero;
+  const hasPersonInReference = referenceVisualStyle?.hasPerson === true;
+
+  const headlineWords =
+    copywritingProfile?.headlineWordCount ??
+    (copywritingProfile?.wordCount != null
+      ? Math.min(5, Math.max(2, Math.floor((copywritingProfile.wordCount || 8) / 2)))
+      : 4);
+  const mainCopyWords =
+    copywritingProfile?.mainCopyWordCount ??
+    (copywritingProfile?.wordCount != null
+      ? Math.min(8, Math.max(3, copywritingProfile.wordCount || 8))
+      : 6);
+
+  const brandingIntegration = buildBrandingIntegration(
+    scrapedBranding,
+    referenceLogoAnalysis
+  );
+  const copywritingInstructions = buildCopywritingInstructions({
+    isUrlScraped,
+    scrapedSummary,
+    scrapedMarkdown,
+    copywriting,
+    copywritingProfile,
+    rhetoricalFigures,
+    headlineWords,
+    mainCopyWords,
+  });
+  const reviewModuleInstructions = hasReferenceReviewModule
+    ? buildReviewModuleInstructions(referenceReviewModule)
+    : '';
+
+  return {
+    referencePrompt,
+    referenceTypography,
+    referenceProductPoseAndArrangement,
+    referenceReviewModule,
+    hasReferenceReviewModule,
+    referenceFeatureRow,
+    hasReferenceFeatureRow,
+    referenceLogoAnalysis,
+    referenceVisualStyle,
+    copywritingProfile,
+    rhetoricalFigures,
+    scrapedSummary,
+    scrapedBranding,
+    scrapedMarkdown,
+    isUrlScraped,
+    manualCopywriting: copywriting && !isUrlScraped ? copywriting : null,
+    guidelinesTrimmed,
+    isGraphicOnly,
+    oneHeroOnly,
+    guidelinesAskSingleHero,
+    enforceOneMainElement,
+    hasPersonInReference,
+    headlineWords,
+    mainCopyWords,
+    brandingIntegration,
+    copywritingInstructions,
+    reviewModuleInstructions,
+    copyLanguageCode: resolvedLang.code,
+    copyLanguageName: resolvedLang.name,
+    copyLanguageInstruction: langInstruction,
+    matchedProductVisuals,
+    productName,
+    allowedPrice,
+    pricingInstructions,
+  };
+}
+
+function buildBrandingIntegration(
+  scrapedBranding: Record<string, unknown> | null,
+  logoAnalysis: ReferenceLogoAnalysis
+): string {
+  const placement = logoAnalysis.placement;
+  const forbidStandaloneLogo =
+    placement === 'copy-only' ||
+    placement === 'logo-on-product-only' ||
+    (placement === 'unknown' && !logoAnalysis.standaloneLogoInLayout);
+
+  const brandColors = scrapedBranding
+    ? ((scrapedBranding.colors as Record<string, unknown>) || {})
+    : {};
+  const colorList = Object.entries(brandColors)
+    .map(([key, value]) => {
+      if (typeof value === 'string') return `${key}: ${value}`;
+      if (value && typeof value === 'object' && 'value' in value) {
+        return `${key}: ${(value as { value: string }).value}`;
+      }
+      return `${key}: ${JSON.stringify(value)}`;
+    })
+    .filter(Boolean)
+    .join(', ');
+
+  const typographyInfo = scrapedBranding
+    ? ((scrapedBranding.typography as Record<string, unknown>) || {})
+    : {};
+  const fontsInfo = scrapedBranding
+    ? ((scrapedBranding.fonts as { family?: string; name?: string }[]) || [])
+    : [];
+  const fontList = fontsInfo
+    .map((f) => f.family || f.name || '')
+    .filter(Boolean)
+    .join(', ');
+
+  if (forbidStandaloneLogo) {
+    return `**Brand Integration (NO STANDALONE LOGO — match reference layout):**
+The reference ad does NOT use a separate brand logo mark in the layout (no centered wordmark, no corner logo badge, no large logo between headline and product).
+- **Do NOT add** a standalone brand logo, wordmark, or emblem in the design — even if scraped branding includes a logo URL.
+- Brand identity = **headline/copy text only** + logos/labels that already appear **on the product** in the user's product image (packaging print only).
+${logoAnalysis.notes ? `- Reference notes: ${logoAnalysis.notes}` : ''}
+${colorList ? `- Product brand colors (accents/background only): ${colorList}` : ''}
+${typographyInfo.fontFamilies || fontList ? `- Typography for headlines: ${typographyInfo.fontFamilies || fontList}` : ''}
+Maintain the reference's copy-only brand presentation.`;
+  }
+
+  if (!scrapedBranding) return '';
+
+  const logoRaw = scrapedBranding.logo;
+  const logoUrl =
+    (logoRaw as { url?: string })?.url ??
+    (typeof logoRaw === 'string' ? logoRaw : null) ??
+    (scrapedBranding.logoUrl as string | undefined) ??
+    null;
+
+  const logoInstruction = logoUrl
+    ? `- **Standalone brand logo (reference has one):** Recreate the product's brand logo in the SAME layout position and style as the reference standalone logo. Logo URL for reference: ${logoUrl}.`
+    : `- **Standalone brand logo:** The reference includes a separate logo in the layout — place the product's brand logo in the same position and style.`;
+
+  return `**Brand Integration:**
+The reference ad includes a **standalone logo** in the layout (not only on packaging). Replicate that placement with the user's brand.
+${logoInstruction}
+${colorList ? `- Product Brand Colors: ${colorList}` : ''}
+${typographyInfo.fontFamilies || fontList ? `- Product Brand Typography: ${typographyInfo.fontFamilies || fontList}` : ''}
+${typographyInfo.fontSizes ? `- Brand Font Sizes: ${JSON.stringify(typographyInfo.fontSizes)}` : ''}
+Integrate while maintaining the reference ad's overall design structure.`;
+}
+
+function buildCopywritingInstructions(opts: {
+  isUrlScraped: boolean;
+  scrapedSummary: string | null;
+  scrapedMarkdown: string | null;
+  copywriting: string | null;
+  copywritingProfile: CopywritingProfile | null;
+  rhetoricalFigures: RhetoricalFigures | null;
+  headlineWords: number;
+  mainCopyWords: number;
+}): string {
+  const {
+    isUrlScraped,
+    scrapedSummary,
+    scrapedMarkdown,
+    copywriting,
+    copywritingProfile,
+    rhetoricalFigures,
+    headlineWords,
+    mainCopyWords,
+  } = opts;
+
+  if (isUrlScraped && scrapedSummary && copywritingProfile && rhetoricalFigures) {
+    return `**Copywriting Creation (CRITICAL — SAME TEXT ARCHITECTURE + BREVITY):**
+The reference ad has a specific text stack (see Text Structure). Your output MUST use the SAME number and types of lines — brand name, sub-tagline, headline, spec line, icon labels, etc. Do NOT collapse to a simplified 2-line ad.
+The reference uses SHORT, punchy text — grammatically correct, natural phrasing:
+- **Line 1 (tagline/headline):** MAX ${headlineWords} words.
+- **Line 2 (main copy/slogan) — SAME FUNCTION AS REFERENCE:** MAX ${mainCopyWords} words. ${copywritingProfile.functionOfLine2 ? `Reference function: "${copywritingProfile.functionOfLine2}". Device: ${copywritingProfile.linguisticDeviceLine2 || 'match reference'}.` : 'Match reference tone/device.'}
+- **Spec/credentials line:** If reference has one (e.g. "22 momme. Grade 6A..."), write equivalent using ONLY scraped facts; same brevity and punctuation style.
+- **Icon labels:** If reference has icon row, adapt each label (1–3 words) from scrape; same count and order.
+- **Text structure from reference:** ${copywritingProfile.textStructure || 'match all visible lines'}
+- **Phrasing (CRITICAL):** Every phrase MUST be well-written and grammatically correct. Avoid awkward constructions. Keep the same tone, rhetorical figure, and style — only output phrases that read naturally and correctly in English. Line 2 must be proper ad copy with the same effect as the reference, never a feature list or spec dump.
+Using the scraped product page information below, DISTILL the key concepts (offer, product benefit, occasion) into these two SHORT, WELL-PHRASED lines. Same rhetorical figure: "${rhetoricalFigures.primary || 'match style'}", tone: "${copywritingProfile.tone || 'professional'}", style: "${copywritingProfile.styleCategory || 'persuasive'}".
+
+**Scraped Product Page Data — USE THIS DATA when it contains discounts, offers, reviews:**
+Summary: ${scrapedSummary}
+${scrapedMarkdown ? `
+Full page content (markdown) — extract exact discount %, offers, review numbers from here:
+---
+${scrapedMarkdown.length > 8000 ? scrapedMarkdown.slice(0, 8000) + '\n\n[...]' : scrapedMarkdown}
+---
+If the page says "70% off" or any discount/offer, USE IT. If it has review numbers, USE THEM. The scraped data is the source of truth.` : ''}
+
+**STRICT DATA RULE:** Use ONLY what is in the scraped data above. When the scraped data CONTAINS discount %, offers, reviews — USE THEM (e.g. if it says "70% off", put "70% OFF" in the ad). Do NOT add "FREE GIFTS" or other claims NOT in the scraped data. Never invent or copy from the reference ad. **PRICES:** Never show a dollar amount unless it appears in the scraped data above — never copy prices from the reference competitor ad.
+
+Create two short phrases: (1) a brief tagline (${headlineWords} words or fewer), (2) a brief main line (${mainCopyWords} words or fewer). Both must be grammatically correct and natural-sounding in the target copy language specified in adaptation context. In your final prompt, specify the exact short text to appear, e.g. centered text: "[TAGLINE]" and below "[MAIN COPY]".`;
+  }
+
+  if (copywriting && !isUrlScraped) {
+    return `**Copywriting:**
+Use this exact copywriting in the prompt: "${copywriting}"`;
+  }
+
+  return `**Copywriting:**
+Match the reference TEXT ARCHITECTURE (all lines: brand, sub-tagline, headline, spec line, icon labels) — same count and roles. Brevity per line; grammatically correct.
+- Line 1 (tagline): max ${headlineWords} words. Line 2 (main copy): max ${mainCopyWords} words.
+- **Structure:** ${copywritingProfile?.textStructure || 'mirror every text block from reference'}
+- **Line 2 function:** Same rhetorical device as reference — not a generic spec dump unless reference line 2 is specs.
+- **Icon row:** If reference has icons, adapt all labels (1–3 words each), same count/order.
+- **STRICT DATA:** Do NOT add "FREE GIFTS", "BIG DISCOUNTS", discount %, or review numbers unless they are in the scraped data. Without scraped data, use only "SALE" or "Highly rated" (no numbers), or omit. Never invent or copy from reference.
+- Rhetorical figure: ${rhetoricalFigures?.primary || 'match reference'}
+- Tone: ${copywritingProfile?.tone || 'professional'}
+- Style: ${copywritingProfile?.styleCategory || 'persuasive'}`;
+}
+
+function buildReviewModuleInstructions(referenceReviewModule: string): string {
+  return `**Social Proof / Review Module (CRITICAL — recreate but adapt content):**
+The reference ad includes a customer review/testimonial/social-proof block. You MUST recreate the same module visually (same placement, card/bubble shape, background color, rounded corners, star row style, reviewer name line, "verified" badge/checkmark if present) but ADAPT its content to the user's product.
+- **Do NOT copy the reference review text**. Write a new, believable testimonial that matches the reference tone/energy (including censored profanity like "f*ck" ONLY if the reference uses it), but is clearly about the user's product and its real use case.
+- **STRICT DATA RULE for numbers:** If the scraped product page data includes star rating (e.g. 4.8/5), review count (e.g. 27,000+), or specific claims, use ONLY those. If not present in scraped data, do NOT invent numeric ratings/review counts. You may still show a star row as a purely visual element, but omit explicit numbers like "4.8/5" or "27,000+".
+- Use the module structure described here as the blueprint:
+---
+${referenceReviewModule}
+---`;
+}
+
+export function contextSummaryForAgent(ctx: AdaptationContext): string {
+  return JSON.stringify(
+    {
+      rules: {
+        isGraphicOnly: ctx.isGraphicOnly,
+        hasPersonInReference: ctx.hasPersonInReference,
+        enforceOneMainElement: ctx.enforceOneMainElement,
+        headlineWords: ctx.headlineWords,
+        mainCopyWords: ctx.mainCopyWords,
+      },
+      referenceVisualStyle: ctx.referenceVisualStyle,
+      referenceLogoPlacement: ctx.referenceLogoAnalysis,
+      copyLanguage: { code: ctx.copyLanguageCode, name: ctx.copyLanguageName },
+      copywritingProfile: ctx.copywritingProfile,
+      rhetoricalFigures: ctx.rhetoricalFigures,
+      hasReferenceReviewModule: ctx.hasReferenceReviewModule,
+      hasReferenceFeatureRow: ctx.hasReferenceFeatureRow,
+      referenceFeatureRow: ctx.hasReferenceFeatureRow
+        ? ctx.referenceFeatureRow.slice(0, 1500)
+        : null,
+      guidelines: ctx.guidelinesTrimmed || null,
+      manualCopywriting: ctx.manualCopywriting,
+      isUrlScraped: ctx.isUrlScraped,
+      scrapedSummary: ctx.scrapedSummary?.slice(0, 4000) ?? null,
+      scrapedMarkdown: ctx.scrapedMarkdown?.slice(0, 6000) ?? null,
+      referenceTypography: ctx.referenceTypography?.slice(0, 2000) ?? null,
+      referenceProductPoseAndArrangement: ctx.referenceProductPoseAndArrangement?.slice(0, 2000) ?? null,
+      referenceReviewModule: ctx.hasReferenceReviewModule
+        ? ctx.referenceReviewModule.slice(0, 1500)
+        : null,
+      referencePromptPreview: ctx.referencePrompt.slice(0, 3500),
+      productName: ctx.productName,
+      matchedProductVisuals: ctx.matchedProductVisuals,
+      allowedPrice: ctx.allowedPrice,
+    },
+    null,
+    2
+  );
+}

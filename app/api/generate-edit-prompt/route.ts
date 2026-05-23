@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
+import { GEMINI_MODEL } from '@/lib/gemini-model';
 
 function getGoogleGenAI() {
   const key = process.env.GOOGLE_GENAI_API_KEY;
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Image file not ready in time' }, { status: 500 });
     }
 
-    const systemPrompt = `You are an expert prompt engineer for AI image editing. The user will provide an image (a static ad or creative) and short instructions describing what they want to change. Your job is to output a single, detailed image-generation prompt that describes the FULL image AFTER applying the requested edits. The prompt will be used with an image-to-image model (Nano Banana 2), so it must:
+    const systemPrompt = `You are an expert prompt engineer for AI image editing. The user will provide an image (a static ad or creative) and short instructions describing what they want to change. Your job is to output a single, detailed image-generation prompt that describes the FULL image AFTER applying the requested edits. The prompt will be used with GPT Image 2 image-to-image (Kie.ai), so it must:
 1. Describe the entire scene, layout, colors, typography, and composition.
 2. Incorporate the user's requested changes clearly.
 3. Preserve everything in the image that the user did not ask to change.
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
 Output ONLY the prompt text, no preamble or explanation.`;
 
     const result = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: GEMINI_MODEL,
       contents: [
         {
           role: 'user',

@@ -2,16 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getClientIpHash, tryClaimFreeTrial } from '@/lib/free-trial';
-
-const KIE_BASE = 'https://api.kie.ai/api/v1/jobs';
-const POLL_INTERVAL_MS = 2500;
-const POLL_TIMEOUT_MS = 240000; // 4 min
-
-function getKieApiKey(): string {
-  const key = process.env.KIE_AI_API_KEY;
-  if (!key) throw new Error('KIE_AI_API_KEY is not set');
-  return key;
-}
+import { editImageWithKie } from '@/lib/kie';
 
 async function uploadImageToImgBB(base64DataUrl: string): Promise<string> {
   const key = process.env.IMGBB_API_KEY;
@@ -26,59 +17,9 @@ async function uploadImageToImgBB(base64DataUrl: string): Promise<string> {
   return json.data.url as string;
 }
 
-async function createKieTask(
-  apiKey: string,
-  prompt: string,
-  imageInputUrl: string,
-  aspectRatio: string,
-  callBackUrl: string | undefined
-): Promise<string> {
-  const resolvedRatio = aspectRatio === 'auto' ? '9:16' : aspectRatio;
-  const body = {
-    model: 'nano-banana-2',
-    callBackUrl: callBackUrl || undefined,
-    input: {
-      prompt,
-      image_input: [imageInputUrl],
-      aspect_ratio: resolvedRatio,
-      google_search: false,
-      resolution: '1K',
-      output_format: 'jpg',
-    },
-  };
-  const res = await fetch(`${KIE_BASE}/createTask`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify(body),
-  });
-  const result = await res.json();
-  if (result.code !== 200 || !result.data?.taskId) throw new Error(result.message || result.error || 'Kie createTask failed');
-  return result.data.taskId as string;
-}
-
-async function pollRecordInfo(apiKey: string, taskId: string): Promise<{ resultUrls: string[] }> {
-  const start = Date.now();
-  while (Date.now() - start < POLL_TIMEOUT_MS) {
-    const res = await fetch(`${KIE_BASE}/recordInfo?taskId=${encodeURIComponent(taskId)}`, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
-    const result = await res.json();
-    if (result.code !== 200 || !result.data) throw new Error(result.message || 'Failed to get task status');
-    const { state, resultJson, failMsg } = result.data;
-    if (state === 'failed') throw new Error(failMsg || 'Task failed');
-    if (state === 'success' && resultJson) {
-      try {
-        const parsed = typeof resultJson === 'string' ? JSON.parse(resultJson) : resultJson;
-        const urls = parsed?.resultUrls;
-        if (Array.isArray(urls) && urls.length > 0) return { resultUrls: urls };
-      } catch {
-        // ignore
-      }
-    }
-    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-  }
-  throw new Error('Task timed out');
+function appendAspectRatioHint(prompt: string, aspectRatio: string): string {
+  if (aspectRatio === 'auto') return prompt;
+  return `${prompt}\n\nTarget aspect ratio for the final image: ${aspectRatio}.`;
 }
 
 export async function POST(request: NextRequest) {
@@ -97,7 +38,10 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user?.email) {
       return NextResponse.json({ error: 'Sign in required' }, { status: 401 });
     }
@@ -107,7 +51,8 @@ export async function POST(request: NextRequest) {
     }
 
     const ownerEmailFromEnv = process.env.OWNER_EMAIL?.trim()?.toLowerCase();
-    const ownerEmail = ownerEmailFromEnv && ownerEmailFromEnv.length > 0 ? ownerEmailFromEnv : 'diegolinaresd10@gmail.com';
+    const ownerEmail =
+      ownerEmailFromEnv && ownerEmailFromEnv.length > 0 ? ownerEmailFromEnv : 'diegolinaresd10@gmail.com';
     const isOwner = email === ownerEmail;
 
     if (!isOwner) {
@@ -138,16 +83,42 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const allowedRatios = ['9:16', '16:9', '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '1:4', '1:8', '4:1', '8:1', '21:9', 'auto'];
-    const aspectRatio = typeof aspectRatioParam === 'string' && allowedRatios.includes(aspectRatioParam) ? aspectRatioParam : 'auto';
+    const allowedRatios = [
+      '9:16',
+      '16:9',
+      '1:1',
+      '2:3',
+      '3:2',
+      '3:4',
+      '4:3',
+      '4:5',
+      '5:4',
+      '1:4',
+      '1:8',
+      '4:1',
+      '8:1',
+      '21:9',
+      'auto',
+    ];
+    const aspectRatio =
+      typeof aspectRatioParam === 'string' && allowedRatios.includes(aspectRatioParam)
+        ? aspectRatioParam
+        : 'auto';
 
     const imageUrl = await uploadImageToImgBB(imageBase64);
-    const apiKey = getKieApiKey();
-    const callBackUrl = process.env.KIE_CALLBACK_URL || undefined;
-    const taskId = await createKieTask(apiKey, prompt, imageUrl, aspectRatio, callBackUrl);
-    const { resultUrls } = await pollRecordInfo(apiKey, taskId);
+    const fullPrompt = appendAspectRatioHint(prompt, aspectRatio);
+    const { imageUrl: outUrl, taskId } = await editImageWithKie({
+      prompt: fullPrompt,
+      imageUrl,
+      aspectRatio,
+    });
 
-    return NextResponse.json({ imageUrl: resultUrls[0], resultUrls, taskId });
+    return NextResponse.json({
+      imageUrl: outUrl,
+      resultUrls: [outUrl],
+      taskId,
+      model: 'gpt-image-2-image-to-image',
+    });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to edit image';
     return NextResponse.json({ error: message }, { status: 500 });

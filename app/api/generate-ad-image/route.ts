@@ -2,130 +2,55 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getClientIpHash, tryClaimFreeTrial } from '@/lib/free-trial';
+import { uploadBase64ToImgBB } from '@/lib/imgbb';
+import type { AdVisualMode } from '@/lib/ad-visual-mode';
+import { generateAdImageWithKie } from '@/lib/kie';
 
-const KIE_BASE = 'https://api.kie.ai/api/v1/jobs';
-const POLL_INTERVAL_MS = 2500;
-const POLL_TIMEOUT_MS = 240000; // 4 min (Kie can be slow; use callBackUrl in production to avoid blocking)
-
-function getKieApiKey(): string {
-  const key = process.env.KIE_AI_API_KEY;
-  if (!key) {
-    throw new Error('KIE_AI_API_KEY is not set. Add it to .env.local');
-  }
-  return key;
-}
-
-/** Upload base64 image to ImgBB and return public URL */
-async function uploadImageToImgBB(base64DataUrl: string): Promise<string> {
-  const key = process.env.IMGBB_API_KEY;
-  if (!key) {
-    throw new Error('IMGBB_API_KEY is not set. Add it to .env.local to upload the product image.');
-  }
-  const base64Only = base64DataUrl.replace(/^data:image\/\w+;base64,/, '');
-  const form = new FormData();
-  form.set('key', key);
-  form.set('image', base64Only);
-
-  const res = await fetch('https://api.imgbb.com/1/upload', {
-    method: 'POST',
-    body: form,
-  });
-  const json = await res.json();
-  if (!json.success || !json.data?.url) {
-    throw new Error(json?.error?.message || 'Failed to upload image to ImgBB');
-  }
-  return json.data.url as string;
-}
-
-/** Create Nano Banana task and return taskId */
-async function createKieTask(
-  apiKey: string,
-  prompt: string,
-  imageInputUrl: string,
-  aspectRatio: string,
-  callBackUrl: string | undefined
-): Promise<string> {
-  const body = {
-    model: 'nano-banana-2',
-    callBackUrl: callBackUrl || undefined,
-    input: {
-      prompt,
-      image_input: [imageInputUrl],
-      aspect_ratio: aspectRatio,
-      google_search: false,
-      resolution: '1K', // 1K is faster; use 2K only if you need higher res
-      output_format: 'jpg',
-    },
-  };
-
-  const res = await fetch(`${KIE_BASE}/createTask`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
-  });
-
-  const result = await res.json();
-  if (result.code !== 200 || !result.data?.taskId) {
-    throw new Error(result.message || result.error || 'Kie createTask failed');
-  }
-  return result.data.taskId as string;
-}
-
-/** Poll recordInfo until state is success or failed */
-async function pollRecordInfo(apiKey: string, taskId: string): Promise<{ resultUrls: string[]; state: string }> {
-  const start = Date.now();
-  while (Date.now() - start < POLL_TIMEOUT_MS) {
-    const res = await fetch(`${KIE_BASE}/recordInfo?taskId=${encodeURIComponent(taskId)}`, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
-    const result = await res.json();
-    if (result.code !== 200 || !result.data) {
-      throw new Error(result.message || 'Failed to get task status');
-    }
-    const { state, resultJson, failMsg } = result.data;
-    if (state === 'failed') {
-      throw new Error(failMsg || 'Task failed');
-    }
-    if (state === 'success' && resultJson) {
-      try {
-        const parsed = typeof resultJson === 'string' ? (JSON.parse(resultJson) as { resultUrls?: string[] }) : resultJson as { resultUrls?: string[] };
-        const urls = parsed?.resultUrls;
-        if (Array.isArray(urls) && urls.length > 0) {
-          return { resultUrls: urls, state: 'success' };
-        }
-      } catch {
-        // ignore parse error, keep polling or fail at timeout
-      }
-    }
-    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-  }
-  throw new Error('Task timed out');
+function appendAspectRatioHint(prompt: string, aspectRatio: string): string {
+  if (aspectRatio === 'auto') return prompt;
+  return `${prompt}\n\nTarget aspect ratio for the final image: ${aspectRatio}.`;
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { prompt, productImageBase64, productImageUrl: productImageUrlParam, aspectRatio: aspectRatioParam, creationId: creationIdParam } = body as {
+    const {
+      prompt,
+      productImageBase64,
+      productImageUrl: productImageUrlParam,
+      productImageUrls: productImageUrlsParam,
+      referenceImageUrl: referenceImageUrlParam,
+      referenceImageBase64,
+      aspectRatio: aspectRatioParam,
+      adVisualMode: adVisualModeParam,
+      creationId: creationIdParam,
+    } = body as {
       prompt?: string;
       productImageBase64?: string;
       productImageUrl?: string;
+      productImageUrls?: string[];
+      referenceImageUrl?: string;
+      referenceImageBase64?: string;
       aspectRatio?: string;
+      adVisualMode?: AdVisualMode;
       creationId?: string;
     };
-    const creationId = typeof creationIdParam === 'string' && creationIdParam.trim() ? creationIdParam.trim() : null;
+    const creationId =
+      typeof creationIdParam === 'string' && creationIdParam.trim()
+        ? creationIdParam.trim()
+        : null;
     if (!prompt || typeof prompt !== 'string') {
-      return NextResponse.json(
-        { error: 'Missing or invalid prompt' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing or invalid prompt' }, { status: 400 });
     }
 
+    const adVisualMode: AdVisualMode =
+      adVisualModeParam === 'realistic' ? 'realistic' : 'design';
+
     const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user?.email) {
       return NextResponse.json({ error: 'Sign in required' }, { status: 401 });
     }
@@ -167,36 +92,79 @@ export async function POST(request: NextRequest) {
         const ipHash = getClientIpHash(request);
         const claimed = await tryClaimFreeTrial(admin, ipHash);
         if (!claimed) {
-          return NextResponse.json({ error: 'No credits remaining', credits_remaining: 0 }, { status: 402 });
+          return NextResponse.json(
+            { error: 'No credits remaining', credits_remaining: 0 },
+            { status: 402 }
+          );
         }
       }
     }
 
-    const allowedRatios = ['9:16', '16:9', '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '1:4', '1:8', '4:1', '8:1', '21:9', 'auto'];
+    const allowedRatios = [
+      '9:16',
+      '16:9',
+      '1:1',
+      '2:3',
+      '3:2',
+      '3:4',
+      '4:3',
+      '4:5',
+      '5:4',
+      '1:4',
+      '1:8',
+      '4:1',
+      '8:1',
+      '21:9',
+      'auto',
+    ];
     const aspectRatio =
       typeof aspectRatioParam === 'string' && allowedRatios.includes(aspectRatioParam)
         ? aspectRatioParam
         : 'auto';
 
-    let productImageUrl: string;
-    if (productImageUrlParam && typeof productImageUrlParam === 'string' && productImageUrlParam.startsWith('http')) {
-      productImageUrl = productImageUrlParam;
-    } else if (productImageBase64 && typeof productImageBase64 === 'string') {
-      productImageUrl = await uploadImageToImgBB(productImageBase64);
-    } else {
+    let productImageUrls: string[] = [];
+    if (Array.isArray(productImageUrlsParam) && productImageUrlsParam.length > 0) {
+      productImageUrls = productImageUrlsParam.filter(
+        (u): u is string => typeof u === 'string' && u.startsWith('http')
+      );
+    }
+    if (productImageUrls.length === 0) {
+      if (
+        productImageUrlParam &&
+        typeof productImageUrlParam === 'string' &&
+        productImageUrlParam.startsWith('http')
+      ) {
+        productImageUrls = [productImageUrlParam];
+      } else if (productImageBase64 && typeof productImageBase64 === 'string') {
+        productImageUrls = [await uploadBase64ToImgBB(productImageBase64)];
+      }
+    }
+    if (productImageUrls.length === 0) {
       return NextResponse.json(
-        { error: 'Missing productImageUrl or productImageBase64' },
+        { error: 'Missing productImageUrls, productImageUrl or productImageBase64' },
         { status: 400 }
       );
     }
 
-    const apiKey = getKieApiKey();
-    const callBackUrl = process.env.KIE_CALLBACK_URL || undefined;
+    let referenceImageUrl: string | null = null;
+    if (
+      referenceImageUrlParam &&
+      typeof referenceImageUrlParam === 'string' &&
+      referenceImageUrlParam.startsWith('http')
+    ) {
+      referenceImageUrl = referenceImageUrlParam;
+    } else if (referenceImageBase64 && typeof referenceImageBase64 === 'string') {
+      referenceImageUrl = await uploadBase64ToImgBB(referenceImageBase64);
+    }
 
-    const taskId = await createKieTask(apiKey, prompt, productImageUrl, aspectRatio, callBackUrl);
-    const { resultUrls } = await pollRecordInfo(apiKey, taskId);
-
-    const imageUrl = resultUrls[0];
+    const fullPrompt = appendAspectRatioHint(prompt, aspectRatio);
+    const { imageUrl, taskId, model } = await generateAdImageWithKie({
+      prompt: fullPrompt,
+      productImageUrls: productImageUrls.slice(0, 8),
+      referenceImageUrl,
+      aspectRatio,
+      adVisualMode,
+    });
 
     if (creationId && user?.id) {
       const admin = createAdminClient();
@@ -209,8 +177,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       imageUrl,
-      resultUrls,
+      resultUrls: [imageUrl],
       taskId,
+      model,
+      adVisualMode,
       creationId: creationId ?? undefined,
     });
   } catch (err: unknown) {
