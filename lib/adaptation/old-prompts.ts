@@ -64,8 +64,8 @@ Your task:
     - Does the reference ad show ANY environment like gym, sport setting, or location? (yes/no)
     - **Number of main visual elements:** Does the reference have ONE single hero element (e.g. one cookie, one product item only) or multiple (e.g. product + packaging, two items)? Answer: "one-hero-only" if there is exactly one main focal subject; "multiple" if there are two or more distinct main elements (e.g. packaging + item). This will be used to avoid adding packaging when the reference has only one hero.
     - If NO person and NO gym/environment: the ad is "graphic/product-only" (product + background/graphics only). The adaptation must STAY graphic — do not insert people or gym.
-    - If it HAS a person (or people): the adaptation must **keep the same number of people and the same shot type** (e.g. hand holding product, selfie, couple, lifestyle) — **only the product identity changes** to the user's product; do not remove models or convert to a product-only layout unless explicitly requested.
-    - If it HAS an environment but the key subject is people + product: preserve people; swap product only.
+    - If it HAS a person (or people): the adaptation must **keep the same number of people and the same shot type** (portrait, lifestyle, close-up, hand-holding, etc.) and the same **ad composition** (framing, mood, lighting). The **user's product** must appear in its **authentic real-world use** — not by copying how the competitor's product was worn, held, or placed if that would be wrong for the new product (e.g. reference wears a head wrap → user sells a pillowcase → show sleep/bedding use, NOT a pillowcase worn as a turban).
+    - If it HAS an environment but the key subject is people + product: preserve people and shot energy; adapt setting to the user's product use case when needed (bedroom for bedding, bathroom for skincare, etc.).
 
 4. **PRODUCT POSE, POSITION AND PLACEMENT (CRITICAL — identify exactly for replication):**
     - **Product pose/orientation:** How is the product displayed? (e.g. **lying down** flat or at an angle, **standing upright**, on its side, **scattered** at various angles, grouped in a row, stacked). Describe precisely: "lying down and slightly angled", "standing upright facing camera", "multiple items scattered with different tilts", etc. This MUST be replicated in the generated ad so the new product appears in the SAME pose — e.g. if the reference shows earplugs lying down and scattered, the new product must also be shown lying down and at similar angles, NOT standing upright.
@@ -145,6 +145,19 @@ If "graphic-product-only": the ad is purely product + background/graphics (no pe
 - **Function of Line 2 (CRITICAL):** What does the second line do? (e.g. wordplay on a word like "uninterrupted" → "sleep interrupted", punchline, sarcastic twist, metaphor, benefit with a joke, double meaning). Describe so the generated ad can replicate the SAME function — the second line must NOT become a generic product spec (e.g. "45db noise cancelling") but must fulfill the same rhetorical role (e.g. clever twist, joke, wordplay).
 - **Linguistic device of second line:** [wordplay / sarcasm / metaphor / joke / punchline / double meaning / straight benefit / other]. The new copy must use the same kind of device.
 - **DO NOT COPY when adapting (product-specific data):** List any discount percentages (e.g. "64% OFF"), review numbers (e.g. "4.8/5 From 27,000+"), or other numerical claims in the reference. These must come ONLY from the scraped product page — never copy from reference.
+- **Promo / offer line in layout:** Does the reference have a SEPARATE line for sales/discounts (e.g. "30% OFF", "FLASH SALE", "FREE SHIPPING") distinct from the main headline? (yes/no). If no, adaptation must NOT add promo lines even if the product page has discounts.
+
+**PROMO / OFFER LINE (REFERENCE AD):**
+- Present: [yes/no]
+- Exact text (if yes): [verbatim promo line only]
+- Placement: [below headline / banner / corner — one phrase]
+(If no promo line exists, write "Present: no".)
+
+**TRUST BADGE / AWARD SEAL (REFERENCE AD):**
+- Present: [yes/no]
+- Description: [e.g. circular "Award Winner" press seal overlapping product]
+- Placement: [e.g. bottom-right on center product, overlapping edge, scale ~15% of frame width]
+(If absent, write "Present: no".)
 
 **ICON / FEATURE ROW (REFERENCE AD):**
 - Present: [yes/no]
@@ -176,15 +189,31 @@ Write it so the image model renders the user's product in this layout. Example: 
 [Generate a COMPREHENSIVE, EXTREMELY DETAILED prompt that would recreate this exact static ad. Include ALL visual elements: composition, colors, typography with exact text placement and EVERY text line verbatim, icon/feature rows with each icon and label, background, product presentation (especially: **product pose** — lying down / standing upright / scattered / on its side and exact angles; **product position** — inclined/tilted and direction; **product placement** — submerged/nestled among fruits or objects, with those elements wrapping around the product's base and sides, partially obscuring edges; lighting, shadows, reflections), person/character (if present), effects, buttons (if present). The prompt should be ready to use in an AI image generator and would produce an identical image.]`;
 }
 
+function productUseCaseAdaptationBlock(ctx: AdaptationContext): string {
+  if (!ctx.hasPersonInReference) return '';
+  return `**CRITICAL — AUTHENTIC PRODUCT USE (do not copy the competitor product literally):**
+The reference shows a person with the **competitor's** product. Your ad must show a person with the **user's** product from the provided image — in how that product is **actually used**, not by morphing it into the competitor's interaction.
+
+**Keep from reference:** number of people, shot type (portrait / lifestyle / close-up), camera framing, mood, lighting quality, color palette, text layout, premium aesthetic.
+
+**Derive from the user's product:** real use case — bedding on bed/pillow, skincare applied or held near face, apparel worn, supplement in hand, etc.
+- **Do NOT** force the user's product into the competitor's pose when it is physically wrong (pillowcase as head wrap, protein tub as phone, etc.).
+- **DO** show the user's product clearly and believably in scene (visible pillowcase, packaging, texture) with a model interaction that matches the product category.
+- If reference and user product are the **same category** (both wearable accessories, both held in hand): you may keep similar grip/placement.
+
+**Examples:** Reference model wearing silk head wrap + user sells silk pillowcase → model in soft bedroom/beauty shot with head resting on or beside the pillowcase, product as bedding; NOT wearing the pillowcase on the head. Reference hand-holding serum + user sells serum → similar hand hold is OK.
+`;
+}
+
 function peopleModelsCriticalBlock(ctx: AdaptationContext): string {
   if (!ctx.hasPersonInReference) return '';
   return `**CRITICAL — KEEP PEOPLE / MODELS (reference shows humans):**
-The reference ad includes one or more **people** (holding the product, using it, or in a location). You MUST **preserve the human presence** in the final ad:
-- **Do NOT remove people** and do NOT turn the ad into a **product-only** shot (no models, floating product only, or empty background with product alone) unless the user explicitly requests that in Guidelines.
-- **Do NOT replace the whole scene** with a different setting that drops the reference composition (e.g. do not remove a couple, a hand model, or a lifestyle shot just to "match category").
-- **Replace ONLY the product** with the user's product from the provided image: same **number of people**, same **framing / camera angle**, same **hand positions, grip, and interaction** with the product (how they hold it, tilt, distance to face/body, product angle).
-- **Avatars / appearance:** You MAY describe **different** faces, hair, skin tone, age, or styling for **diversity** ("fresh avatars"), but keep the **same poses, roles, and product interaction** as the reference.
-- **Setting:** Keep the **same type of environment** as the reference (room, outdoor, gym, bathroom, etc.) unless Guidelines say otherwise — do not force a full location swap purely to match product category if that would **lose** the people or the shot type.
+The reference ad includes one or more **people** using or featuring a product. You MUST **preserve the human presence** in the final ad:
+- **Do NOT remove people** and do NOT turn the ad into a **product-only** shot unless the user explicitly requests that in Guidelines.
+- **Do NOT drop** the reference's shot type (portrait, lifestyle, close-up) — keep the same **framing and visual grammar**.
+- **Product interaction is dynamic:** Show the **user's product** in its **authentic use case** (see AUTHENTIC PRODUCT USE above). Clone composition and mood; **do not** clone the competitor's product form (worn on head, wrong grip) when the user's product is used differently.
+- **Avatars / appearance:** You MAY vary faces, hair, skin tone, age for diversity; keep the same **shot energy** and product visibility.
+- **Setting:** Prefer a setting that fits the **user's product use** (bedroom for bedding, bathroom for skincare) while matching the reference's **production quality** and mood. Minor setting shifts are OK when required for believable product use.
 `;
 }
 
@@ -198,7 +227,7 @@ The reference ad has only ONE main visual hero (e.g. one cookie, one food item).
 function graphicOnlyBlock(ctx: AdaptationContext): string {
   if (!ctx.isGraphicOnly) {
     if (ctx.hasPersonInReference) {
-      return `**Person/Environment (reference has people):** **Priority: keep the same people-based composition.** Only swap the product for the user's product; preserve models and interaction. Optional: refresh avatar diversity. Broader scene changes (e.g. gym vs home) only if user Guidelines ask for them.`;
+      return `**Person/Environment (reference has people):** **Priority: keep people + same shot type/framing.** Show the user's product in **authentic use** — adapt pose/setting when the competitor's product interaction does not fit (see AUTHENTIC PRODUCT USE). Optional: refresh avatar diversity.`;
     }
     return `**Person/Environment (reference has person or setting):** You may adapt the person/action or environment to match the new product context (e.g. creatine → gym) or follow user Guidelines.`;
   }
@@ -218,11 +247,12 @@ function analyzeProductContextBlock(ctx: AdaptationContext): string {
   }
   if (hasPersonInReference) {
     return `1. **Analyze Product Context (CRITICAL):**
-   - Analyze the product image to understand: product type, category, purpose, target audience, industry
-   - **People preserved (reference has models):** Keep the **same number of people**, same **shot type** (e.g. selfie, hand holding product, couple, lifestyle), and the **same interaction** with the product. **Replace ONLY the product** with the user's product. Do **not** remove models or switch to a product-only layout unless Guidelines require it.
-     * You may adjust **minor** styling (wardrobe colors) if needed for plausibility, but **do not** change the core pose/action or remove people to "match use case".
-   - Always maintain the EXACT same design structure, composition, and layout from reference
-   - Keep the **same background/setting category** as the reference (e.g. same room type, same indoor/outdoor) unless Guidelines specify otherwise — do not discard the models or the location to force a category cliché.
+   - Analyze the product image to understand: product type, category, purpose, target audience, industry, and **how it is actually used** (worn, held, applied, slept on, placed in room, etc.)
+   - **People preserved (reference has models):** Keep the **same number of people** and **same shot type/framing** (portrait, lifestyle, close-up). Show the **user's product in authentic use** — NOT a literal copy of the competitor's interaction when categories differ (e.g. head wrap → pillowcase = bedding/sleep context, not turban).
+     * **Adapt pose and scene** to match the user's product use while preserving reference **composition, mood, and ad layout**.
+     * Do **not** remove models or switch to product-only unless Guidelines require it.
+   - Always maintain the EXACT same design structure, composition, and layout from reference (text zones, full-bleed, hierarchy)
+   - Setting may shift to a believable use context (bedroom, bathroom, vanity) if needed for the user's product — keep the same production quality and aesthetic as the reference.
    - Keep all visual design principles, effects, and aesthetics consistent`;
   }
   return `1. **Analyze Product Context (CRITICAL):**
@@ -243,13 +273,13 @@ function maintainDesignElementsBlock(ctx: AdaptationContext): string {
     : '';
   return `2. **Maintain ALL design elements** from the reference prompt:
    - Keep the EXACT same composition structure
-   ${hasPersonInReference ? `- **People + product (CRITICAL):** The reference is a **people + product** shot. Explicitly describe **each person** (or "the model(s)") in the same positions as the reference, with the **user's product** replacing the old product in the **same hands / same hold / same angle** toward camera. Do not omit human figures from the prompt.` : ''}
-   - **Product POSE AND ARRANGEMENT (CRITICAL — you MUST use the block above):** The reference ad has a specific product pose, order, and arrangement${poseNote} (e.g. lying horizontally, tips out, bases in, two pairs clustered, soft shadows). You MUST describe the user's product in THAT pose/arrangement in your final prompt — use the exact "PRODUCT POSE AND ARRANGEMENT" block provided, adapting only the product name to "the product from the provided image". Do NOT describe the product as it appears in the user's uploaded image (e.g. if their photo shows earplugs standing upright, ignore that — describe them in the reference pose: lying down, same angles and order). The image generator needs this so it composes a NEW scene with the user's product in the reference's layout; otherwise it will just overlay text on the upload.
+   ${hasPersonInReference ? `- **People + product (CRITICAL):** The reference is a **people + product** shot. Explicitly describe **each person** with the **user's product in authentic use** (natural interaction for that product category). Match reference **framing and mood**; do NOT copy the competitor's wrong interaction (e.g. wearing bedding on the head). Do not omit human figures from the prompt.` : ''}
+   - **Product POSE AND ARRANGEMENT (CRITICAL — you MUST use the block above):**${hasPersonInReference ? ` For **lifestyle / model-in-use** references: treat the pose block as describing the **competitor's** placement for context only — in your final prompt, translate to the **user's product authentic use** (same shot energy, correct interaction).` : ''} The reference ad has a specific product pose, order, and arrangement${poseNote} (e.g. lying horizontally, tips out, bases in, two pairs clustered, soft shadows). You MUST describe the user's product in an arrangement that fits the reference **layout**${hasPersonInReference ? ' and believable model interaction' : ''} — use the "PRODUCT POSE AND ARRANGEMENT" block when it applies to flat/product-row shots; for in-use lifestyle shots, prioritize authentic use over copying competitor wear/placement. Do NOT describe the product only as in the flat upload if the ad needs a composed lifestyle scene.
    - **Product position and placement (CRITICAL — replicate exactly):** Identify in the reference ad how the product is positioned (inclined/tilted? which direction/angle?) and how it is placed relative to the background (e.g. submerged/nestled among fruit, with fruit wrapping around its base and sides, partially covering edges; or sitting on top). Your prompt MUST describe the SAME for the new product: same inclination/tilt and direction, same "submerged/nestled" relationship — background elements (fruits, objects) must surround the product, rise around its base and sides, partially obscure it where the reference does, so the product looks integrated into the scene, not floating or simply on top of a flat layer.
    - **Composition and framing (CRITICAL — match reference):** In the reference ad, background elements (e.g. fruits, objects, textures, scenery) fill the ENTIRE frame edge to edge; the product is centered. There are NO blank margins or empty white space around the edges. Your prompt MUST describe this: background and decorative elements must extend to all sides and fill the frame completely; full-bleed composition; no empty borders or white space.
    - Keep the EXACT same layout and positioning of all elements
    - Keep the EXACT same visual effects (lighting style, shadows, effects)
-   ${isGraphicOnly ? '- Do NOT add any person/character or gym — reference ad is product + graphics only.' : hasPersonInReference ? '- **Person/Character:** **Keep the people.** Same count, same placement in frame, same interaction with the product. You may vary appearance for diversity (avatars) but **not** remove or replace the scene with a product-only mockup.' : "- **Person/Character**: Maintain the same visual style and presentation approach, BUT adapt the person's pose, expression, clothing, and actions to be coherent with the NEW product's actual use case (see section 4 for details)."}
+   ${isGraphicOnly ? '- Do NOT add any person/character or gym — reference ad is product + graphics only.' : hasPersonInReference ? '- **Person/Character:** **Keep the people.** Same count, same framing in frame. **Adapt interaction** so the user\'s product is used authentically (not a literal copy of competitor wear/hold when wrong). You may vary appearance for diversity (avatars) but **not** remove people or replace with product-only mockup.' : "- **Person/Character**: Maintain the same visual style and presentation approach, BUT adapt the person's pose, expression, clothing, and actions to be coherent with the NEW product's actual use case (see section 4 for details)."}
    - Keep the EXACT same buttons/CTAs design and placement (if applicable)
    - **Typography: COPY the typography from the reference ad** — same font style/type, sizes, weights, text placement, alignment and text effects (shadows, outlines). The headline and copy must look like the reference ad's typography.`;
 }
@@ -259,7 +289,7 @@ function replaceAdaptProductBlock(ctx: AdaptationContext): string {
   const header = isGraphicOnly
     ? '4. **Replace/Adapt product references:**'
     : hasPersonInReference
-      ? '4. **Replace/Adapt product references (keep all people; product swap only):**'
+      ? '4. **Replace/Adapt product references (keep people; authentic product-in-use):**'
       : '4. **Replace/Adapt product references AND adapt people/actions to match product context (CRITICAL):**';
 
   let peopleBlock = '';
@@ -267,11 +297,14 @@ function replaceAdaptProductBlock(ctx: AdaptationContext): string {
     peopleBlock =
       '- Keep the ad graphic: only product(s), background, and graphic elements (splashes, fruits, etc.). No people, no gym, no sport environment.';
   } else if (hasPersonInReference) {
-    peopleBlock = `- **PEOPLE STAY — PRODUCT SWAPS (CRITICAL):**
-     * **Do not remove or replace** the reference's people with a different layout. **Do not** convert to a category stock scene (e.g. forcing "gym for supplements") if the reference was a bathroom, car, or home — unless user Guidelines explicitly ask for that change.
-     * Show the **same number of people** with the **same poses and composition**; the **user's product** appears **in the same hand-hold / use / placement** as the old product.
-     * Optional: describe **new avatars** (different faces, hair, skin tone, age) for diversity while keeping **identical poses and interaction**.
-   - If reference shows person holding product: describe the model(s) holding the **USER's product** with the **same grip, angle, and distance** as the reference.`;
+    peopleBlock = `- **PEOPLE STAY — AUTHENTIC PRODUCT-IN-USE (CRITICAL):**
+     * **Do not remove** people or convert to product-only layout.
+     * Show the **same number of people** with the **same shot type and framing** as the reference.
+     * The **user's product** must appear in its **real use case** — analyze the product image and category first. **Do not** copy the competitor's interaction when it misrepresents the user's product (worn on head, wrong grip, wrong context).
+     * **Adapt pose, hands, and setting** so the scene is believable (bedding in bedroom, skincare at vanity, apparel worn correctly). Keep reference **mood, lighting, and ad layout**.
+     * Optional: **new avatars** (faces, hair, skin tone) for diversity.
+   - If reference shows person with product on body: re-stage for the **user's product** (e.g. pillowcase on bed with model resting, not wrapped on head unless it is headwear).
+   - If reference shows hand holding product and user's product is also handheld: similar grip and angle is OK.`;
   } else {
     peopleBlock = `- **ADAPT PEOPLE AND ACTIONS TO MATCH PRODUCT CONTEXT:**
      * If product is fitness/sports (e.g., creatine, protein): show person in gym/sports setting, working out, athletic clothing and active pose
@@ -307,14 +340,18 @@ function outputRequirementsBlock(ctx: AdaptationContext): string {
 Provide ONLY the final, complete, EXTREMELY DETAILED prompt ready for AI image generation. The prompt should:
 - Maintain ALL visual design elements from the reference prompt (composition, layout, typography placement, background style, effects)
 - **Full-bleed composition (CRITICAL):** Describe the scene so that background and surrounding elements (e.g. fruits, objects, textures, scenery${hasPersonInReference ? ', people' : ''}) fill the ENTIRE image edge to edge like the reference${hasPersonInReference ? '; people-based shots may center on models + product, not only a lone product' : '; the product is centered where the reference centers it'}. There must be NO blank or white margins — the composition must be full-bleed like the reference ad, with elements reaching all sides of the frame.
-- **Product pose, position and placement (CRITICAL):** You MUST include the exact product pose and arrangement from the "PRODUCT POSE AND ARRANGEMENT" block above, adapted for "the product from the provided image". Describe the user's product in the REFERENCE pose${hasPersonInReference ? ' and **with the same model interaction** (hands, hold, angle)' : ''} (lying down, same angles, same order and overlap) — do NOT describe it as it appears in the uploaded image, or the generator will just add text to that image. Same "submerged/nestled" placement where applicable. Same shadows, lighting, reflections. Product design (colors, branding, shape) comes from the provided image; pose, angle, and arrangement come from the reference block.
+- **Product pose, position and placement (CRITICAL):**${hasPersonInReference ? ' For lifestyle/model shots: describe the user\'s product in **authentic use** with the same shot framing as the reference — do NOT copy competitor wear/placement when wrong for the new product. For flat product-row references: use the PRODUCT POSE block.' : ''} Include product pose/arrangement from the "PRODUCT POSE AND ARRANGEMENT" block when it describes layout (row, angles, shadows) — adapted for "the product from the provided image". Product design (colors, branding, shape) comes from the provided image${hasPersonInReference ? '; interaction and scene come from the user\'s real use case' : '; pose and arrangement come from the reference block'}.
 ${scrapedBranding ? "- Where the reference ad shows brand name or logo, specify that the product's brand logo (from the scraped page) appears in the same position and style for a personalized look." : ''}
 - **Copy length and phrasing:** Describe EVERY text line from the reference (brand name, sub-tagline, headline, spec line, icon labels) — not a simplified 2-line layout. Tagline ≤ ${headlineWords} words; main secondary ≤ ${mainCopyWords} words. Same tone as reference; clear, conversion-ready copy. **The second line must fulfill the SAME function as the reference** (wordplay, punchline, sarcasm, metaphor) — never use generic product specs as main copy unless the reference does. Grammatically correct. Never one long sentence as the headline.
 ${ctx.hasReferenceFeatureRow ? '- **Icon/feature row:** Include the full icon row with same count, style, and placement as reference; use approved icon labels.' : ''}
-- **STRICT DATA — ONLY scraped content:** Do NOT add "FREE GIFTS", "BIG DISCOUNTS", discount %, review numbers, or any promotional claim not in the scraped data. If not in scraped data, omit or use generic "SALE" / "Highly rated" (no numbers). Never invent or copy from reference.
+- **Promo lines:** ${ctx.referenceHasPromoOfferLine ? 'Only if approved copy includes promo claims from scrape.' : 'Reference had no promo line — final image must NOT include sale/discount/flash-offer text.'}
+- **Original headlines:** No verbatim reuse of reference competitor hooks${ctx.referenceVerbatimPhrases.length ? ` (${ctx.referenceVerbatimPhrases.join('; ')})` : ''}.
+- **Trust badge:** ${ctx.referenceTrustBadge.present ? 'Include award/press seal overlapping product as in reference, using user trust_badge image if provided.' : 'Only if reference had one.'}
+- **Composition:** Balanced hierarchy — headline zone, comparison/table or hero product zone, product row with depth/shadows; seal overlaps product edge; no cramped text; full-bleed background.
+- **STRICT DATA:** Product facts from scrape/approved copy only. Never invent claims or copy competitor numbers from reference.
 ${hasReferenceReviewModule ? `- **Review module present:** Include the review/testimonial/social-proof module in the final image description, matching the reference's visual placement/style. Adapt the testimonial to the user's product. Do not invent numeric rating/review counts unless present in scraped data.` : ''}
 ${enforceOneMainElement ? '- **One main element only:** The scene must have ONE hero (e.g. the gummy or product item only). Do NOT describe product packaging, pouch, or a second element in the image.' : ''}
-${isGraphicOnly ? '- Keep the ad GRAPHIC: product + background/graphics only. No person, no gym, no sport environment (unless user requested it in Guidelines).' : hasPersonInReference ? "- **Keep people in the scene.** Same composition as reference; **only** the product is the user's. Optional avatar refresh for diversity." : "- Adapt contextual elements (person styling, actions/pose, setting) to match the NEW product's use case. Ensure the person is in coherent pose/action (e.g. exercising for fitness products)."}
+${isGraphicOnly ? '- Keep the ad GRAPHIC: product + background/graphics only. No person, no gym, no sport environment (unless user requested it in Guidelines).' : hasPersonInReference ? "- **Keep people in the scene.** Same framing/composition as reference; user's product shown in **authentic use** (not literal competitor interaction when wrong). Optional avatar refresh." : "- Adapt contextual elements (person styling, actions/pose, setting) to match the NEW product's use case. Ensure the person is in coherent pose/action (e.g. exercising for fitness products)."}
 - Feature the NEW product from the provided image in contextually appropriate use
 ${scrapedBranding ? '- Integrate product brand colors and typography where appropriate' : ''}
 - Be ready to use with Kie.ai image generation (Nano Banana Pro for design ads, GPT Image 2 for realistic ads)
@@ -356,9 +393,9 @@ export function buildFinalPromptGeneration(
   const poseBlock = referenceProductPoseAndArrangement
     ? `
 **PRODUCT POSE AND ARRANGEMENT (MANDATORY — do not skip):**
-${hasPersonInReference ? `**NOTE — Reference includes people (models):** This block describes how the product is shown **together with the same human interaction** as the reference (hands, hold, distance to face/body, angle). **Do NOT remove the people** to satisfy this block — keep the same number of models, framing, and interaction; only the **product identity** becomes the user's product from the provided image.
-` : ''}The reference ad shows the product in a specific pose and arrangement. The image generator will use your description to COMPOSE the scene; if you describe the product in the reference's pose, it will render the user's product in that pose. If you describe the product as in the user's uploaded image, the result will just add text to that image (wrong).
-You MUST include the following product pose and arrangement in your final prompt. Describe the USER'S product (from the provided image) in THIS exact pose and arrangement — not in the pose of the uploaded image:
+${hasPersonInReference ? `**NOTE — Reference includes people (models):** This block describes the **competitor's** product placement. Keep the same **number of models and shot framing**; show the **user's product in authentic use** — do NOT copy competitor interaction when it misrepresents the new product (e.g. head wrap → pillowcase = bedding/sleep, not worn on head).
+` : ''}The reference ad shows the product in a specific pose and arrangement. The image generator will use your description to COMPOSE the scene${hasPersonInReference ? '; for lifestyle shots, prioritize authentic product-in-use over copying competitor wear/placement' : ''}. If you describe the product as only the flat upload with no composed scene, the result will be wrong.
+You MUST include product placement in your final prompt. Describe the USER'S product (from the provided image)${hasPersonInReference ? ' in believable use with the model(s), matching reference framing' : ' in THIS exact pose and arrangement — not only as in the flat upload'}:
 ---
 ${referenceProductPoseAndArrangement}
 ---
@@ -384,7 +421,8 @@ You MUST replicate the same typography style, font appearance, sizes, weights, p
 - People/scene: ${options.visual.peopleAndSceneRules}
 - Composition: ${options.visual.compositionRules}
 - Branding: ${options.visual.brandingNotes}
-${options.visual.iconRowNotes ? `- Icon row: ${options.visual.iconRowNotes}` : ''}`
+${options.visual.iconRowNotes ? `- Icon row: ${options.visual.iconRowNotes}` : ''}
+${options.visual.trustBadgeNotes ? `- Trust badge: ${options.visual.trustBadgeNotes}` : ''}`
     : '';
 
   return `${options.preamble ?? 'You are an expert prompt engineer for AI static ad image generation (Kie.ai).'}
@@ -413,7 +451,7 @@ ${ctx.pricingInstructions}
 **Your Task:**
 Adapt the reference prompt above to create a NEW prompt for the product in the provided image. The new prompt must:
 
-${peopleModelsCriticalBlock(ctx)}${oneHeroBlock(ctx)}${graphicOnlyBlock(ctx)}
+${peopleModelsCriticalBlock(ctx)}${productUseCaseAdaptationBlock(ctx)}${oneHeroBlock(ctx)}${graphicOnlyBlock(ctx)}
 
 ${analyzeProductContextBlock(ctx)}
 
@@ -429,14 +467,16 @@ ${scrapedBranding ? '- Prefer REFERENCE AD typography for headline and main copy
 
 ${replaceAdaptProductBlock(ctx)}
 
-5. **STRICT DATA RULE — Use scraped data when it HAS the info; omit when it doesn't:**
-- **When scraped data CONTAINS discount %, offers, reviews — USE THEM.** E.g. if the page says "70% off", the ad must say "70% OFF". The scraped markdown has the full page content; extract and use exact numbers.
-- **When scraped data does NOT contain it — OMIT.** Do NOT add "FREE GIFTS", "BIG DISCOUNTS", or invent numbers. Never copy from the reference ad.
-- **Summary:** Use scraped data as source of truth. If 70% is in the data → use it. If free gifts are not in the data → do not add them.
+5. **STRICT DATA RULE — Match reference STRUCTURE; scraped data fills allowed slots only:**
+- **Promo/offer lines:** ${ctx.referenceHasPromoOfferLine ? 'Reference HAS a promo line — you may use scraped discount/offer text in that slot only (exact numbers from scrape).' : 'Reference has NO promo line — do NOT add "FLASH SALE", "% OFF", checkout offers, or any sale banner even if the product page mentions them.'}
+- **Original copy:** Never reuse reference headline/hook phrases verbatim${ctx.referenceVerbatimPhrases.length ? ` (forbidden: ${ctx.referenceVerbatimPhrases.map((p) => `"${p}"`).join(', ')})` : ''}. Same rhetorical pattern, new words for the user's product.
+- **When scraped data has benefits/specs** — use them in spec lines, icon labels, footers. Do NOT invent claims.
+- **When scraped data does NOT have a fact** — omit. Never copy competitor copy or numbers from the reference.
 
 6. **Create Copywriting (SAME TONE + CLEAR, PERFECT COPY — CRITICAL):**
 ${copywritingInstructions}
 **The reference ad has SHORT text.** Match its tone and style exactly, but every phrase MUST be clear, understandable, and effective copywriting — no confusing or vague wordplay (e.g. avoid "GUMMIES YOU CAN BUILD WITH A POP" which is unclear; use clear lines like "TASTES LIKE BERRY", "BOOST YOUR STRENGTH", "5G CREATINE ZERO SUGAR"). Same brevity: short tagline (${ctx.headlineWords} words or fewer) and short main line (${ctx.mainCopyWords} words or fewer). Grammatically correct and natural. The copy must be immediately understandable and conversion-ready while keeping the reference's tone, rhetorical figure, and style. Do NOT describe one long headline. Describe all short lines that match the reference text architecture (brand, headline, spec line, icon labels). **REMEMBER: ALL promotional text (FREE GIFTS, BIG DISCOUNTS, discount %, review numbers, etc.) must come STRICTLY from scraped data. If not in scraped data, omit. Never invent or copy from the reference.**
+${ctx.trustBadgeInstructions ? `\n${ctx.trustBadgeInstructions}\n` : ''}
 ${options.approvedCopy ? '**Use the Approved copy block above verbatim** — do not rewrite or simplify it.' : ''}
 ${guidelinesTrimmed ? `
 7. **Guidelines from the user (apply these changes):**
@@ -452,7 +492,7 @@ ${outputRequirementsBlock(ctx)}`;
 export function buildCopyAgentInstructions(ctx: AdaptationContext): string {
   return `${ctx.copywritingInstructions}
 
-**The reference ad has SHORT text (oldprompts finalPromptGeneration §6).** Match tone and style; every phrase clear and conversion-ready. Same brevity per line. Do NOT collapse multi-line layouts to 2 lines. Line 2 must fulfill the SAME rhetorical function as reference (wordplay/punchline/spec — match reference, not generic dumps). ALL promo claims from scraped data only.
+**The reference ad has SHORT text (oldprompts finalPromptGeneration §6).** Match tone and style; every phrase clear and conversion-ready. Same brevity per line. Do NOT collapse multi-line layouts to 2 lines. Line 2 must fulfill the SAME rhetorical function as reference (wordplay/punchline/spec — match reference, not generic dumps). **Never copy reference headline wording verbatim** — new hooks for the user's product. Promo claims only if reference had a promo line AND scrape supports them; otherwise promoClaimsUsed must be empty.
 
 **Text structure:** ${ctx.copywritingProfile?.textStructure ?? 'mirror every visible line from reference'}
 **Function of line 2:** ${ctx.copywritingProfile?.functionOfLine2 ?? 'match reference'}
@@ -461,7 +501,9 @@ export function buildCopyAgentInstructions(ctx: AdaptationContext): string {
 
 /** Visual agent — secciones 2 y 4 de finalPromptGeneration */
 export function buildVisualAgentInstructions(ctx: AdaptationContext): string {
-  return `${maintainDesignElementsBlock(ctx)}
+  return `${productUseCaseAdaptationBlock(ctx)}
+
+${maintainDesignElementsBlock(ctx)}
 
 ${replaceAdaptProductBlock(ctx)}`;
 }

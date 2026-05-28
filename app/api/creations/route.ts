@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { CREATIONS_LIST_LIMIT } from '@/lib/creations/constants';
+import { creationsRetentionCutoff, purgeExpiredCreations } from '@/lib/creations/purge';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,12 +27,19 @@ export async function GET() {
     if (authError || !user) {
       return NextResponse.json({ creations: [] });
     }
+
+    const admin = createAdminClient();
+    await purgeExpiredCreations(admin, user.id);
+
+    const cutoff = creationsRetentionCutoff();
     const { data, error } = await supabase
       .from('creations')
       .select('id, image_url, aspect_ratio, created_at, status')
       .eq('user_id', user.id)
+      .gte('created_at', cutoff)
       .order('created_at', { ascending: false })
-      .limit(50);
+      .limit(CREATIONS_LIST_LIMIT);
+
     if (error) {
       console.error('Supabase creations list error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -59,11 +69,19 @@ export async function POST(request: NextRequest) {
       image_url?: string;
       aspect_ratio?: string;
       prompt?: string;
-      status?: 'generating' | 'completed';
+      status?: 'generating' | 'completed' | 'failed';
     };
-    const status = statusParam === 'generating' ? 'generating' : 'completed';
+    const status =
+      statusParam === 'generating'
+        ? 'generating'
+        : statusParam === 'failed'
+          ? 'failed'
+          : 'completed';
     if (status === 'completed' && (!image_url || typeof image_url !== 'string')) {
-      return NextResponse.json({ error: 'image_url is required when status is not generating' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'image_url is required when status is completed' },
+        { status: 400 }
+      );
     }
     const { data, error } = await supabase
       .from('creations')
@@ -74,7 +92,7 @@ export async function POST(request: NextRequest) {
         prompt: prompt ?? null,
         status,
       })
-      .select('id, created_at, status')
+      .select('id, created_at, status, aspect_ratio, image_url')
       .single();
     if (error) {
       console.error('Supabase creations insert error:', error);

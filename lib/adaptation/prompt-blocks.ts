@@ -47,12 +47,14 @@ Clone the REFERENCE ad's text architecture for the USER's product — same numbe
 ${copyStructureRulesBlock(ctx)}
 
 RULES:
-- tagline: main headline (max ${ctx.headlineWords} words) — same rhetorical role as reference headline
+- tagline: main headline (max ${ctx.headlineWords} words) — same rhetorical role as reference headline but NEW wording (not verbatim from reference)
 - mainLine: secondary line (max ${ctx.mainCopyWords} words) — same function as reference line 2
 - brandName / brandSubtagline / specLine / textLines / featureIcons: as in reference structure
-- promoClaimsUsed / promoClaimsOmitted / reviewText / reviewNumericClaims
+- promoClaimsUsed / promoClaimsOmitted: ${ctx.referenceHasPromoOfferLine ? 'only promos explicitly in scraped data' : 'MUST be [] — reference has no promo line; do not add flash sales or % off'}
+- reviewText / reviewNumericClaims
 ${ctx.pricingInstructions}
-- NEVER copy competitor numbers, prices, or offers from reference
+- NEVER copy competitor numbers, prices, hooks, or offers from reference
+${ctx.referenceVerbatimPhrases.length ? `- Forbidden verbatim phrases: ${ctx.referenceVerbatimPhrases.join(', ')}` : ''}
 
 ${buildCopyAgentInstructions(ctx)}
 
@@ -98,8 +100,12 @@ ${featureRowInstructionsBlock(ctx)}
 ${buildVisualAgentInstructions(ctx)}
 
 RULES (JSON output):
-- poseAndArrangementParagraph: REFERENCE pose, NOT upload pose
-- peopleAndSceneRules / compositionRules / brandingNotes / iconRowNotes
+- poseAndArrangementParagraph: for flat/product-row refs use REFERENCE pose; for lifestyle/model-in-use refs describe USER product in **authentic use** (not literal competitor interaction when wrong)
+- peopleAndSceneRules: must state how model uses USER product believably; clone reference framing/mood, not competitor product form (e.g. pillowcase on bed, not as head wrap)
+- compositionRules / brandingNotes / iconRowNotes / trustBadgeNotes
+- compositionRules: visual hierarchy (headline → comparison/table → product row), spacing, shadows, full-bleed; product row with 2–4 units if reference shows multiple; award seal overlaps product per reference
+${ctx.referenceTrustBadge.present ? `- trustBadgeNotes: describe placing user's award seal (${ctx.referenceTrustBadge.placement || 'overlap on hero product'})` : ''}
+${ctx.trustBadgeInstructions ? ctx.trustBadgeInstructions : ''}
 
 ${ctx.referenceProductPoseAndArrangement ? `Reference pose:\n${ctx.referenceProductPoseAndArrangement}` : ''}
 
@@ -117,7 +123,8 @@ Output JSON only:
   "peopleAndSceneRules": string,
   "compositionRules": string,
   "brandingNotes": string,
-  "iconRowNotes": string
+  "iconRowNotes": string,
+  "trustBadgeNotes": string | null
 }`;
 }
 
@@ -129,33 +136,38 @@ export function qaRulesBlock(
   const iconCount = copy.featureIcons?.length ?? 0;
   const iconCheck =
     ctx.hasReferenceFeatureRow && iconCount > 0
-      ? `11. ICON ROW: Reference had feature/icon row — prompt must describe ${iconCount} icons with labels: ${copy.featureIcons!.map((i) => `"${i.label}"`).join(', ')}`
+      ? `13. ICON ROW: Reference had feature/icon row — prompt must describe ${iconCount} icons with labels: ${copy.featureIcons!.map((i) => `"${i.label}"`).join(', ')}`
       : ctx.hasReferenceFeatureRow
-        ? '11. ICON ROW: Reference had icon row but prompt omits it — FAIL'
+        ? '13. ICON ROW: Reference had icon row but prompt omits it — FAIL'
         : '';
 
   const lineCount = copy.textLines?.length ?? 2;
-  const structureCheck = `12. TEXT STRUCTURE: Prompt must include all ${lineCount} text blocks from approved copy (not a simplified 2-line ad if reference had more)`;
+  const structureCheck = `14. TEXT STRUCTURE: Prompt must include all ${lineCount} text blocks from approved copy (not a simplified 2-line ad if reference had more)`;
 
   return `You are a QA reviewer (oldprompts output requirements).
 
 Check the final prompt. Return JSON: { "pass": boolean, "issues": string[] }
 
 Rules:
-1. No competitor promo numbers unless in promoClaimsUsed
-2. Product pose from reference (not upload) — oldprompts §2 product POSE AND ARRANGEMENT
-3. isGraphicOnly → no people/gym
-4. hasPersonInReference → people still described
-5. Approved copy verbatim: tagline "${copy.tagline}", mainLine "${copy.mainLine}"
-6. Line 2 same rhetorical function as reference (not unrelated spec dump)
-7. enforceOneMainElement → no packaging as second hero
-8. Logo placement rules respected
-9. Copy language: ${ctx.copyLanguageName} (${ctx.copyLanguageCode})
-10. Pricing: ${ctx.allowedPrice ? `only "${ctx.allowedPrice}"` : 'no dollar amounts'}
+1. No competitor promo numbers unless in promoClaimsUsed; if referenceHasPromoOfferLine is false, promoClaimsUsed must be empty and prompt must not mention flash sale / % off
+2. Tagline must not match referenceVerbatimPhrases (no plagiarized hooks)
+3. Product pose from reference (not upload) — oldprompts §2 product POSE AND ARRANGEMENT
+4. isGraphicOnly → no people/gym
+5. hasPersonInReference → people still described; user's product in authentic use (not literal competitor interaction when wrong, e.g. no pillowcase as head wrap)
+6. Approved copy verbatim: tagline "${copy.tagline}", mainLine "${copy.mainLine}"
+7. Line 2 same rhetorical function as reference (not unrelated spec dump)
+8. enforceOneMainElement → no packaging as second hero
+9. Logo placement rules respected
+10. Copy language: ${ctx.copyLanguageName} (${ctx.copyLanguageCode})
+11. Pricing: ${ctx.allowedPrice ? `only "${ctx.allowedPrice}"` : 'no dollar amounts'}
+${ctx.referenceTrustBadge.present ? `12. TRUST BADGE: Reference had award seal — prompt must describe overlapping trust badge${ctx.matchedProductVisuals.some((m) => m.role === 'trust_badge') ? ' (product catalog includes trust_badge image)' : ' — FAIL if omitted'}` : ''}
 ${iconCheck}
 ${structureCheck}
-13. Full-bleed composition, same layout modules as reference (oldprompts Output section)
-14. Typography matches reference hierarchy
+15. Full-bleed composition, same layout modules as reference (oldprompts Output section)
+16. Typography matches reference hierarchy
+
+referenceHasPromoOfferLine: ${ctx.referenceHasPromoOfferLine}
+referenceVerbatimPhrases: ${JSON.stringify(ctx.referenceVerbatimPhrases)}
 
 promoClaimsUsed: ${JSON.stringify(copy.promoClaimsUsed)}
 

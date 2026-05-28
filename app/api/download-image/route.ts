@@ -24,6 +24,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid URL' }, { status: 400 });
   }
 
+  const inline = request.nextUrl.searchParams.get('display') === '1';
+  const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+
   try {
     const res = await fetch(url, {
       headers: { Accept: 'image/*' },
@@ -42,8 +45,10 @@ export async function GET(request: NextRequest) {
       status: 200,
       headers: {
         'Content-Type': contentType || 'image/jpeg',
-        'Content-Disposition': `attachment; filename="${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}"`,
-        'Cache-Control': 'no-store',
+        'Content-Disposition': inline
+          ? 'inline'
+          : `attachment; filename="${safeName}"`,
+        'Cache-Control': inline ? 'public, max-age=3600' : 'no-store',
       },
     });
   } catch (e) {

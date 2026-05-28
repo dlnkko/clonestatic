@@ -10,6 +10,7 @@ import type {
   MatchedProductVisual,
   ReferenceLogoAnalysis,
   ReferenceLogoPlacement,
+  ReferenceTrustBadge,
   ReferenceVisualStyle,
   RhetoricalFigures,
 } from './types';
@@ -78,6 +79,9 @@ export type BuildContextInput = {
   matchedProductVisuals?: MatchedProductVisual[];
   productName?: string | null;
   allowedPrice?: string | null;
+  referenceHasPromoOfferLine?: boolean;
+  referenceTrustBadge?: ReferenceTrustBadge;
+  referenceVerbatimPhrases?: string[];
 };
 
 export function buildAdaptationContext(input: BuildContextInput): AdaptationContext {
@@ -103,6 +107,9 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     matchedProductVisuals = [],
     productName = null,
     allowedPrice = null,
+    referenceHasPromoOfferLine = false,
+    referenceTrustBadge = { present: false, placement: '', description: '' },
+    referenceVerbatimPhrases = [],
   } = input;
 
   const pricingInstructions = buildPricingInstructions(allowedPrice);
@@ -144,7 +151,13 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     rhetoricalFigures,
     headlineWords,
     mainCopyWords,
+    referenceHasPromoOfferLine,
+    referenceVerbatimPhrases,
   });
+  const trustBadgeInstructions = buildTrustBadgeInstructions(
+    referenceTrustBadge,
+    matchedProductVisuals
+  );
   const reviewModuleInstructions = hasReferenceReviewModule
     ? buildReviewModuleInstructions(referenceReviewModule)
     : '';
@@ -184,7 +197,25 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     productName,
     allowedPrice,
     pricingInstructions,
+    referenceHasPromoOfferLine,
+    referenceTrustBadge,
+    referenceVerbatimPhrases,
+    trustBadgeInstructions,
   };
+}
+
+function buildTrustBadgeInstructions(
+  badge: ReferenceTrustBadge,
+  matched: MatchedProductVisual[]
+): string {
+  if (!badge.present) return '';
+  const matchedSeal = matched.find((m) => m.role === 'trust_badge');
+  return `**TRUST BADGE / AWARD SEAL (CRITICAL — match reference composition):**
+The reference ad includes a trust/award seal (${badge.description || 'award or press badge'}).
+- Placement: ${badge.placement || 'same overlap position as reference (typically bottom-right on hero product)'}
+- Use the user's trust badge from the provided product image${matchedSeal ? ` (matched asset: ${matchedSeal.description})` : ''} — render it at similar size, with soft shadow, overlapping the product like the reference.
+- Do NOT omit the seal if a trust_badge image was provided.
+- Do NOT invent a competitor's award text; use only what appears on the user's badge image.`;
 }
 
 function buildBrandingIntegration(
@@ -264,6 +295,8 @@ function buildCopywritingInstructions(opts: {
   rhetoricalFigures: RhetoricalFigures | null;
   headlineWords: number;
   mainCopyWords: number;
+  referenceHasPromoOfferLine: boolean;
+  referenceVerbatimPhrases: string[];
 }): string {
   const {
     isUrlScraped,
@@ -274,7 +307,18 @@ function buildCopywritingInstructions(opts: {
     rhetoricalFigures,
     headlineWords,
     mainCopyWords,
+    referenceHasPromoOfferLine,
+    referenceVerbatimPhrases,
   } = opts;
+
+  const antiVerbatimBlock =
+    referenceVerbatimPhrases.length > 0
+      ? `**ORIGINAL COPY (CRITICAL — do NOT plagiarize reference):** The reference competitor phrases ${referenceVerbatimPhrases.map((p) => `"${p}"`).join(', ')} must NOT appear verbatim or near-verbatim in the new ad. Write NEW hooks with the same structure, tone, and rhetorical device (e.g. same "ditch X for Y" pattern but different words and product-specific target).`
+      : `**ORIGINAL COPY (CRITICAL):** Do NOT reuse the reference ad's exact headline or hook wording. Paraphrase with the same tone, brevity, and rhetorical structure for the user's product.`;
+
+  const promoStructureBlock = referenceHasPromoOfferLine
+    ? `**PROMO LINES:** The reference includes a dedicated promo/offer line. You MAY add a promo line ONLY if the scraped product page explicitly mentions that offer (discount %, sale name, etc.). Use exact wording/numbers from scrape only.`
+    : `**PROMO LINES (CRITICAL):** The reference ad has NO separate promo/offer/discount line (no "X% OFF", no "FLASH SALE", no checkout offer under the headline). Do NOT add any promo line, sale banner, or discount text — even if the product page mentions discounts. Scraped offers are omitted unless the reference layout includes a promo slot.`;
 
   if (isUrlScraped && scrapedSummary && copywritingProfile && rhetoricalFigures) {
     return `**Copywriting Creation (CRITICAL — SAME TEXT ARCHITECTURE + BREVITY):**
@@ -288,16 +332,19 @@ The reference uses SHORT, punchy text — grammatically correct, natural phrasin
 - **Phrasing (CRITICAL):** Every phrase MUST be well-written and grammatically correct. Avoid awkward constructions. Keep the same tone, rhetorical figure, and style — only output phrases that read naturally and correctly in English. Line 2 must be proper ad copy with the same effect as the reference, never a feature list or spec dump.
 Using the scraped product page information below, DISTILL the key concepts (offer, product benefit, occasion) into these two SHORT, WELL-PHRASED lines. Same rhetorical figure: "${rhetoricalFigures.primary || 'match style'}", tone: "${copywritingProfile.tone || 'professional'}", style: "${copywritingProfile.styleCategory || 'persuasive'}".
 
-**Scraped Product Page Data — USE THIS DATA when it contains discounts, offers, reviews:**
+${antiVerbatimBlock}
+
+${promoStructureBlock}
+
+**Scraped Product Page Data — use for product facts, benefits, credentials (and promos ONLY when reference has a promo line):**
 Summary: ${scrapedSummary}
 ${scrapedMarkdown ? `
-Full page content (markdown) — extract exact discount %, offers, review numbers from here:
+Full page content (markdown):
 ---
 ${scrapedMarkdown.length > 8000 ? scrapedMarkdown.slice(0, 8000) + '\n\n[...]' : scrapedMarkdown}
----
-If the page says "70% off" or any discount/offer, USE IT. If it has review numbers, USE THEM. The scraped data is the source of truth.` : ''}
+---` : ''}
 
-**STRICT DATA RULE:** Use ONLY what is in the scraped data above. When the scraped data CONTAINS discount %, offers, reviews — USE THEM (e.g. if it says "70% off", put "70% OFF" in the ad). Do NOT add "FREE GIFTS" or other claims NOT in the scraped data. Never invent or copy from the reference ad. **PRICES:** Never show a dollar amount unless it appears in the scraped data above — never copy prices from the reference competitor ad.
+**STRICT DATA RULE:** Use scraped data for product-specific facts (materials, benefits, awards on the user's product). Do NOT add "FREE GIFTS" or claims NOT in scraped data. Never copy competitor copy or numbers from the reference. **PRICES:** Never show a dollar amount unless allowed in pricing rules — never copy competitor prices.
 
 Create two short phrases: (1) a brief tagline (${headlineWords} words or fewer), (2) a brief main line (${mainCopyWords} words or fewer). Both must be grammatically correct and natural-sounding in the target copy language specified in adaptation context. In your final prompt, specify the exact short text to appear, e.g. centered text: "[TAGLINE]" and below "[MAIN COPY]".`;
   }
@@ -308,12 +355,14 @@ Use this exact copywriting in the prompt: "${copywriting}"`;
   }
 
   return `**Copywriting:**
+${antiVerbatimBlock}
+${promoStructureBlock}
 Match the reference TEXT ARCHITECTURE (all lines: brand, sub-tagline, headline, spec line, icon labels) — same count and roles. Brevity per line; grammatically correct.
 - Line 1 (tagline): max ${headlineWords} words. Line 2 (main copy): max ${mainCopyWords} words.
 - **Structure:** ${copywritingProfile?.textStructure || 'mirror every text block from reference'}
 - **Line 2 function:** Same rhetorical device as reference — not a generic spec dump unless reference line 2 is specs.
 - **Icon row:** If reference has icons, adapt all labels (1–3 words each), same count/order.
-- **STRICT DATA:** Do NOT add "FREE GIFTS", "BIG DISCOUNTS", discount %, or review numbers unless they are in the scraped data. Without scraped data, use only "SALE" or "Highly rated" (no numbers), or omit. Never invent or copy from reference.
+- **STRICT DATA:** Do NOT add promo/discount lines unless reference had a promo slot. Never invent or copy competitor copy from reference.
 - Rhetorical figure: ${rhetoricalFigures?.primary || 'match reference'}
 - Tone: ${copywritingProfile?.tone || 'professional'}
 - Style: ${copywritingProfile?.styleCategory || 'persuasive'}`;
@@ -364,6 +413,9 @@ export function contextSummaryForAgent(ctx: AdaptationContext): string {
       productName: ctx.productName,
       matchedProductVisuals: ctx.matchedProductVisuals,
       allowedPrice: ctx.allowedPrice,
+      referenceHasPromoOfferLine: ctx.referenceHasPromoOfferLine,
+      referenceTrustBadge: ctx.referenceTrustBadge,
+      referenceVerbatimPhrases: ctx.referenceVerbatimPhrases,
     },
     null,
     2

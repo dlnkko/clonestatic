@@ -1,14 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getClientIpHash, tryClaimFreeTrial } from '@/lib/free-trial';
+import { runAdImageGenerationJob } from '@/lib/creations/generate-job';
+import { useCreditForGeneration } from '@/lib/creations/use-credit';
 import { uploadBase64ToImgBB } from '@/lib/imgbb';
 import type { AdVisualMode } from '@/lib/ad-visual-mode';
 import { generateAdImageWithKie } from '@/lib/kie';
 
+export const maxDuration = 300;
+
+const ALLOWED_RATIOS = [
+  '9:16',
+  '16:9',
+  '1:1',
+  '2:3',
+  '3:2',
+  '3:4',
+  '4:3',
+  '4:5',
+  '5:4',
+  '1:4',
+  '1:8',
+  '4:1',
+  '8:1',
+  '21:9',
+  'auto',
+] as const;
+
 function appendAspectRatioHint(prompt: string, aspectRatio: string): string {
   if (aspectRatio === 'auto') return prompt;
   return `${prompt}\n\nTarget aspect ratio for the final image: ${aspectRatio}.`;
+}
+
+function ownerEmail(): string {
+  const fromEnv = process.env.OWNER_EMAIL?.trim()?.toLowerCase();
+  return fromEnv && fromEnv.length > 0 ? fromEnv : 'diegolinaresd10@gmail.com';
 }
 
 export async function POST(request: NextRequest) {
@@ -35,10 +62,12 @@ export async function POST(request: NextRequest) {
       adVisualMode?: AdVisualMode;
       creationId?: string;
     };
+
     const creationId =
       typeof creationIdParam === 'string' && creationIdParam.trim()
         ? creationIdParam.trim()
         : null;
+
     if (!prompt || typeof prompt !== 'string') {
       return NextResponse.json({ error: 'Missing or invalid prompt' }, { status: 400 });
     }
@@ -51,7 +80,7 @@ export async function POST(request: NextRequest) {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser();
-    if (authError || !user?.email) {
+    if (authError || !user?.email || !user.id) {
       return NextResponse.json({ error: 'Sign in required' }, { status: 401 });
     }
     const email = user.email.trim().toLowerCase();
@@ -59,66 +88,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid email' }, { status: 400 });
     }
 
-    const ownerEmailFromEnv = process.env.OWNER_EMAIL?.trim()?.toLowerCase();
-    const ownerEmail =
-      ownerEmailFromEnv && ownerEmailFromEnv.length > 0
-        ? ownerEmailFromEnv
-        : 'diegolinaresd10@gmail.com';
-    const isOwner = email === ownerEmail;
-
-    if (!isOwner) {
-      const admin = createAdminClient();
-      const { data: row, error: fetchError } = await admin
-        .from('subscriptions')
-        .select('credits_remaining')
-        .eq('email', email)
-        .single();
-      const hasSubscription = !fetchError && row;
-      const current = hasSubscription ? Math.max(0, row.credits_remaining ?? 0) : 0;
-
-      if (hasSubscription && current >= 1) {
-        const { error: updateError } = await admin
-          .from('subscriptions')
-          .update({
-            credits_remaining: current - 1,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('email', email);
-        if (updateError) {
-          console.error('use-credit in generate-ad-image:', updateError);
-          return NextResponse.json({ error: 'Failed to use credit' }, { status: 500 });
-        }
-      } else {
-        const ipHash = getClientIpHash(request);
-        const claimed = await tryClaimFreeTrial(admin, ipHash);
-        if (!claimed) {
-          return NextResponse.json(
-            { error: 'No credits remaining', credits_remaining: 0 },
-            { status: 402 }
-          );
-        }
-      }
+    const isOwner = email === ownerEmail();
+    const admin = createAdminClient();
+    const credit = await useCreditForGeneration(request, admin, email, isOwner);
+    if (!credit.ok) {
+      return NextResponse.json(
+        { error: credit.error, credits_remaining: credit.credits_remaining },
+        { status: credit.status }
+      );
     }
 
-    const allowedRatios = [
-      '9:16',
-      '16:9',
-      '1:1',
-      '2:3',
-      '3:2',
-      '3:4',
-      '4:3',
-      '4:5',
-      '5:4',
-      '1:4',
-      '1:8',
-      '4:1',
-      '8:1',
-      '21:9',
-      'auto',
-    ];
     const aspectRatio =
-      typeof aspectRatioParam === 'string' && allowedRatios.includes(aspectRatioParam)
+      typeof aspectRatioParam === 'string' &&
+      (ALLOWED_RATIOS as readonly string[]).includes(aspectRatioParam)
         ? aspectRatioParam
         : 'auto';
 
@@ -157,6 +139,41 @@ export async function POST(request: NextRequest) {
       referenceImageUrl = await uploadBase64ToImgBB(referenceImageBase64);
     }
 
+    if (creationId) {
+      const { data: row } = await admin
+        .from('creations')
+        .select('id, status')
+        .eq('id', creationId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!row) {
+        return NextResponse.json({ error: 'Invalid creationId' }, { status: 400 });
+      }
+
+      after(async () => {
+        await runAdImageGenerationJob({
+          prompt,
+          productImageUrls,
+          referenceImageUrl,
+          aspectRatio,
+          adVisualMode,
+          creationId,
+          userId: user.id,
+          admin,
+        });
+      });
+
+      return NextResponse.json(
+        {
+          status: 'processing',
+          creationId,
+          message: 'Image generation started in the background.',
+        },
+        { status: 202 }
+      );
+    }
+
     const fullPrompt = appendAspectRatioHint(prompt, aspectRatio);
     const { imageUrl, taskId, model } = await generateAdImageWithKie({
       prompt: fullPrompt,
@@ -166,22 +183,13 @@ export async function POST(request: NextRequest) {
       adVisualMode,
     });
 
-    if (creationId && user?.id) {
-      const admin = createAdminClient();
-      await admin
-        .from('creations')
-        .update({ image_url: imageUrl, status: 'completed' })
-        .eq('id', creationId)
-        .eq('user_id', user.id);
-    }
-
     return NextResponse.json({
+      status: 'completed',
       imageUrl,
       resultUrls: [imageUrl],
       taskId,
       model,
       adVisualMode,
-      creationId: creationId ?? undefined,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to generate image';

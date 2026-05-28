@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { uploadBase64ToImgBB } from '@/lib/imgbb';
 import { rowToProduct } from '@/lib/products/db';
+import { classifyProductImagesHeuristic } from '@/lib/products/classify-images';
 import { scrapeProductPage } from '@/lib/products/scrape';
 import type { ProductImage, ProductScrapeCache } from '@/lib/products/types';
 import { checkRateLimit } from '@/lib/rate-limit';
@@ -179,7 +180,9 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      const primary = imageUrls[0]?.url;
+      const classifiedUrls = classifyProductImagesHeuristic(imageUrls);
+
+      const primary = classifiedUrls[0]?.url;
       if (!primary) {
         return NextResponse.json(
           { error: 'No product images found on page. Try manual entry.' },
@@ -220,7 +223,7 @@ export async function POST(request: NextRequest) {
           color_palette: colorPalette,
           logo_url: null,
           primary_image_url: primary,
-          images: imageUrls,
+          images: classifiedUrls,
           scrape_cache: scrapeCache,
         })
         .select('*')
@@ -270,6 +273,8 @@ export async function POST(request: NextRequest) {
         images.push({ url: logoUrl, kind: 'logo', alt: `${name.trim()} logo` });
       }
 
+      const classifiedImages = classifyProductImagesHeuristic(images);
+
       const colors = colorPalette
         ?.split(/[,;\n]+/)
         .map((c) => c.trim())
@@ -297,8 +302,8 @@ export async function POST(request: NextRequest) {
           target_audience: targetAudience?.trim().slice(0, 1000) || null,
           color_palette: colors?.length ? { colors } : null,
           logo_url: logoUrl,
-          primary_image_url: images[0].url,
-          images,
+          primary_image_url: classifiedImages[0].url,
+          images: classifiedImages,
           scrape_cache: manualCache,
         })
         .select('*')

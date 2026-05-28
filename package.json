@@ -6,7 +6,15 @@
     "dev": "next dev --port 3001",
     "build": "next build",
     "start": "next start --port 3001",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "ingest-library": "node scripts/ingest-static-library.mjs",
+    "ingest-library:refresh": "node scripts/ingest-static-library.mjs refresh",
+    "ingest-library:brands": "npx tsx scripts/ingest-direct.ts brand_bootstrap",
+    "ingest-library:brands:refresh": "npx tsx scripts/ingest-direct.ts brand_refresh",
+    "ingest-library:direct": "npx tsx scripts/ingest-direct.ts",
+    "validate-seed-names": "npx tsx scripts/validate-seed-names.ts",
+    "resolve-brand-names": "npx tsx scripts/resolve-brand-page-names.ts",
+    "reingest-corrected-brands": "npx tsx scripts/reingest-corrected-brands.ts"
   },
   "dependencies": {
     "@google/genai": "^1.30.0",

@@ -3,8 +3,9 @@ import { extractPricingFromText } from './extract-pricing';
 import type { ExtractedPricing, ProductImage } from './types';
 
 const IMAGE_EXT = /\.(jpe?g|png|webp|gif|avif)(\?|$)/i;
+/** Skip UI chrome only — do NOT skip award/trust badge assets (often contain "badge" in URL). */
 const SKIP_PATTERNS =
-  /(icon|favicon|sprite|logo-small|pixel|tracking|badge|arrow|chevron|social|facebook|twitter|instagram|svg)/i;
+  /(favicon|sprite|logo-small|pixel|tracking|arrow|chevron|social|facebook|twitter|instagram|\.svg$|\/icons?\/)/i;
 
 function isLikelyProductImage(url: string): boolean {
   if (!IMAGE_EXT.test(url)) return false;

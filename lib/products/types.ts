@@ -2,6 +2,7 @@ export type ProductImageKind =
   | 'product'
   | 'packaging'
   | 'logo'
+  | 'trust_badge'
   | 'lifestyle'
   | 'ingredient'
   | 'other';

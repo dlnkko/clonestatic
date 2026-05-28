@@ -9,8 +9,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Clonestatic",
-  description: "Generate high-quality AI image prompts from a reference static ad and your product image.",
+  title: "admirror — Clone winning static ads",
+  description:
+    "Turn top-performing US static ads into ready-to-publish creatives for your product. Reference, scrape, generate in minutes.",
 };
 
 export default function RootLayout({

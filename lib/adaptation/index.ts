@@ -11,7 +11,7 @@ import {
   type BuildContextInput,
 } from './context';
 import { runLegacyStep2 } from './legacy-step2';
-import type { AdaptationContext, Step2Result } from './types';
+import type { AdaptationContext, ClonePipelineCost, Step2Result } from './types';
 
 export {
   buildAdaptationContext,
@@ -24,7 +24,16 @@ export {
   getStaticAdAnalysisPrompt,
 } from './old-prompts';
 export { isAdaptationAgentEnabled, shouldFallbackToLegacyOnAgentError };
-export type { AdaptationContext, Step2Result };
+export {
+  buildClonePipelineCost,
+  costFromUsage,
+  GEMINI_35_FLASH_INPUT_PER_MILLION_USD,
+  GEMINI_35_FLASH_OUTPUT_PER_MILLION_USD,
+  GEMINI_PRICING_DOC_URL,
+  mergeStep2Usage,
+  usageFromMetadata,
+} from './cost';
+export type { AdaptationContext, ClonePipelineCost, Step2Result };
 
 export async function runStep2Adaptation(
   ai: GoogleGenAI,

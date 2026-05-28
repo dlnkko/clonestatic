@@ -11,7 +11,10 @@ Web app que clona solo la herramienta **Static Ad Prompt Generator**: subes un a
    Edita `.env.local` y añade:
    - `GOOGLE_GENAI_API_KEY` — obligatorio para generar prompts (Gemini `gemini-3.5-flash` en todo el backend).
    - `FIRECRAWL_API_KEY` — obligatorio si quieres usar "Product URL" (scraping de la página del producto). Si no lo configuras, esa opción fallará; puedes dejar el copywriting en blanco o escribir texto a mano.
-   - `SCRAPECREATORS_API_KEY` — obligatorio para la pestaña **Competitor Ads** (búsqueda de anuncios de Facebook/Instagram por categoría).
+   - `SCRAPECREATORS_API_KEY` — obligatorio para poblar la **Static Ad Library** (ingest batch vía Meta Ad Library).
+   - `CRON_SECRET` — protege `POST /api/admin/ingest-static-library` (cron + script local).
+   - Migración `010_static_ad_library.sql` — tablas `static_ads`, `static_ad_seeds`, bucket Storage (aplicar en Supabase).
+   - `SUPABASE_SERVICE_ROLE_KEY` — obligatorio para ingest (subida a Storage + escritura en DB).
    - `USE_ADAPTATION_AGENT` — Step 2 de adaptación (opcional):
      - `true` o sin definir → **agente multi-paso** (copy + visual + síntesis + QA). Por defecto.
      - `false` → comportamiento **legacy** (una sola llamada Gemini, como antes).
@@ -25,7 +28,14 @@ Web app que clona solo la herramienta **Static Ad Prompt Generator**: subes un a
    ```
    La app se abre en **http://localhost:3001** (puerto distinto al del proyecto principal para no chocar).
 
-3. **Build para producción**
+3. **Static Ad Library** — ver checklist en [`docs/STATIC_LIBRARY_SETUP.md`](docs/STATIC_LIBRARY_SETUP.md).
+   ```bash
+   npm run ingest-library          # bootstrap ~360 créditos (primera vez)
+   npm run ingest-library:refresh  # refresh ~180 créditos
+   ```
+   Cron Vercel: revisión **diaria**; ingest solo si pasaron **28 días** desde el último run exitoso.
+
+4. **Build para producción**
    ```bash
    npm run build
    npm start

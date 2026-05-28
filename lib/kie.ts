@@ -186,10 +186,9 @@ export async function generateAdImageWithKie(params: {
       prompt,
       input_urls: inputUrls,
       aspect_ratio: ratio,
+      // Always force 2K for GPT Image 2 requests.
+      resolution: '2K',
     };
-    if (ratio !== 'auto' && ratio !== '1:1') {
-      input.resolution = '2K';
-    }
 
     taskId = await createKieTask({ model, input });
   }
@@ -216,6 +215,8 @@ export async function editImageWithKie(params: {
       prompt: params.prompt,
       input_urls: [params.imageUrl],
       aspect_ratio: ratio,
+      // Always force 2K for GPT Image 2 requests.
+      resolution: '2K',
     },
   });
   const resultUrls = await pollKieTask(taskId);

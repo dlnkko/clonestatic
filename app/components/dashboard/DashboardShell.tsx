@@ -1,6 +1,5 @@
 'use client';
 
-import { ClonestaticLogo } from '../ClonestaticLogo';
 import { cn } from '@/lib/cn';
 
 export type DashboardTab =
@@ -8,7 +7,7 @@ export type DashboardTab =
   | 'history'
   | 'edit'
   | 'support'
-  | 'competitor-ads'
+  | 'ad-library'
   | 'products';
 
 const NAV: { id: DashboardTab; label: string; icon: React.ReactNode }[] = [
@@ -41,8 +40,8 @@ const NAV: { id: DashboardTab; label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
-    id: 'competitor-ads',
-    label: 'Competitors',
+    id: 'ad-library',
+    label: 'Ad Library',
     icon: (
       <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6z" />
@@ -101,32 +100,25 @@ export function DashboardShell({
     <div className="dash-app">
       <div className="dash-bg" aria-hidden />
 
-      <header className="dash-mobile-header md:hidden" aria-label="Navigation">
-        <button
-          type="button"
-          onClick={() => onSidebarOpen(true)}
-          className="dash-icon-btn dash-mobile-menu-btn"
-          aria-label="Open menu"
-        >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
-        <a href="/" className="dash-mobile-header-brand">
-          <ClonestaticLogo size="md" />
-        </a>
-        <div className="w-10 shrink-0" aria-hidden />
-      </header>
+      {!sidebarOpen && (
+      <button
+        type="button"
+        onClick={() => onSidebarOpen(true)}
+        className="dash-mobile-menu-fab md:hidden"
+        aria-label="Open menu"
+      >
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+      )}
 
       <aside className={cn('dash-sidebar', sidebarOpen && 'dash-sidebar-open')}>
-        <div className="dash-sidebar-brand">
-          <a href="/" className="dash-sidebar-logo-link">
-            <ClonestaticLogo size="md" />
-          </a>
+        <div className="dash-sidebar-mobile-close md:hidden">
           <button
             type="button"
             onClick={() => onSidebarOpen(false)}
-            className="dash-icon-btn md:hidden"
+            className="dash-icon-btn"
             aria-label="Close menu"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">

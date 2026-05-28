@@ -1,35 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getClientIpHash, tryClaimFreeTrial } from '@/lib/free-trial';
+import { runEditImageGenerationJob } from '@/lib/creations/generate-job';
+import { useCreditForGeneration } from '@/lib/creations/use-credit';
+import { uploadBase64ToImgBB } from '@/lib/imgbb';
 import { editImageWithKie } from '@/lib/kie';
 
-async function uploadImageToImgBB(base64DataUrl: string): Promise<string> {
-  const key = process.env.IMGBB_API_KEY;
-  if (!key) throw new Error('IMGBB_API_KEY is not set');
-  const base64Only = base64DataUrl.replace(/^data:image\/\w+;base64,/, '');
-  const form = new FormData();
-  form.set('key', key);
-  form.set('image', base64Only);
-  const res = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: form });
-  const json = await res.json();
-  if (!json.success || !json.data?.url) throw new Error(json?.error?.message || 'Failed to upload to ImgBB');
-  return json.data.url as string;
-}
+export const maxDuration = 300;
+
+const ALLOWED_RATIOS = [
+  '9:16',
+  '16:9',
+  '1:1',
+  '2:3',
+  '3:2',
+  '3:4',
+  '4:3',
+  '4:5',
+  '5:4',
+  '1:4',
+  '1:8',
+  '4:1',
+  '8:1',
+  '21:9',
+  'auto',
+] as const;
 
 function appendAspectRatioHint(prompt: string, aspectRatio: string): string {
   if (aspectRatio === 'auto') return prompt;
   return `${prompt}\n\nTarget aspect ratio for the final image: ${aspectRatio}.`;
 }
 
+function ownerEmail(): string {
+  const fromEnv = process.env.OWNER_EMAIL?.trim()?.toLowerCase();
+  return fromEnv && fromEnv.length > 0 ? fromEnv : 'diegolinaresd10@gmail.com';
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { prompt, imageBase64, aspectRatio: aspectRatioParam } = body as {
+    const {
+      prompt,
+      imageBase64,
+      aspectRatio: aspectRatioParam,
+      creationId: creationIdParam,
+    } = body as {
       prompt?: string;
       imageBase64?: string;
       aspectRatio?: string;
+      creationId?: string;
     };
+
+    const creationId =
+      typeof creationIdParam === 'string' && creationIdParam.trim()
+        ? creationIdParam.trim()
+        : null;
+
     if (!prompt || typeof prompt !== 'string') {
       return NextResponse.json({ error: 'Missing or invalid prompt' }, { status: 400 });
     }
@@ -42,7 +69,7 @@ export async function POST(request: NextRequest) {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser();
-    if (authError || !user?.email) {
+    if (authError || !user?.email || !user.id) {
       return NextResponse.json({ error: 'Sign in required' }, { status: 401 });
     }
     const email = user.email.trim().toLowerCase();
@@ -50,70 +77,66 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid email' }, { status: 400 });
     }
 
-    const ownerEmailFromEnv = process.env.OWNER_EMAIL?.trim()?.toLowerCase();
-    const ownerEmail =
-      ownerEmailFromEnv && ownerEmailFromEnv.length > 0 ? ownerEmailFromEnv : 'diegolinaresd10@gmail.com';
-    const isOwner = email === ownerEmail;
-
-    if (!isOwner) {
-      const admin = createAdminClient();
-      const { data: row, error: fetchError } = await admin
-        .from('subscriptions')
-        .select('credits_remaining')
-        .eq('email', email)
-        .single();
-      const hasSubscription = !fetchError && row;
-      const current = hasSubscription ? Math.max(0, row.credits_remaining ?? 0) : 0;
-
-      if (hasSubscription && current >= 1) {
-        const { error: updateError } = await admin
-          .from('subscriptions')
-          .update({ credits_remaining: current - 1, updated_at: new Date().toISOString() })
-          .eq('email', email);
-        if (updateError) {
-          console.error('edit-ad-image use-credit:', updateError);
-          return NextResponse.json({ error: 'Failed to use credit' }, { status: 500 });
-        }
-      } else {
-        const ipHash = getClientIpHash(request);
-        const claimed = await tryClaimFreeTrial(admin, ipHash);
-        if (!claimed) {
-          return NextResponse.json({ error: 'No credits remaining', credits_remaining: 0 }, { status: 402 });
-        }
-      }
+    const isOwner = email === ownerEmail();
+    const admin = createAdminClient();
+    const credit = await useCreditForGeneration(request, admin, email, isOwner);
+    if (!credit.ok) {
+      return NextResponse.json(
+        { error: credit.error, credits_remaining: credit.credits_remaining },
+        { status: credit.status }
+      );
     }
 
-    const allowedRatios = [
-      '9:16',
-      '16:9',
-      '1:1',
-      '2:3',
-      '3:2',
-      '3:4',
-      '4:3',
-      '4:5',
-      '5:4',
-      '1:4',
-      '1:8',
-      '4:1',
-      '8:1',
-      '21:9',
-      'auto',
-    ];
     const aspectRatio =
-      typeof aspectRatioParam === 'string' && allowedRatios.includes(aspectRatioParam)
+      typeof aspectRatioParam === 'string' &&
+      (ALLOWED_RATIOS as readonly string[]).includes(aspectRatioParam)
         ? aspectRatioParam
         : 'auto';
 
-    const imageUrl = await uploadImageToImgBB(imageBase64);
+    const sourceImageUrl = await uploadBase64ToImgBB(imageBase64);
+
+    if (creationId) {
+      const { data: row } = await admin
+        .from('creations')
+        .select('id')
+        .eq('id', creationId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!row) {
+        return NextResponse.json({ error: 'Invalid creationId' }, { status: 400 });
+      }
+
+      after(async () => {
+        await runEditImageGenerationJob({
+          prompt,
+          sourceImageUrl,
+          aspectRatio,
+          creationId,
+          userId: user.id,
+          admin,
+        });
+      });
+
+      return NextResponse.json(
+        {
+          status: 'processing',
+          creationId,
+          message: 'Edit started in the background.',
+        },
+        { status: 202 }
+      );
+    }
+
     const fullPrompt = appendAspectRatioHint(prompt, aspectRatio);
     const { imageUrl: outUrl, taskId } = await editImageWithKie({
       prompt: fullPrompt,
-      imageUrl,
+      imageUrl: sourceImageUrl,
       aspectRatio,
     });
 
     return NextResponse.json({
+      status: 'completed',
       imageUrl: outUrl,
       resultUrls: [outUrl],
       taskId,

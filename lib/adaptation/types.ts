@@ -14,6 +14,13 @@ export type CopywritingProfile = {
   styleCategory: string | null;
   functionOfLine2?: string | null;
   linguisticDeviceLine2?: string | null;
+  hasPromoOfferLine?: boolean;
+};
+
+export type ReferenceTrustBadge = {
+  present: boolean;
+  placement: string;
+  description: string;
 };
 
 export type AdaptedTextLine = {
@@ -86,6 +93,10 @@ export type AdaptationContext = {
   productName: string | null;
   allowedPrice: string | null;
   pricingInstructions: string;
+  referenceHasPromoOfferLine: boolean;
+  referenceTrustBadge: ReferenceTrustBadge;
+  referenceVerbatimPhrases: string[];
+  trustBadgeInstructions: string;
 };
 
 export type CopyAdaptationResult = {
@@ -111,6 +122,7 @@ export type VisualAdaptationResult = {
   compositionRules: string;
   brandingNotes: string;
   iconRowNotes?: string;
+  trustBadgeNotes?: string;
 };
 
 export type QaResult = {
@@ -131,6 +143,36 @@ export type Step2Cost = {
   inputCostFormatted: string;
   outputCostFormatted: string;
   totalCostFormatted: string;
+};
+
+export type PipelineStepCostEntry = {
+  label: string;
+  usage: Step2Usage | null;
+  cost: Step2Cost | null;
+  mode?: 'agent' | 'legacy';
+};
+
+/** Full Gemini USD cost for one clone (prompting only, no image gen). */
+export type ClonePipelineCost = {
+  model: string;
+  rates: {
+    inputPerMillionUsd: number;
+    outputPerMillionUsd: number;
+    pricingUrl: string;
+  };
+  breakdown: {
+    step1: PipelineStepCostEntry;
+    productMatching: PipelineStepCostEntry;
+    step2: PipelineStepCostEntry;
+  };
+  total: {
+    usage: Step2Usage | null;
+    cost: Step2Cost | null;
+  };
+  /** Shorthand — same as breakdown.*.cost */
+  step1: Step2Cost | null;
+  step2: Step2Cost | null;
+  productMatching: Step2Cost | null;
 };
 
 export type Step2Result = {

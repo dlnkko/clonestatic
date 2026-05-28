@@ -1,14 +1,20 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { createClient as createSupabaseClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { DashboardShell } from '../components/dashboard/DashboardShell';
 import { PricingModal } from '../components/dashboard/PricingModal';
 import { ProductDetailPanel } from '../components/ProductDetailPanel';
 import { ProductModal } from '../components/ProductModal';
 import { COPY_LANGUAGES } from '@/lib/copy-languages';
+import type { ClonePipelineCost } from '@/lib/adaptation/types';
 import type { ProductRecord } from '@/lib/products/types';
 import { adVisualModeLabel, type AdVisualMode } from '@/lib/ad-visual-mode';
+import {
+  prefetchCreationImages,
+  readCreationsCache,
+  writeCreationsCache,
+} from '@/lib/creations/client-cache';
 
 /** Parse response as JSON; if body is not JSON (e.g. "Request Entity Too Large"), return null and set friendly error. */
 async function parseJsonResponse<T = unknown>(res: Response): Promise<{ data: T | null; errorMessage: string | null }> {
@@ -115,20 +121,32 @@ export type CreationItem = {
   image_url: string | null;
   aspect_ratio: string | null;
   created_at: string;
-  status?: 'generating' | 'completed';
+  status?: 'generating' | 'completed' | 'failed';
 };
 
-export type CompetitorAdItem = {
-  ad_archive_id?: string;
-  page_name?: string;
-  snapshot?: {
-    body?: { text?: string };
-    images?: { resized_image_url?: string; original_image_url?: string }[];
-  };
-  total_impressions?: number;
-  total_active_time?: number;
-  start_date?: number;
-  end_date?: number;
+export type LibraryAdCard = {
+  id: string;
+  adArchiveId: string;
+  imageUrl: string;
+  pageName: string | null;
+  bodyPreview: string | null;
+  category: string;
+  source: string;
+  seedLabel: string;
+  scrapedAt: string;
+  totalImpressions: number | null;
+};
+
+export type LibraryBrandCard = {
+  brandName: string;
+  adCount: number;
+  maxImpressions: number | null;
+};
+
+export type LibraryPeriod = {
+  start_date: string;
+  end_date: string;
+  label: string;
 };
 
 export default function StaticAdPromptGenerator() {
@@ -143,7 +161,7 @@ export default function StaticAdPromptGenerator() {
   const [error, setError] = useState<string | null>(null);
   const [staticAdPreview, setStaticAdPreview] = useState<string | null>(null);
   const [productPreview, setProductPreview] = useState<string | null>(null);
-  const [costInfo, setCostInfo] = useState<any>(null);
+  const [costInfo, setCostInfo] = useState<ClonePipelineCost | null>(null);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState<boolean>(false);
   const [imageGenMode, setImageGenMode] = useState<AdVisualMode | null>(null);
@@ -151,7 +169,7 @@ export default function StaticAdPromptGenerator() {
   const [referenceAdDimensions, setReferenceAdDimensions] = useState<{ width: number; height: number } | null>(null);
 
   const hasSupabase = isSupabaseConfigured();
-  const [activeTab, setActiveTab] = useState<'new' | 'history' | 'edit' | 'support' | 'competitor-ads' | 'products'>('new');
+  const [activeTab, setActiveTab] = useState<'new' | 'history' | 'edit' | 'support' | 'ad-library' | 'products'>('new');
   const [products, setProducts] = useState<ProductRecord[]>([]);
   const [productsLoading, setProductsLoading] = useState(hasSupabase);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
@@ -159,6 +177,9 @@ export default function StaticAdPromptGenerator() {
   const [detailProduct, setDetailProduct] = useState<ProductRecord | null>(null);
   const [creations, setCreations] = useState<CreationItem[]>([]);
   const [creationsLoading, setCreationsLoading] = useState(false);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const [backgroundGenNotice, setBackgroundGenNotice] = useState<string | null>(null);
+  const [pendingPreviewCreationId, setPendingPreviewCreationId] = useState<string | null>(null);
   const [user, setUser] = useState<{ email: string; name?: string } | null>(null);
   const [creditsRemaining, setCreditsRemaining] = useState<number | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -173,15 +194,27 @@ export default function StaticAdPromptGenerator() {
   const [isEditing, setIsEditing] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
-  const [competitorProductImage, setCompetitorProductImage] = useState<File | null>(null);
-  const [competitorProductPreview, setCompetitorProductPreview] = useState<string | null>(null);
-  const [competitorUrl, setCompetitorUrl] = useState('');
-  const [competitorCrawlSummary, setCompetitorCrawlSummary] = useState<string | null>(null);
-  const [competitorLoading, setCompetitorLoading] = useState(false);
-  const [competitorError, setCompetitorError] = useState<string | null>(null);
-  const [competitorResults, setCompetitorResults] = useState<CompetitorAdItem[]>([]);
-  const [competitorKeyword, setCompetitorKeyword] = useState<string | null>(null);
-  const [competitorCached, setCompetitorCached] = useState(false);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [libraryLoadingMore, setLibraryLoadingMore] = useState(false);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
+  const [libraryAds, setLibraryAds] = useState<LibraryAdCard[]>([]);
+  const [libraryCategories, setLibraryCategories] = useState<string[]>([]);
+  const [libraryCategory, setLibraryCategory] = useState<string>('all');
+  const [librarySelectedBrand, setLibrarySelectedBrand] = useState<string | null>(null);
+  const [libraryBrands, setLibraryBrands] = useState<LibraryBrandCard[]>([]);
+  const [libraryBrandFilter, setLibraryBrandFilter] = useState('');
+  const [libraryKeywordSearch, setLibraryKeywordSearch] = useState('');
+  const [libraryKeywordMode, setLibraryKeywordMode] = useState(false);
+  const [libraryBrowseMode, setLibraryBrowseMode] = useState<'all_ads' | 'brands'>('all_ads');
+  const [libraryPeriod, setLibraryPeriod] = useState<LibraryPeriod | null>(null);
+  const [libraryTotalCount, setLibraryTotalCount] = useState(0);
+  const [libraryNextCursor, setLibraryNextCursor] = useState<string | null>(null);
+  const [libraryLastRun, setLibraryLastRun] = useState<{
+    status: string;
+    creditsUsed: number;
+    adsInserted: number;
+    finishedAt: string | null;
+  } | null>(null);
 
   const handleStaticAdUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -323,6 +356,7 @@ export default function StaticAdPromptGenerator() {
 
     setIsGenerating(true);
     setError(null);
+    setCostInfo(null);
     setGeneratedPrompt('');
     setGeneratedImageUrl(null);
     setImageGenMode(null);
@@ -409,7 +443,7 @@ export default function StaticAdPromptGenerator() {
         prompt?: string;
         adVisualMode?: AdVisualMode;
         error?: string;
-        cost?: unknown;
+        cost?: ClonePipelineCost;
         matchedProductImageUrls?: string[];
       }>(response);
       if (promptErr) {
@@ -468,6 +502,23 @@ export default function StaticAdPromptGenerator() {
       }
 
       try {
+        const aspect = getResolvedAspectRatio();
+        if (creationId && authUserId) {
+          const optimistic: CreationItem = {
+            id: creationId,
+            image_url: null,
+            aspect_ratio: aspect,
+            created_at: new Date().toISOString(),
+            status: 'generating',
+          };
+          setCreations((prev) => {
+            const next = [optimistic, ...prev.filter((c) => c.id !== creationId)];
+            writeCreationsCache(authUserId, next);
+            return next;
+          });
+          setPendingPreviewCreationId(creationId);
+        }
+
         const imgRes = await fetch('/api/generate-ad-image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -482,22 +533,40 @@ export default function StaticAdPromptGenerator() {
                 : productBase64
                   ? { productImageBase64: productBase64 }
                   : {}),
-            aspectRatio: getResolvedAspectRatio(),
+            aspectRatio: aspect,
             ...(creationId ? { creationId } : {}),
           }),
         });
-        const { data: imgData, errorMessage: imgErrMsg } = await parseJsonResponse<{ imageUrl?: string; error?: string; creationId?: string }>(imgRes);
+        const { data: imgData, errorMessage: imgErrMsg } = await parseJsonResponse<{
+          imageUrl?: string;
+          error?: string;
+          creationId?: string;
+          status?: string;
+        }>(imgRes);
+
+        if (imgRes.status === 202 || imgData?.status === 'processing') {
+          setError(null);
+          setBackgroundGenNotice(
+            'Generación en segundo plano. Puedes cambiar de pestaña; el resultado aparecerá en Historial.'
+          );
+          void loadCreations({ silent: true });
+          void fetchCredits();
+          return;
+        }
+
         if (imgErrMsg) {
           setError(imgErrMsg);
           return;
         }
         if (imgRes.ok && imgData?.imageUrl) {
           setGeneratedImageUrl(imgData.imageUrl);
+          setPendingPreviewCreationId(null);
+          setBackgroundGenNotice(null);
           if (creationId) {
-            await loadCreations();
+            await loadCreations({ silent: true });
             await fetchCredits();
           } else {
-            saveCreation(imgData.imageUrl, getResolvedAspectRatio(), data.prompt!);
+            saveCreation(imgData.imageUrl, aspect, data.prompt!);
           }
         } else if (!imgRes.ok) {
           if (imgRes.status === 401) {
@@ -511,8 +580,8 @@ export default function StaticAdPromptGenerator() {
           }
           setError(imgData?.error || 'Failed to generate image.');
         }
-      } catch (imgErr: any) {
-        setError(imgErr.message || 'Failed to generate image.');
+      } catch (imgErr: unknown) {
+        setError(imgErr instanceof Error ? imgErr.message : 'Failed to generate image.');
       } finally {
         setIsGeneratingImage(false);
       }
@@ -584,6 +653,41 @@ export default function StaticAdPromptGenerator() {
       }
       setEditPrompt(promptData.prompt);
 
+      let editCreationId: string | null = null;
+      if (hasSupabase) {
+        try {
+          const createRes = await fetch('/api/creations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              status: 'generating',
+              aspect_ratio: 'auto',
+              prompt: promptData.prompt,
+            }),
+          });
+          const createData = await createRes.json();
+          if (createRes.ok && createData?.id) editCreationId = createData.id;
+        } catch {
+          // continue without background tracking
+        }
+      }
+
+      if (editCreationId && authUserId) {
+        const optimistic: CreationItem = {
+          id: editCreationId,
+          image_url: null,
+          aspect_ratio: 'auto',
+          created_at: new Date().toISOString(),
+          status: 'generating',
+        };
+        setCreations((prev) => {
+          const next = [optimistic, ...prev.filter((c) => c.id !== editCreationId)];
+          writeCreationsCache(authUserId, next);
+          return next;
+        });
+      }
+
       const editRes = await fetch('/api/edit-ad-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -591,15 +695,36 @@ export default function StaticAdPromptGenerator() {
           prompt: promptData.prompt,
           imageBase64: editImageBase64,
           aspectRatio: 'auto',
+          ...(editCreationId ? { creationId: editCreationId } : {}),
         }),
       });
-      const { data: editData, errorMessage: editErr } = await parseJsonResponse<{ imageUrl?: string; error?: string }>(editRes);
+      const { data: editData, errorMessage: editErr } = await parseJsonResponse<{
+        imageUrl?: string;
+        error?: string;
+        status?: string;
+      }>(editRes);
+
+      if (editRes.status === 202 || editData?.status === 'processing') {
+        setBackgroundGenNotice(
+          'Edición en segundo plano. Revisa Historial cuando termine.'
+        );
+        void loadCreations({ silent: true });
+        void fetchCredits();
+        return;
+      }
+
       if (editErr) {
         throw new Error(editErr);
       }
       if (editRes.ok && editData?.imageUrl) {
         setEditedImageUrl(editData.imageUrl);
-        saveCreation(editData.imageUrl, 'auto', promptData.prompt!);
+        setBackgroundGenNotice(null);
+        if (editCreationId) {
+          await loadCreations({ silent: true });
+          await fetchCredits();
+        } else {
+          saveCreation(editData.imageUrl, 'auto', promptData.prompt!);
+        }
       } else {
         if (editRes.status === 401) {
           window.location.href = '/login?next=/app';
@@ -618,57 +743,9 @@ export default function StaticAdPromptGenerator() {
     }
   };
 
-  const handleCompetitorCrawl = async () => {
-    const url = competitorUrl.trim();
-    if (!url) {
-      setCompetitorError('Enter a product page URL.');
-      return;
-    }
+  const handleCloneFromLibraryAd = async (imageUrl: string) => {
     try {
-      new URL(url);
-    } catch {
-      setCompetitorError('Invalid URL.');
-      return;
-    }
-    setCompetitorError(null);
-    setCompetitorLoading(true);
-    try {
-      const res = await fetch('/api/scrape-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setCompetitorError(data?.error || data?.details || 'Failed to load URL.');
-        return;
-      }
-      setCompetitorCrawlSummary(data.summary ?? '');
-      setCompetitorProductImage(null);
-      setCompetitorProductPreview(null);
-    } catch (e) {
-      setCompetitorError(e instanceof Error ? e.message : 'Failed to load URL.');
-    } finally {
-      setCompetitorLoading(false);
-    }
-  };
-
-  const handleCompetitorProductUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setCompetitorProductImage(file);
-      setCompetitorCrawlSummary(null);
-      setCompetitorUrl('');
-      const reader = new FileReader();
-      reader.onloadend = () => setCompetitorProductPreview(reader.result as string);
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleCloneFromCompetitorAd = async (imageUrl: string) => {
-    try {
-      const proxyUrl = `/api/download-image?url=${encodeURIComponent(imageUrl)}&filename=reference-ad.jpg`;
-      const res = await fetch(proxyUrl);
+      const res = await fetch(imageUrl);
       if (!res.ok) throw new Error('Could not load image');
       const blob = await res.blob();
       const file = new File([blob], 'reference-ad.jpg', { type: blob.type || 'image/jpeg' });
@@ -691,67 +768,229 @@ export default function StaticAdPromptGenerator() {
     }
   };
 
-  const handleCompetitorSearch = async () => {
-    if (!competitorProductImage && !competitorCrawlSummary) {
-      setCompetitorError('Upload a product image or paste a URL and load its summary first.');
-      return;
-    }
-    setCompetitorError(null);
-    setCompetitorLoading(true);
-    setCompetitorResults([]);
-    setCompetitorKeyword(null);
+  function formatLibraryImpressions(n: number | null | undefined): string | null {
+    if (n == null || !Number.isFinite(n) || n <= 0) return null;
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
+    return n.toLocaleString();
+  }
+
+  const fetchLibraryMeta = useCallback(async () => {
     try {
-      const body: { productImageBase64?: string; crawlSummary?: string } = {};
-      if (competitorProductImage) {
-        body.productImageBase64 = await compressImageForApi(competitorProductImage);
-      } else if (competitorCrawlSummary) {
-        body.crawlSummary = competitorCrawlSummary;
-      }
-      const res = await fetch('/api/competitor-ads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(body),
-      });
+      const res = await fetch('/api/static-library', { credentials: 'include' });
       const data = await res.json();
-      if (!res.ok) {
-        setCompetitorError(data?.error || data?.details || 'Search failed.');
+      if (!res.ok) return;
+      setLibraryTotalCount(Number(data.totalCount) || 0);
+      setLibraryCategories(Array.isArray(data.categories) ? data.categories : []);
+      setLibraryPeriod(data.period ?? null);
+      setLibraryLastRun(data.meta?.lastRun ?? null);
+    } catch {
+      /* meta optional */
+    }
+  }, []);
+
+  const fetchLibraryBrands = useCallback(
+    async (opts?: { category?: string }) => {
+      const category = opts?.category ?? libraryCategory;
+      if (!category || category === 'all') {
+        setLibraryBrands([]);
         return;
       }
-      const list = Array.isArray(data.results) ? data.results : [];
-      setCompetitorResults(list as CompetitorAdItem[]);
-      setCompetitorKeyword(data.keyword ?? null);
-      setCompetitorCached(Boolean(data.cached));
-    } catch (e) {
-      setCompetitorError(e instanceof Error ? e.message : 'Search failed.');
-    } finally {
-      setCompetitorLoading(false);
-    }
-  };
 
-  const loadCreations = useCallback(async () => {
-    if (!hasSupabase) return;
-    setCreationsLoading(true);
-    try {
-      const res = await fetch('/api/creations', { credentials: 'include' });
-      const data = await res.json();
-      if (res.ok && Array.isArray(data.creations)) setCreations(data.creations);
-    } catch {
-      // ignore
-    } finally {
-      setCreationsLoading(false);
+      setLibraryLoading(true);
+      setLibraryError(null);
+      setLibraryAds([]);
+      setLibraryNextCursor(null);
+
+      try {
+        const params = new URLSearchParams({ view: 'brands', category });
+
+        const res = await fetch(`/api/static-library?${params}`, { credentials: 'include' });
+        const data = await res.json();
+        if (!res.ok) {
+          setLibraryError(data?.error || 'Could not load brands.');
+          return;
+        }
+        setLibraryBrands(Array.isArray(data.brands) ? (data.brands as LibraryBrandCard[]) : []);
+        await fetchLibraryMeta();
+      } catch (e) {
+        setLibraryError(e instanceof Error ? e.message : 'Could not load brands.');
+      } finally {
+        setLibraryLoading(false);
+      }
+    },
+    [libraryCategory, fetchLibraryMeta]
+  );
+
+  const libraryBrandsFiltered = useMemo(() => {
+    const needle = libraryBrandFilter.trim().toLowerCase();
+    if (!needle) return libraryBrands;
+    return libraryBrands.filter((b) => b.brandName.toLowerCase().includes(needle));
+  }, [libraryBrands, libraryBrandFilter]);
+
+  const fetchStaticLibrary = useCallback(
+    async (opts?: {
+      cursor?: string | null;
+      append?: boolean;
+      category?: string;
+      brand?: string | null;
+      keyword?: string;
+    }) => {
+      const append = Boolean(opts?.append);
+      const category = opts?.category ?? libraryCategory;
+      const brand = opts?.brand !== undefined ? opts.brand : librarySelectedBrand;
+      const keyword = opts?.keyword ?? libraryKeywordSearch;
+
+      if (append) setLibraryLoadingMore(true);
+      else {
+        setLibraryLoading(true);
+        setLibraryError(null);
+        if (!opts?.cursor) setLibraryAds([]);
+      }
+
+      try {
+        const params = new URLSearchParams();
+        if (category && category !== 'all') params.set('category', category);
+        if (brand?.trim()) params.set('brand', brand.trim());
+        if (keyword.trim()) params.set('keyword', keyword.trim());
+        if (opts?.cursor) params.set('cursor', opts.cursor);
+
+        const res = await fetch(`/api/static-library?${params}`, { credentials: 'include' });
+        const data = await res.json();
+        if (!res.ok) {
+          setLibraryError(data?.error || 'Could not load library.');
+          return;
+        }
+        const list = Array.isArray(data.ads) ? (data.ads as LibraryAdCard[]) : [];
+        setLibraryAds((prev) => (append ? [...prev, ...list] : list));
+        setLibraryNextCursor(data.nextCursor ?? null);
+        setLibraryTotalCount(Number(data.totalCount) || 0);
+        setLibraryCategories(Array.isArray(data.categories) ? data.categories : []);
+        setLibraryPeriod(data.period ?? null);
+        setLibraryLastRun(data.meta?.lastRun ?? null);
+      } catch (e) {
+        setLibraryError(e instanceof Error ? e.message : 'Could not load library.');
+      } finally {
+        setLibraryLoading(false);
+        setLibraryLoadingMore(false);
+      }
+    },
+    [libraryCategory, librarySelectedBrand, libraryKeywordSearch]
+  );
+
+  const openLibraryBrand = useCallback(
+    (brandName: string) => {
+      setLibrarySelectedBrand(brandName);
+      setLibraryKeywordMode(false);
+      fetchStaticLibrary({ brand: brandName, category: libraryCategory });
+    },
+    [fetchStaticLibrary, libraryCategory]
+  );
+
+  const backToLibraryBrands = useCallback(() => {
+    setLibrarySelectedBrand(null);
+    setLibraryKeywordMode(false);
+    setLibraryKeywordSearch('');
+    if (libraryBrowseMode === 'brands') fetchLibraryBrands();
+    else fetchStaticLibrary({ brand: null, category: libraryCategory });
+  }, [fetchLibraryBrands, fetchStaticLibrary, libraryBrowseMode, libraryCategory]);
+
+  const loadLibraryCategory = useCallback(
+    (category: string, browse: 'all_ads' | 'brands') => {
+      setLibraryCategory(category);
+      setLibrarySelectedBrand(null);
+      setLibraryKeywordMode(false);
+      setLibraryKeywordSearch('');
+      setLibraryBrandFilter('');
+      if (category === 'all') {
+        setLibraryBrands([]);
+        setLibraryAds([]);
+        fetchLibraryMeta();
+        return;
+      }
+      if (browse === 'all_ads') {
+        fetchStaticLibrary({ category, brand: null, keyword: '' });
+      } else {
+        fetchLibraryBrands({ category });
+      }
+    },
+    [fetchLibraryMeta, fetchLibraryBrands, fetchStaticLibrary]
+  );
+
+  function libraryCategoryBadgeClass(category: string): string {
+    const base =
+      'inline-block rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ring-1 ring-inset';
+    const map: Record<string, string> = {
+      sleep: 'bg-indigo-100 text-indigo-800 ring-indigo-200/60',
+      beauty: 'bg-pink-100 text-pink-800 ring-pink-200/60',
+      supplements: 'bg-emerald-100 text-emerald-800 ring-emerald-200/60',
+      fitness: 'bg-orange-100 text-orange-800 ring-orange-200/60',
+    };
+    return `${base} ${map[category] ?? 'bg-slate-100 text-slate-700 ring-slate-200/60'}`;
+  }
+
+  const applyCreations = useCallback((list: CreationItem[], userId: string) => {
+    setCreations(list);
+    writeCreationsCache(userId, list);
+    prefetchCreationImages(list);
+    if (pendingPreviewCreationId) {
+      const done = list.find(
+        (c) => c.id === pendingPreviewCreationId && c.status === 'completed' && c.image_url
+      );
+      if (done?.image_url) {
+        setGeneratedImageUrl(done.image_url);
+        setPendingPreviewCreationId(null);
+        setBackgroundGenNotice(null);
+      }
     }
-  }, [hasSupabase]);
+  }, [pendingPreviewCreationId]);
+
+  const loadCreations = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!hasSupabase || !authUserId) return;
+      if (!opts?.silent) {
+        const cached = readCreationsCache(authUserId);
+        if (cached?.length) {
+          setCreations(cached);
+          setCreationsLoading(false);
+          prefetchCreationImages(cached);
+        } else {
+          setCreationsLoading(true);
+        }
+      }
+      try {
+        const res = await fetch('/api/creations', {
+          credentials: 'include',
+          cache: 'no-store',
+        });
+        const data = await res.json();
+        if (res.ok && Array.isArray(data.creations)) {
+          applyCreations(data.creations as CreationItem[], authUserId);
+        }
+      } catch {
+        // ignore
+      } finally {
+        setCreationsLoading(false);
+      }
+    },
+    [hasSupabase, authUserId, applyCreations]
+  );
 
   useEffect(() => {
-    if (!hasSupabase) return;
+    if (!hasSupabase || !authUserId) return;
     loadCreations();
-  }, [hasSupabase, loadCreations]);
+  }, [hasSupabase, authUserId, loadCreations]);
 
   useEffect(() => {
     const supabase = createSupabaseClient();
     supabase.auth.getUser().then(({ data: { user: u } }) => {
-      if (u?.email) setUser({ email: u.email, name: u.user_metadata?.full_name ?? u.user_metadata?.name ?? u.email.split('@')[0] });
+      if (u?.email) {
+        setUser({
+          email: u.email,
+          name: u.user_metadata?.full_name ?? u.user_metadata?.name ?? u.email.split('@')[0],
+        });
+      }
+      if (u?.id) setAuthUserId(u.id);
     });
   }, []);
 
@@ -771,12 +1010,36 @@ export default function StaticAdPromptGenerator() {
     if (hasSupabase && activeTab === 'history') loadCreations();
   }, [activeTab, hasSupabase, loadCreations]);
 
-  const hasGenerating = creations.some((c) => c.status === 'generating' || !c.image_url);
   useEffect(() => {
-    if (!hasSupabase || activeTab !== 'history' || !hasGenerating) return;
-    const interval = setInterval(loadCreations, 8000);
+    if (!hasSupabase || activeTab !== 'ad-library') return;
+    fetchLibraryMeta();
+    if (libraryKeywordMode && libraryKeywordSearch.trim()) {
+      fetchStaticLibrary();
+      return;
+    }
+    if (librarySelectedBrand) {
+      fetchStaticLibrary();
+      return;
+    }
+    if (libraryCategory !== 'all') {
+      if (libraryBrowseMode === 'all_ads') {
+        fetchStaticLibrary({ category: libraryCategory, brand: null, keyword: '' });
+      } else {
+        fetchLibraryBrands();
+      }
+      return;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, hasSupabase]);
+
+  const hasGenerating = creations.some(
+    (c) => c.status === 'generating' || (!c.image_url && c.status !== 'failed')
+  );
+  useEffect(() => {
+    if (!hasSupabase || !authUserId || !hasGenerating) return;
+    const interval = setInterval(() => loadCreations({ silent: true }), 4000);
     return () => clearInterval(interval);
-  }, [hasSupabase, activeTab, hasGenerating, loadCreations]);
+  }, [hasSupabase, authUserId, hasGenerating, loadCreations]);
 
   const saveCreation = useCallback(
     async (imageUrl: string, aspectRatio: string, prompt: string) => {
@@ -828,15 +1091,20 @@ export default function StaticAdPromptGenerator() {
       >
           {activeTab === 'history' && hasSupabase ? (
           <div className="dash-card dash-card-lg">
-            <h2 className="dash-section-title mb-6">Your creations</h2>
-            {creationsLoading ? (
+            <h2 className="dash-section-title mb-1">Your creations</h2>
+            <p className="mb-6 text-xs text-slate-500">
+              Las imágenes se guardan 30 días y luego se eliminan del historial.
+            </p>
+            {creationsLoading && creations.length === 0 ? (
               <div className="flex items-center justify-center py-12"><svg className="h-8 w-8 dash-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></div>
             ) : creations.length === 0 ? (
               <p className="py-12 text-center text-sm text-slate-500">No creations yet. Generate an image in Clone.</p>
             ) : (
               <div className="dash-grid-media">
-                {creations.map((c) => {
-                  const isGenerating = c.status === 'generating' || !c.image_url;
+                {creations.map((c, index) => {
+                  const isFailed = c.status === 'failed';
+                  const isGenerating =
+                    !isFailed && (c.status === 'generating' || !c.image_url);
                   return (
                     <div key={c.id} className="dash-media-card">
                       {isGenerating ? (
@@ -844,12 +1112,26 @@ export default function StaticAdPromptGenerator() {
                           <svg className="h-6 w-6 dash-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
                           <span className="text-xs font-medium text-slate-600">Generating...</span>
                         </div>
+                      ) : isFailed ? (
+                        <div className="flex aspect-[9/16] w-full flex-col items-center justify-center gap-2 bg-red-50 p-4 text-center">
+                          <span className="text-xs font-medium text-red-700">Generation failed</span>
+                          <span className="text-[10px] text-red-600">Try again from Clone or Edit</span>
+                        </div>
                       ) : (
-                        <a href={c.image_url!} target="_blank" rel="noopener noreferrer" className="block aspect-[9/16] w-full bg-slate-100"><img src={c.image_url!} alt="" className="h-full w-full object-cover" /></a>
+                        <a href={c.image_url!} target="_blank" rel="noopener noreferrer" className="block aspect-[9/16] w-full bg-slate-100">
+                          <img
+                            src={c.image_url!}
+                            alt=""
+                            className="h-full w-full object-cover"
+                            loading={index < 12 ? 'eager' : 'lazy'}
+                            decoding="async"
+                            fetchPriority={index < 6 ? 'high' : 'auto'}
+                          />
+                        </a>
                       )}
                       <div className="flex items-center justify-between gap-2 p-2 sm:p-3">
                         <span className="truncate text-[10px] sm:text-xs text-slate-500">{c.aspect_ratio || '—'} · {new Date(c.created_at).toLocaleDateString()}</span>
-                        {!isGenerating && (
+                        {!isGenerating && !isFailed && (
                           <div className="flex shrink-0 gap-1">
                             <a href={c.image_url!} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-slate-50" title="Open"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
                             <button type="button" onClick={() => handleDownloadImage(c.image_url!, 'generated-ad.jpg')} className="dash-btn dash-btn-primary !px-2 !py-1.5" title="Download"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
@@ -940,82 +1222,353 @@ export default function StaticAdPromptGenerator() {
             </div>
           </div>
         </>
-          ) : activeTab === 'competitor-ads' ? (
+          ) : activeTab === 'ad-library' ? (
         <div className="space-y-6">
           <header className="dash-animate-in">
-            <h1 className="dash-title">Competitor Ads</h1>
-            <p className="dash-subtitle mt-2">Find Facebook/Instagram ads in your product category. Upload a product image or paste a product page URL.</p>
+            <h1 className="dash-title">Static Ad Library</h1>
+            <p className="dash-subtitle mt-2">
+              Librería global de memes US (Meta Ad Library vía ScrapeCreators). Misma colección para todos los usuarios, actualizada cada 28 días.
+            </p>
           </header>
+
           <div className="dash-card dash-card-lg">
-            <h2 className="mb-4 text-base font-semibold text-slate-900">Product input</h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <p className="mb-2 text-sm font-medium text-slate-700">Upload product image</p>
-                <input type="file" accept="image/*" onChange={handleCompetitorProductUpload} className="hidden" id="competitor-product-upload" />
-                <label htmlFor="competitor-product-upload" className="dash-upload">
-                  {competitorProductPreview ? (
-                    <img src={competitorProductPreview} alt="Product" className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="text-sm text-slate-500">Choose image</span>
-                  )}
-                </label>
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+              <div className="flex-1 min-w-[140px]">
+                <label className="mb-1 block text-xs font-medium text-slate-600">Category</label>
+                <select
+                  value={libraryCategory}
+                  onChange={(e) => loadLibraryCategory(e.target.value, libraryBrowseMode)}
+                  className="dash-select w-full text-sm"
+                >
+                  <option value="all">Choose category…</option>
+                  {libraryCategories.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div>
-                <p className="mb-2 text-sm font-medium text-slate-700">Or paste product page URL</p>
-                <div className="flex gap-2">
-                  <input
-                    type="url"
-                    value={competitorUrl}
-                    onChange={(e) => setCompetitorUrl(e.target.value)}
-                    placeholder="https://..."
-                    className="dash-input flex-1"
-                  />
-                  <button type="button" onClick={handleCompetitorCrawl} disabled={competitorLoading || !competitorUrl.trim()} className="shrink-0 rounded-xl bg-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-300 disabled:opacity-50">Load</button>
+              {libraryCategory !== 'all' && !libraryKeywordMode && !librarySelectedBrand ? (
+                <div className="flex rounded-lg border border-slate-200 p-0.5 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLibraryBrowseMode('all_ads');
+                      loadLibraryCategory(libraryCategory, 'all_ads');
+                    }}
+                    className={`rounded-md px-3 py-1.5 font-medium ${
+                      libraryBrowseMode === 'all_ads'
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    Todos los ads
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLibraryBrowseMode('brands');
+                      loadLibraryCategory(libraryCategory, 'brands');
+                    }}
+                    className={`rounded-md px-3 py-1.5 font-medium ${
+                      libraryBrowseMode === 'brands'
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    Por marca
+                  </button>
                 </div>
-                {competitorCrawlSummary && <p className="mt-2 text-xs text-slate-500">Summary loaded ({competitorCrawlSummary.length} chars)</p>}
+              ) : null}
+              {!libraryKeywordMode &&
+              !librarySelectedBrand &&
+              libraryCategory !== 'all' &&
+              libraryBrowseMode === 'brands' ? (
+                <div className="flex-[2] min-w-[180px]">
+                  <label className="mb-1 block text-xs font-medium text-slate-600">Search brands</label>
+                  <input
+                    type="search"
+                    value={libraryBrandFilter}
+                    onChange={(e) => setLibraryBrandFilter(e.target.value)}
+                    placeholder="Filter by page name…"
+                    className="dash-input w-full text-sm"
+                  />
+                </div>
+              ) : null}
+              <div className="flex-[2] min-w-[180px]">
+                <label className="mb-1 block text-xs font-medium text-slate-600">Keyword (optional)</label>
+                <input
+                  type="search"
+                  value={libraryKeywordSearch}
+                  onChange={(e) => setLibraryKeywordSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      setLibraryKeywordMode(true);
+                      setLibrarySelectedBrand(null);
+                      fetchStaticLibrary({ keyword: libraryKeywordSearch, brand: null });
+                    }
+                  }}
+                  placeholder="Seed keyword… (e.g. creatine)"
+                  className="dash-input w-full text-sm"
+                />
               </div>
-            </div>
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <button type="button" onClick={handleCompetitorSearch} disabled={competitorLoading || (!competitorProductImage && !competitorCrawlSummary)} className="dash-btn dash-btn-primary disabled:opacity-50">
-                {competitorLoading ? <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> : null}
-                Search competitor ads
+              <button
+                type="button"
+                onClick={() => {
+                  if (libraryKeywordSearch.trim()) {
+                    setLibraryKeywordMode(true);
+                    setLibrarySelectedBrand(null);
+                    fetchStaticLibrary({ keyword: libraryKeywordSearch, brand: null });
+                  } else if (libraryCategory !== 'all') {
+                    setLibraryKeywordMode(false);
+                    if (libraryBrowseMode === 'all_ads') {
+                      fetchStaticLibrary({ category: libraryCategory, brand: null, keyword: '' });
+                    } else {
+                      fetchLibraryBrands();
+                    }
+                  }
+                }}
+                disabled={libraryLoading}
+                className="dash-btn dash-btn-primary shrink-0 disabled:opacity-50"
+              >
+                {libraryLoading ? 'Loading…' : libraryKeywordSearch.trim() ? 'Search ads' : 'Show brands'}
               </button>
-              {competitorKeyword && <span className="text-sm text-slate-500">Keyword: <strong>{competitorKeyword}</strong>{competitorCached ? ' (cached)' : ''}</span>}
             </div>
-            {competitorError && <p className="mt-3 text-sm text-red-600">{competitorError}</p>}
+            {(librarySelectedBrand || libraryKeywordMode) && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (libraryKeywordMode) {
+                      setLibraryKeywordMode(false);
+                      setLibraryKeywordSearch('');
+                      if (libraryCategory !== 'all') {
+                        if (libraryBrowseMode === 'all_ads') {
+                          fetchStaticLibrary({ category: libraryCategory, brand: null, keyword: '' });
+                        } else fetchLibraryBrands();
+                      }
+                      else {
+                        setLibraryAds([]);
+                        fetchLibraryMeta();
+                      }
+                    } else {
+                      backToLibraryBrands();
+                    }
+                  }}
+                  className="text-indigo-600 hover:text-indigo-800 font-medium"
+                >
+                  ← Back
+                </button>
+                <span className="text-slate-400">/</span>
+                {libraryCategory !== 'all' && (
+                  <span className={libraryCategoryBadgeClass(libraryCategory)}>{libraryCategory}</span>
+                )}
+                {librarySelectedBrand && (
+                  <span className="font-medium text-slate-900">{librarySelectedBrand}</span>
+                )}
+                {libraryKeywordMode && libraryKeywordSearch.trim() && (
+                  <span className="text-slate-600">
+                    keyword: <strong>{libraryKeywordSearch.trim()}</strong>
+                  </span>
+                )}
+              </div>
+            )}
+            {libraryPeriod && (
+              <p className="mt-3 text-xs text-slate-500">
+                Window: <strong>{libraryPeriod.start_date}</strong> → hoy ({libraryPeriod.end_date}) · US · MEME
+                {libraryTotalCount > 0 ? (
+                  <>
+                    {' '}
+                    · <strong>{libraryTotalCount.toLocaleString()}</strong> ads in library
+                  </>
+                ) : null}
+                {libraryLastRun?.finishedAt ? (
+                  <>
+                    {' '}
+                    · Last ingest: {libraryLastRun.status} ({libraryLastRun.adsInserted} new,{' '}
+                    {libraryLastRun.creditsUsed} credits)
+                  </>
+                ) : null}
+              </p>
+            )}
+            {libraryError && <p className="mt-3 text-sm text-red-600">{libraryError}</p>}
+            {libraryLoading && libraryAds.length === 0 && libraryBrands.length === 0 && (
+              <p className="mt-3 text-sm text-slate-600">Loading…</p>
+            )}
+            {libraryCategory === 'all' && !libraryKeywordMode && !librarySelectedBrand && (
+              <p className="mt-3 text-sm text-slate-600">
+                Elige una categoría (ej. beauty) para ver ads de todas las marcas mezclados, o navega por marca.
+              </p>
+            )}
+            {libraryTotalCount === 0 && !libraryLoading && !libraryError && (
+              <p className="mt-3 text-sm text-amber-800 bg-amber-50 rounded-lg px-3 py-2">
+                Library is empty. Run bootstrap ingest:{' '}
+                <code className="text-xs">npm run ingest-library:brands</code> (requires SCRAPECREATORS_API_KEY and migrations 010–012).
+              </p>
+            )}
           </div>
-          {competitorKeyword != null && (
+
+          {!librarySelectedBrand &&
+          !libraryKeywordMode &&
+          libraryCategory !== 'all' &&
+          libraryBrowseMode === 'brands' ? (
             <div className="dash-card dash-card-lg">
-              <h2 className="mb-4 text-base font-semibold text-slate-900">Results (by total impressions)</h2>
-              {competitorResults.length > 0 ? (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-                {competitorResults.map((ad, i) => {
-                  const imgUrl = ad.snapshot?.images?.[0]?.resized_image_url || ad.snapshot?.images?.[0]?.original_image_url;
-                  const bodyText = ad.snapshot?.body?.text?.slice(0, 120);
-                  return (
-                    <div key={ad.ad_archive_id ?? i} className="dash-media-card">
-                      {imgUrl ? <a href={imgUrl} target="_blank" rel="noopener noreferrer" className="block aspect-[9/16] w-full bg-slate-100"><img src={imgUrl} alt="" className="h-full w-full object-cover" /></a> : <div className="aspect-[9/16] w-full bg-slate-100" />}
-                      <div className="p-2 sm:p-3 space-y-2">
-                        <p className="truncate text-xs font-medium text-slate-900">{ad.page_name || '—'}</p>
-                        {bodyText && <p className="line-clamp-2 text-[10px] text-slate-500">{bodyText}…</p>}
-                        {(ad.total_impressions != null || ad.total_active_time != null) && <p className="text-[10px] text-slate-400">{ad.total_impressions != null ? `${ad.total_impressions.toLocaleString()} impr.` : ''} {ad.total_active_time != null ? ` · ${Math.round(ad.total_active_time / 86400)}d active` : ''}</p>}
-                        <div className="flex flex-wrap gap-1.5 pt-1">
-                          {imgUrl && (
-                            <>
-                              <button type="button" onClick={() => handleDownloadImage(imgUrl, 'competitor-ad.jpg')} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-medium text-slate-600 hover:bg-slate-50" title="Download">Download</button>
-                              <button type="button" onClick={() => handleCloneFromCompetitorAd(imgUrl)} className="inline-flex items-center gap-1 dash-btn dash-btn-primary !px-2 !py-1.5 text-[10px]" title="Use as reference in Clone">Clone</button>
-                            </>
-                          )}
+              <h2 className="mb-4 text-base font-semibold text-slate-900">
+                Brands in {libraryCategory} ({libraryBrandsFiltered.length}
+                {libraryBrandFilter.trim() && libraryBrandsFiltered.length !== libraryBrands.length
+                  ? ` of ${libraryBrands.length}`
+                  : ''}
+                )
+              </h2>
+              <p className="mb-4 text-xs text-slate-500">
+                Ordenadas por mayor impresión en un solo ad. Entra en una marca para ver todos sus ads (mayor → menor).
+              </p>
+              {libraryBrandsFiltered.length > 0 ? (
+                <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+                  {libraryBrandsFiltered.map((b) => {
+                    const top = formatLibraryImpressions(b.maxImpressions);
+                    return (
+                      <li key={b.brandName}>
+                        <button
+                          type="button"
+                          onClick={() => openLibraryBrand(b.brandName)}
+                          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-50 transition-colors"
+                        >
+                          <span className="font-medium text-slate-900 truncate">{b.brandName}</span>
+                          <span className="shrink-0 text-xs text-slate-500 tabular-nums">
+                            {b.adCount} ad{b.adCount !== 1 ? 's' : ''}
+                            {top ? (
+                              <>
+                                {' '}
+                                · top <strong className="text-slate-700">{top}</strong> imp.
+                              </>
+                            ) : null}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : !libraryLoading ? (
+                <p className="py-8 text-center text-sm text-slate-500">
+                  No brands in this category{libraryBrandFilter.trim() ? ' match your filter' : ''}.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {(librarySelectedBrand ||
+            libraryKeywordMode ||
+            (libraryCategory !== 'all' && libraryBrowseMode === 'all_ads')) && (
+          <div className="dash-card dash-card-lg">
+            <h2 className="mb-4 text-base font-semibold text-slate-900">
+              {librarySelectedBrand ? (
+                <>Ads · {librarySelectedBrand}</>
+              ) : libraryKeywordMode ? (
+                <>Ads · keyword</>
+              ) : (
+                <>Ads · {libraryCategory}</>
+              )}{' '}
+              ({libraryAds.length}
+              {libraryTotalCount > libraryAds.length ? ` of ${libraryTotalCount.toLocaleString()}` : ''})
+            </h2>
+            {(librarySelectedBrand || libraryBrowseMode === 'all_ads') && !libraryKeywordMode && (
+              <p className="mb-4 -mt-2 text-xs text-slate-500">
+                {librarySelectedBrand
+                  ? 'Ordenados por impresiones (mayor a menor).'
+                  : 'Todas las marcas de la categoría, ordenadas por impresiones (mayor a menor).'}
+              </p>
+            )}
+            {libraryAds.length > 0 ? (
+              <>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                  {libraryAds.map((ad) => (
+                    <article
+                      key={ad.id}
+                      className="dash-media-card group overflow-hidden transition-shadow hover:shadow-md"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => handleCloneFromLibraryAd(ad.imageUrl)}
+                        className="block w-full aspect-[9/16] bg-slate-100 text-left"
+                        title="Use as reference in Clone"
+                      >
+                        <img
+                          src={ad.imageUrl}
+                          alt=""
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                      </button>
+                      <div className="p-2.5 space-y-1.5">
+                        <span className={libraryCategoryBadgeClass(ad.category)}>{ad.category}</span>
+                        {ad.pageName ? (
+                          <button
+                            type="button"
+                            onClick={() => openLibraryBrand(ad.pageName!)}
+                            className="truncate text-left text-xs font-medium text-indigo-700 hover:underline w-full"
+                          >
+                            {ad.pageName}
+                          </button>
+                        ) : (
+                          <p className="truncate text-xs font-medium text-slate-900">{ad.seedLabel}</p>
+                        )}
+                        {formatLibraryImpressions(ad.totalImpressions) && (
+                          <p className="text-[10px] font-semibold text-indigo-700 tabular-nums">
+                            {formatLibraryImpressions(ad.totalImpressions)} impressions
+                          </p>
+                        )}
+                        <p className="truncate text-[10px] text-slate-400">
+                          {ad.source} · {ad.seedLabel}
+                        </p>
+                        {ad.bodyPreview && (
+                          <p className="line-clamp-2 text-[10px] text-slate-500">{ad.bodyPreview}</p>
+                        )}
+                        <div className="flex gap-1.5 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleCloneFromLibraryAd(ad.imageUrl)}
+                            className="flex-1 dash-btn dash-btn-primary !px-2 !py-1.5 text-[10px]"
+                          >
+                            Clone
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadImage(ad.imageUrl, 'library-ad.jpg')}
+                            className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-medium text-slate-600 hover:bg-slate-50"
+                          >
+                            ↓
+                          </button>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-              ) : (
-                <p className="py-8 text-center text-sm text-slate-500">No ads found for keyword &quot;{competitorKeyword}&quot; in the last 3 months. Try another product image or URL, or a broader category.</p>
-              )}
-            </div>
+                    </article>
+                  ))}
+                </div>
+                {libraryNextCursor && (
+                  <div className="mt-6 flex justify-center">
+                    <button
+                      type="button"
+                      disabled={libraryLoadingMore}
+                      onClick={() => fetchStaticLibrary({ cursor: libraryNextCursor, append: true })}
+                      className="dash-btn dash-btn-secondary disabled:opacity-50"
+                    >
+                      {libraryLoadingMore ? 'Loading…' : 'Load more'}
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : !libraryLoading ? (
+              <p className="py-8 text-center text-sm text-slate-500">
+                No ads
+                {librarySelectedBrand
+                  ? ' for this brand'
+                  : libraryKeywordMode
+                    ? ' for this keyword'
+                    : ' in this category yet'}
+                . Run <code className="text-xs">npm run ingest-library:brands</code> or try another filter.
+              </p>
+            ) : null}
+          </div>
           )}
         </div>
           ) : activeTab === 'products' ? (
@@ -1216,6 +1769,18 @@ export default function StaticAdPromptGenerator() {
                 {isGenerating ? <><svg className="h-4 w-4 animate-spin text-white/90" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>{isScraping ? 'Analyzing URL...' : 'Generating Image...'}</span></> : <><span>Generate Image</span><svg className="h-4 w-4 text-white/90 transition-transform group-hover:translate-x-0.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></>}
               </button>
               {error && <div className="dash-alert dash-alert-error mt-4"><svg className="mt-0.5 h-4 w-4 shrink-0 text-red-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><p>{error}</p></div>}
+              {costInfo?.total.cost && (
+                <p className="mt-3 text-xs text-slate-500 leading-relaxed">
+                  Coste Gemini (solo prompting, {costInfo.model}):{' '}
+                  <span className="font-semibold text-slate-800">{costInfo.total.cost.totalCostFormatted}</span>
+                  <span className="block mt-1">
+                    Step 1 {costInfo.breakdown.step1.cost?.totalCostFormatted ?? '—'} · matching{' '}
+                    {costInfo.breakdown.productMatching.cost?.totalCostFormatted ?? '—'} · Step 2
+                    {costInfo.breakdown.step2.mode ? ` (${costInfo.breakdown.step2.mode})` : ''}{' '}
+                    {costInfo.breakdown.step2.cost?.totalCostFormatted ?? '—'}
+                  </span>
+                </p>
+              )}
             </div>
           </div>
           <div className="dash-workspace-preview dash-sticky-preview">
@@ -1226,11 +1791,27 @@ export default function StaticAdPromptGenerator() {
               </div>
               <div className="dash-preview-panel-body min-h-[240px] sm:min-h-[320px] lg:min-h-[380px]">
                 {!generatedImageUrl && !isGenerating && !isGeneratingImage ? (
+                  backgroundGenNotice ? (
+                    <div className="flex flex-col items-center justify-center gap-3 px-4 text-center">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-indigo-200 bg-indigo-50">
+                        <svg className="h-7 w-7 dash-spinner text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                      </div>
+                      <p className="text-sm font-medium text-slate-800">{backgroundGenNotice}</p>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('history')}
+                        className="dash-btn dash-btn-secondary text-xs min-h-[40px]"
+                      >
+                        Ver historial
+                      </button>
+                    </div>
+                  ) : (
                   <div className="flex flex-col items-center justify-center text-center px-2">
                     <div className="mb-3 sm:mb-4 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50"><svg className="h-7 w-7 sm:h-8 sm:w-8 text-slate-400" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>
                     <h3 className="text-sm font-semibold text-slate-800">Your ad will appear here</h3>
                     <p className="mt-1 max-w-[260px] text-xs text-slate-500">Upload both images and tap Generate Image.</p>
                   </div>
+                  )
                 ) : (isGenerating || isGeneratingImage) ? (
                   <div className="flex flex-col items-center justify-center text-center px-2">
                     <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-slate-200 bg-slate-50"><svg className="h-7 w-7 dash-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg></div>
@@ -1242,7 +1823,7 @@ export default function StaticAdPromptGenerator() {
                           : 'Rendering your ad…'
                         : 'Analyzing reference & building prompt…'}
                     </p>
-                    <p className="mt-3 max-w-[280px] text-xs text-slate-500">Takes around 90 seconds. You can switch tabs, lock your phone, or leave the app – generation continues in the background.</p>
+                    <p className="mt-3 max-w-[280px] text-xs text-slate-500">La imagen se genera en el servidor. Puedes cambiar de pestaña o cerrar la app; verás el resultado en Historial.</p>
                   </div>
                 ) : generatedImageUrl ? (
                   <div className="w-full flex flex-col items-center">

@@ -3,12 +3,25 @@ import { writeFile } from 'fs/promises';
 import path from 'path';
 import { GoogleGenAI } from '@google/genai';
 import {
+  buildClonePipelineCost,
   defaultReferenceLogoAnalysis,
+  mergeStep2Usage,
   parseReferenceLogoPlacement,
   runStep2Adaptation,
+  usageFromMetadata,
 } from '@/lib/adaptation';
+import {
+  parseHasPromoOfferLine,
+  parseReferenceTrustBadge,
+  parseVerbatimPhrasesFromCopyBlock,
+} from '@/lib/adaptation/parse-reference-analysis';
 import { getStaticAdAnalysisPrompt } from '@/lib/adaptation/old-prompts';
-import type { MatchedProductVisual } from '@/lib/adaptation/types';
+import type {
+  MatchedProductVisual,
+  ReferenceTrustBadge,
+  Step2Usage,
+} from '@/lib/adaptation/types';
+import { refineProductImageKinds } from '@/lib/products/classify-images';
 import { resolveCopyLanguage } from '@/lib/copy-languages';
 import { GEMINI_MODEL } from '@/lib/gemini-model';
 import { getProductAllowedPrice, productCopywritingPayload, rowToProduct } from '@/lib/products/db';
@@ -206,11 +219,9 @@ export async function POST(request: NextRequest) {
       console.log('Static ad uploaded:', staticAdFile.uri);
 
       if (savedProduct && catalogImages.length > 0) {
-        productFiles = await uploadProductImageUrlsToGemini(
-          ai,
-          catalogImages.map((i) => i.url)
+        console.log(
+          `Product catalog: ${catalogImages.length} URLs in DB — NOT uploaded yet. Agent will pick which to send to Gemini after Step 1.`
         );
-        console.log('Product catalog uploaded:', productFiles.length);
       } else if (productImage) {
         const productBuffer = Buffer.from(productImage.split(',')[1], 'base64');
         const productMime = productImage.split(';')[0].split(':')[1] || 'image/png';
@@ -264,9 +275,9 @@ export async function POST(request: NextRequest) {
       }
       staticAdFile = await waitForFile(staticAdFile, staticAdFileName);
 
-      if (!staticAdFile.uri || productFiles.length === 0) {
+      if (!staticAdFile.uri) {
         return NextResponse.json(
-          { error: 'Files are missing required URI properties' },
+          { error: 'Reference ad file is not ready' },
           { status: 500 }
         );
       }
@@ -323,8 +334,15 @@ export async function POST(request: NextRequest) {
     let referenceLogoAnalysis = defaultReferenceLogoAnalysis();
     let copywritingProfile = null;
     let rhetoricalFigures = null;
-    let step1Usage = null;
-    let step1Cost = null;
+    let referenceHasPromoOfferLine = false;
+    let referenceTrustBadge: ReferenceTrustBadge = {
+      present: false,
+      placement: '',
+      description: '',
+    };
+    let referenceVerbatimPhrases: string[] = [];
+    let step1Usage: Step2Usage | null = null;
+    const productMatchingUsages: Step2Usage[] = [];
     try {
       if (staticAdAnalysis.candidates && staticAdAnalysis.candidates[0]?.content?.parts) {
         analysisText = staticAdAnalysis.candidates[0].content.parts
@@ -384,6 +402,9 @@ export async function POST(request: NextRequest) {
           const functionLine2Match = analysisText2.match(/Function of Line 2 \(CRITICAL\):\s*([\s\S]+?)(?=\n-\s*\*\*|\n\*\*|$)/i);
           const linguisticDeviceMatch = analysisText2.match(/Linguistic device of second line:\s*\[?\s*(.+?)\s*\]/i);
 
+          referenceVerbatimPhrases = parseVerbatimPhrasesFromCopyBlock(analysisText2);
+          referenceHasPromoOfferLine = parseHasPromoOfferLine(analysisText);
+
           copywritingProfile = {
             wordCount: wordCountMatch ? parseInt(wordCountMatch[1]) : null,
             headlineWordCount: headlineWordsMatch ? parseInt(headlineWordsMatch[1]) : null,
@@ -393,6 +414,7 @@ export async function POST(request: NextRequest) {
             styleCategory: styleMatch ? styleMatch[1].trim() : null,
             functionOfLine2: functionLine2Match ? functionLine2Match[1].trim() : null,
             linguisticDeviceLine2: linguisticDeviceMatch ? linguisticDeviceMatch[1].trim() : null,
+            hasPromoOfferLine: referenceHasPromoOfferLine,
           };
 
           rhetoricalFigures = {
@@ -410,6 +432,11 @@ export async function POST(request: NextRequest) {
           console.log('Function of Line 2:', (copywritingProfile as any).functionOfLine2);
           console.log('Linguistic device (line 2):', (copywritingProfile as any).linguisticDeviceLine2);
         }
+
+        referenceTrustBadge = parseReferenceTrustBadge(analysisText);
+        console.log('\n=== REFERENCE TRUST BADGE ===', referenceTrustBadge);
+        console.log('\n=== REFERENCE PROMO LINE ===', referenceHasPromoOfferLine);
+        console.log('\n=== VERBATIM PHRASES TO AVOID ===', referenceVerbatimPhrases);
 
         const featureRowMatch = analysisText.match(
           /\*\*ICON \/ FEATURE ROW \(REFERENCE AD\):\*\*\s*([\s\S]*?)(?=\*\*SOCIAL PROOF|\*\*PRODUCT POSE|\*\*REFERENCE AD PROMPT:\*\*|$)/i
@@ -456,37 +483,13 @@ export async function POST(request: NextRequest) {
           referencePrompt = analysisText;
         }
 
-        // Extract usage info for Step 1
-        const step1UsageMetadata = (staticAdAnalysis as any).usageMetadata;
-        if (step1UsageMetadata) {
-          const promptTokens = step1UsageMetadata.promptTokenCount || 0;
-          const candidatesTokens = step1UsageMetadata.candidatesTokenCount || 0;
-          const totalTokens = step1UsageMetadata.totalTokenCount || (promptTokens + candidatesTokens);
-          
-          const inputCostPerMillion = 0.5;
-          const outputCostPerMillion = 3.0;
-          const inputCost = (promptTokens / 1_000_000) * inputCostPerMillion;
-          const outputCost = (candidatesTokens / 1_000_000) * outputCostPerMillion;
-          const totalStep1Cost = inputCost + outputCost;
-
-          step1Usage = {
-            promptTokenCount: promptTokens,
-            candidatesTokenCount: candidatesTokens,
-            totalTokenCount: totalTokens
-          };
-
-          step1Cost = {
-            inputCost,
-            outputCost,
-            totalCost: totalStep1Cost,
-            inputCostFormatted: `$${inputCost.toFixed(6)}`,
-            outputCostFormatted: `$${outputCost.toFixed(6)}`,
-            totalCostFormatted: `$${totalStep1Cost.toFixed(6)}`
-          };
-
-          console.log('\n=== STEP 1 COST ===');
-          console.log('Tokens:', step1Usage);
-          console.log('Cost:', step1Cost);
+        step1Usage = usageFromMetadata(
+          (staticAdAnalysis as { usageMetadata?: unknown }).usageMetadata as
+            | Parameters<typeof usageFromMetadata>[0]
+            | undefined
+        );
+        if (step1Usage) {
+          console.log('\n=== STEP 1 TOKENS ===', step1Usage);
         }
       }
     } catch (err) {
@@ -497,20 +500,37 @@ export async function POST(request: NextRequest) {
     let matchedProductVisuals: MatchedProductVisual[] = [];
     let productFilesForStep2 = productFiles;
 
+    if (catalogImages.length > 0 && catalogImages[0]?.url !== 'upload') {
+      const classified = await refineProductImageKinds(ai, catalogImages, {
+        needTrustBadge: referenceTrustBadge.present,
+      });
+      catalogImages = classified.images;
+      if (classified.usage) productMatchingUsages.push(classified.usage);
+      console.log(
+        '\n=== PRODUCT IMAGE CLASSIFICATION ===',
+        catalogImages.map((i) => ({ kind: i.kind, url: i.url.slice(0, 80) }))
+      );
+    }
+
     if (catalogImages.length > 0) {
       try {
-        const refElements = await identifyReferenceProductElements(
+        const identified = await identifyReferenceProductElements(
           ai,
           { uri: staticAdFile.uri!, mimeType: staticAdFile.mimeType },
           referenceVisualStyle,
           referenceProductPoseAndArrangement || referencePrompt.slice(0, 800)
         );
-        const matches = await matchProductImagesToReference(
+        if (identified.usage) productMatchingUsages.push(identified.usage);
+
+        const matched = await matchProductImagesToReference(
           ai,
-          refElements,
+          identified.elements,
           catalogImages,
           savedProduct?.name || 'Product'
         );
+        if (matched.usage) productMatchingUsages.push(matched.usage);
+
+        const matches = matched.matches;
         matchedProductVisuals = matches.map((m) => ({
           role: m.role,
           url: m.url,
@@ -518,18 +538,60 @@ export async function POST(request: NextRequest) {
         }));
         console.log('\n=== PRODUCT IMAGE MATCHING ===', matchedProductVisuals);
 
-        if (matches.length > 0) {
-          const uniqueUrls = [...new Set(matches.map((m) => m.url))];
+        const uniqueUrls = [...new Set(matches.map((m) => m.url))].filter((u) =>
+          u.startsWith('http')
+        );
+        if (uniqueUrls.length > 0) {
+          console.log(
+            `\n=== UPLOAD TO GEMINI: ${uniqueUrls.length} agent-selected image(s) (of ${catalogImages.length} in catalog) ===`
+          );
           productFilesForStep2 = await uploadProductImageUrlsToGemini(ai, uniqueUrls);
         }
       } catch (matchErr) {
-        console.warn('Product image matching failed, using all catalog images:', matchErr);
-        matchedProductVisuals = catalogImages.slice(0, 3).map((img, i) => ({
-          role: (img.kind || 'product') as MatchedProductVisual['role'],
-          url: img.url,
-          description: img.alt || `Image ${i + 1}`,
-        }));
+        console.warn('Product image matching failed, fallback to primary only:', matchErr);
+        const primary =
+          savedProduct?.primary_image_url ||
+          catalogImages.find((i) => i.url.startsWith('http'))?.url;
+        if (primary) {
+          matchedProductVisuals = [
+            {
+              role: 'product',
+              url: primary,
+              description: 'Primary product image (matching failed)',
+            },
+          ];
+          productFilesForStep2 = await uploadProductImageUrlsToGemini(ai, [primary]);
+        }
       }
+    }
+
+    if (productFilesForStep2.length === 0 && catalogImages.length > 0) {
+      const primary =
+        savedProduct?.primary_image_url ||
+        catalogImages.find((i) => i.url.startsWith('http'))?.url;
+      if (primary) {
+        console.log('Retrying product upload with primary image only');
+        productFilesForStep2 = await uploadProductImageUrlsToGemini(ai, [primary]);
+        if (productFilesForStep2.length > 0 && matchedProductVisuals.length === 0) {
+          matchedProductVisuals = [
+            {
+              role: 'product',
+              url: primary,
+              description: 'Primary product image',
+            },
+          ];
+        }
+      }
+    }
+
+    if (productFilesForStep2.length === 0 && !productImage) {
+      return NextResponse.json(
+        {
+          error:
+            'Could not download product images from the store (connection reset or CDN blocked). Try re-saving the product or upload a one-off product image.',
+        },
+        { status: 502 }
+      );
     }
 
     // Step 2: Adapt the reference prompt for the new product (agent or legacy)
@@ -563,6 +625,9 @@ export async function POST(request: NextRequest) {
           matchedProductVisuals,
           productName: savedProduct?.name ?? null,
           allowedPrice,
+          referenceHasPromoOfferLine,
+          referenceTrustBadge,
+          referenceVerbatimPhrases,
         },
         productFilesForStep2
       );
@@ -578,7 +643,6 @@ export async function POST(request: NextRequest) {
 
     const finalPrompt = step2Result.finalPrompt;
     const step2Usage = step2Result.usage;
-    const step2Cost = step2Result.cost;
 
     if (!finalPrompt) {
       return NextResponse.json(
@@ -589,38 +653,43 @@ export async function POST(request: NextRequest) {
 
     await logFinalPromptForDev(finalPrompt);
 
-    if (step2Cost) {
-      console.log('\n=== STEP 2 COST ===', step2Result.mode);
-      console.log('Tokens:', step2Usage);
-      console.log('Cost:', step2Cost);
-    }
+    const productMatchingUsage = mergeStep2Usage(productMatchingUsages);
 
-    // Calculate total costs
-    const totalUsage = {
-      step1: step1Usage,
-      step2: step2Usage,
-      total: {
-        promptTokenCount: (step1Usage?.promptTokenCount || 0) + (step2Usage?.promptTokenCount || 0),
-        candidatesTokenCount: (step1Usage?.candidatesTokenCount || 0) + (step2Usage?.candidatesTokenCount || 0),
-        totalTokenCount: (step1Usage?.totalTokenCount || 0) + (step2Usage?.totalTokenCount || 0),
-      }
-    };
+    const pipelineCost = buildClonePipelineCost({
+      model: GEMINI_MODEL,
+      step1Usage,
+      productMatchingUsage,
+      step2Usage,
+      step2Mode: step2Result.mode,
+    });
 
-    const totalCost = {
-      step1: step1Cost,
-      step2: step2Cost,
-      total: {
-        inputCost: (step1Cost?.inputCost || 0) + (step2Cost?.inputCost || 0),
-        outputCost: (step1Cost?.outputCost || 0) + (step2Cost?.outputCost || 0),
-        totalCost: (step1Cost?.totalCost || 0) + (step2Cost?.totalCost || 0),
-        inputCostFormatted: `$${((step1Cost?.inputCost || 0) + (step2Cost?.inputCost || 0)).toFixed(6)}`,
-        outputCostFormatted: `$${((step1Cost?.outputCost || 0) + (step2Cost?.outputCost || 0)).toFixed(6)}`,
-        totalCostFormatted: `$${((step1Cost?.totalCost || 0) + (step2Cost?.totalCost || 0)).toFixed(6)}`
-      }
-    };
-
-    console.log('\n=== TOTAL COST SUMMARY ===');
-    console.log(JSON.stringify(totalCost, null, 2));
+    console.log('\n=== GEMINI CLONE PIPELINE COST (USD) ===');
+    console.log('Model:', pipelineCost.model);
+    console.log(
+      'Rates:',
+      `$${pipelineCost.rates.inputPerMillionUsd}/M in, $${pipelineCost.rates.outputPerMillionUsd}/M out`
+    );
+    console.log(
+      'Step 1:',
+      pipelineCost.breakdown.step1.cost?.totalCostFormatted ?? 'n/a',
+      pipelineCost.breakdown.step1.usage
+    );
+    console.log(
+      'Product matching:',
+      pipelineCost.breakdown.productMatching.cost?.totalCostFormatted ?? 'n/a',
+      pipelineCost.breakdown.productMatching.usage
+    );
+    console.log(
+      'Step 2:',
+      pipelineCost.breakdown.step2.cost?.totalCostFormatted ?? 'n/a',
+      `(${step2Result.mode})`,
+      pipelineCost.breakdown.step2.usage
+    );
+    console.log(
+      'TOTAL:',
+      pipelineCost.total.cost?.totalCostFormatted ?? 'n/a',
+      pipelineCost.total.usage
+    );
     const adVisualMode = classifyAdVisualMode({
       referenceVisualStyle,
       hasReferenceFeatureRow,
@@ -634,7 +703,7 @@ export async function POST(request: NextRequest) {
       success: true,
       prompt: finalPrompt,
       adVisualMode,
-      cost: totalCost,
+      cost: pipelineCost,
       // Include intermediate outputs for debugging
       debug: {
         step2Mode: step2Result.mode,
@@ -661,9 +730,10 @@ export async function POST(request: NextRequest) {
       matchedProductImageUrls: matchedProductVisuals.map((m) => m.url),
       usage: {
         step1: step1Usage,
+        productMatching: productMatchingUsage,
         step2: step2Usage,
-        total: totalUsage.total
-      }
+        total: pipelineCost.total.usage,
+      },
     });
 
   } catch (error: any) {
