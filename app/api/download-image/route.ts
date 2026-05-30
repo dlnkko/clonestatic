@@ -29,8 +29,12 @@ export async function GET(request: NextRequest) {
 
   try {
     const res = await fetch(url, {
-      headers: { Accept: 'image/*' },
+      headers: {
+        Accept: 'image/*',
+        'User-Agent': 'admirror/1.0',
+      },
       cache: 'no-store',
+      signal: AbortSignal.timeout(120_000),
     });
     if (!res.ok) {
       return NextResponse.json({ error: 'Failed to fetch image' }, { status: 502 });

@@ -1,6 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/cn';
+import { PAID_PLANS, PLAN_FEATURES } from '@/lib/plans';
 
 type Props = {
   open: boolean;
@@ -58,64 +59,58 @@ export function PricingModal({ open, onClose, billing, onBillingChange }: Props)
             <p className="text-xs text-[var(--dash-muted)]">Secure checkout via Whop · same Google email</p>
           </div>
 
-          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="dash-pricing-card">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-[var(--dash-fg)]">Standard</h3>
-                <span className="dash-pill">20 images</span>
-              </div>
-              <p className="mt-4 text-3xl font-semibold tracking-tight text-[var(--dash-fg)]">
-                {billing === 'yearly' ? '$79.99' : '$9.99'}
-                <span className="text-base font-normal text-[var(--dash-muted)]">
-                  {billing === 'yearly' ? ' / year' : ' / month'}
-                </span>
-              </p>
-              {billing === 'yearly' && (
-                <p className="mt-1 text-xs text-[var(--dash-muted)]">Billed annually · ~$6.67/mo</p>
-              )}
-              <ul className="mt-4 space-y-2 text-sm text-[var(--dash-muted)]">
-                <li className="dash-check-item">20 AI images (generate or edit)</li>
-                <li className="dash-check-item">Clone ads from references</li>
-                <li className="dash-check-item">History & downloads</li>
-              </ul>
-              <a
-                href={`/checkout-redirect?plan=${billing === 'yearly' ? 'standard_yearly' : 'standard_monthly'}`}
-                className="dash-btn dash-btn-secondary mt-6 w-full"
-              >
-                Continue
-              </a>
-            </div>
+          <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {PAID_PLANS.map((plan) => {
+              const featured = plan.key === 'pro';
+              const checkoutKey = billing === 'yearly' ? plan.checkoutYearly : plan.checkoutMonthly;
 
-            <div className="dash-pricing-card dash-pricing-card-featured">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-white">Pro</h3>
-                <span className="dash-pill dash-pill-dark">75 images</span>
-              </div>
-              <p className="mt-4 text-3xl font-semibold tracking-tight text-white">
-                {billing === 'yearly' ? '$229.99' : '$29.99'}
-                <span className="text-base font-normal text-white/70">
-                  {billing === 'yearly' ? ' / year' : ' / month'}
-                </span>
-              </p>
-              {billing === 'yearly' && (
-                <p className="mt-1 text-xs text-white/60">Billed annually · ~$19.17/mo</p>
-              )}
-              <ul className="mt-4 space-y-2 text-sm text-white/75">
-                <li className="dash-check-item dash-check-item-light">75 AI images (generate or edit)</li>
-                <li className="dash-check-item dash-check-item-light">Clone ads from references</li>
-                <li className="dash-check-item dash-check-item-light">History & downloads</li>
-              </ul>
-              <a
-                href={`/checkout-redirect?plan=${billing === 'yearly' ? 'pro_yearly' : 'pro_monthly'}`}
-                className="dash-btn mt-6 w-full bg-white text-zinc-900 hover:bg-zinc-100"
-              >
-                Continue
-              </a>
-            </div>
+              return (
+                <div
+                  key={plan.key}
+                  className={cn(
+                    'dash-pricing-card',
+                    featured && 'dash-pricing-card-featured'
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className={cn('font-semibold', featured ? 'text-white' : 'text-[var(--dash-fg)]')}>
+                      {plan.name}
+                    </h3>
+                    <span className={cn('dash-pill shrink-0', featured && 'dash-pill-dark')}>
+                      {plan.credits} credits
+                    </span>
+                  </div>
+                  <p className={cn('mt-2 text-sm', featured ? 'text-white/70' : 'text-[var(--dash-muted)]')}>
+                    Up to {plan.maxProducts} products · price on Whop
+                  </p>
+                  <ul className={cn('mt-4 space-y-2 text-sm', featured ? 'text-white/75' : 'text-[var(--dash-muted)]')}>
+                    {PLAN_FEATURES(plan).map((f) => (
+                      <li
+                        key={f}
+                        className={cn('dash-check-item', featured && 'dash-check-item-light')}
+                      >
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                  <a
+                    href={`/checkout-redirect?plan=${checkoutKey}`}
+                    className={cn(
+                      'dash-btn mt-6 w-full',
+                      featured
+                        ? 'bg-white text-zinc-900 hover:bg-zinc-100'
+                        : 'dash-btn-secondary'
+                    )}
+                  >
+                    Continue
+                  </a>
+                </div>
+              );
+            })}
           </div>
 
           <p className="mt-6 text-center text-xs text-[var(--dash-muted)]">
-            Editing an image counts as one generation.
+            Each generate or edit uses 1 credit. Cancel anytime from the sidebar.
           </p>
         </div>
 

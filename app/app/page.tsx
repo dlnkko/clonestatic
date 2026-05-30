@@ -4,10 +4,14 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { createClient as createSupabaseClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { DashboardShell } from '../components/dashboard/DashboardShell';
 import { PricingModal } from '../components/dashboard/PricingModal';
+import { OnboardingWelcome } from '../components/OnboardingWelcome';
+import { DashCombobox } from '../components/dashboard/DashCombobox';
+import { ProductSourcePicker } from '../components/dashboard/ProductSourcePicker';
 import { ProductDetailPanel } from '../components/ProductDetailPanel';
 import { ProductModal } from '../components/ProductModal';
+import { AppProviders } from './providers';
+import { useI18n } from '@/lib/i18n/LocaleProvider';
 import { COPY_LANGUAGES } from '@/lib/copy-languages';
-import type { ClonePipelineCost } from '@/lib/adaptation/types';
 import type { ProductRecord } from '@/lib/products/types';
 import { adVisualModeLabel, type AdVisualMode } from '@/lib/ad-visual-mode';
 import {
@@ -15,6 +19,8 @@ import {
   readCreationsCache,
   writeCreationsCache,
 } from '@/lib/creations/client-cache';
+import { isTransientFetchError } from '@/lib/display-image-url';
+import { ProxiedImage } from '../components/ProxiedImage';
 
 /** Parse response as JSON; if body is not JSON (e.g. "Request Entity Too Large"), return null and set friendly error. */
 async function parseJsonResponse<T = unknown>(res: Response): Promise<{ data: T | null; errorMessage: string | null }> {
@@ -26,32 +32,44 @@ async function parseJsonResponse<T = unknown>(res: Response): Promise<{ data: T 
     if (res.status === 413) {
       return { data: null, errorMessage: 'Request too large. Please try again.' };
     }
+    if (res.status === 504 || res.status === 408) {
+      return { data: null, errorMessage: 'Request timed out. Keep the screen on and try again.' };
+    }
     if (res.status >= 500) {
       return { data: null, errorMessage: 'Server error. Please try again in a moment.' };
+    }
+    if (text.startsWith('<') || text.includes('<!DOCTYPE')) {
+      return { data: null, errorMessage: 'Server timeout. Keep the screen on and try again.' };
     }
     return { data: null, errorMessage: text?.slice(0, 200) || 'Invalid response from server. Please try again.' };
   }
 }
 
-const MAX_IMAGE_BYTES = 320000; // ~320KB blob → ~430KB base64; 2 images stay under 1MB body
+const MAX_IMAGE_BYTES = 280000; // tighter on mobile networks; ~375KB base64 per image
+
+function isMobileDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+}
 
 /** Compress image to JPEG data URL under maxSizeBytes (blob size). */
 function compressImageForApi(file: File, maxSizeBytes: number = MAX_IMAGE_BYTES): Promise<string> {
+  const maxDim = isMobileDevice() ? 1280 : 1920;
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
       URL.revokeObjectURL(url);
-      const maxDim = 1920;
+      const maxDimLocal = maxDim;
       let w = img.naturalWidth;
       let h = img.naturalHeight;
-      if (w > maxDim || h > maxDim) {
+      if (w > maxDimLocal || h > maxDimLocal) {
         if (w > h) {
-          h = Math.round((h * maxDim) / w);
-          w = maxDim;
+          h = Math.round((h * maxDimLocal) / w);
+          w = maxDimLocal;
         } else {
-          w = Math.round((w * maxDim) / h);
-          h = maxDim;
+          w = Math.round((w * maxDimLocal) / h);
+          h = maxDimLocal;
         }
       }
       const canvas = document.createElement('canvas');
@@ -90,7 +108,14 @@ function compressImageForApi(file: File, maxSizeBytes: number = MAX_IMAGE_BYTES)
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new Error('Invalid image'));
+      if (file.size <= maxSizeBytes * 1.2) {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Invalid image. Try JPG or PNG.'));
+        reader.readAsDataURL(file);
+        return;
+      }
+      reject(new Error('Invalid image. Try JPG or PNG.'));
     };
     img.src = url;
   });
@@ -149,7 +174,10 @@ export type LibraryPeriod = {
   label: string;
 };
 
-export default function StaticAdPromptGenerator() {
+const ONBOARDING_STORAGE = 'admirror_onboarding_dismissed';
+
+function StaticAdAppPage() {
+  const { t } = useI18n();
   const [staticAdImage, setStaticAdImage] = useState<File | null>(null);
   const [productImage, setProductImage] = useState<File | null>(null);
   const [copywriting, setCopywriting] = useState<string>('');
@@ -161,7 +189,6 @@ export default function StaticAdPromptGenerator() {
   const [error, setError] = useState<string | null>(null);
   const [staticAdPreview, setStaticAdPreview] = useState<string | null>(null);
   const [productPreview, setProductPreview] = useState<string | null>(null);
-  const [costInfo, setCostInfo] = useState<ClonePipelineCost | null>(null);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState<boolean>(false);
   const [imageGenMode, setImageGenMode] = useState<AdVisualMode | null>(null);
@@ -182,6 +209,12 @@ export default function StaticAdPromptGenerator() {
   const [pendingPreviewCreationId, setPendingPreviewCreationId] = useState<string | null>(null);
   const [user, setUser] = useState<{ email: string; name?: string } | null>(null);
   const [creditsRemaining, setCreditsRemaining] = useState<number | null>(null);
+  const [planName, setPlanName] = useState<string | null>(null);
+  const [productCount, setProductCount] = useState<number | null>(null);
+  const [maxProducts, setMaxProducts] = useState<number | null>(null);
+  const [canAddProduct, setCanAddProduct] = useState(true);
+  const [canCancelSubscription, setCanCancelSubscription] = useState(false);
+  const [cancelAtPeriodEnd, setCancelAtPeriodEnd] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [pricingBilling, setPricingBilling] = useState<'monthly' | 'yearly'>('monthly');
@@ -208,7 +241,9 @@ export default function StaticAdPromptGenerator() {
   const [libraryBrowseMode, setLibraryBrowseMode] = useState<'all_ads' | 'brands'>('all_ads');
   const [libraryPeriod, setLibraryPeriod] = useState<LibraryPeriod | null>(null);
   const [libraryTotalCount, setLibraryTotalCount] = useState(0);
+  const [libraryFilteredCount, setLibraryFilteredCount] = useState<number | null>(null);
   const [libraryNextCursor, setLibraryNextCursor] = useState<string | null>(null);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(true);
   const [libraryLastRun, setLibraryLastRun] = useState<{
     status: string;
     creditsUsed: number;
@@ -280,6 +315,7 @@ export default function StaticAdPromptGenerator() {
         setSelectedProductId(null);
         setProductPreview(null);
       }
+      void fetchSubscription();
     }
   };
 
@@ -304,7 +340,7 @@ export default function StaticAdPromptGenerator() {
     }
   };
 
-  const fetchCredits = useCallback(async () => {
+  const fetchSubscription = useCallback(async () => {
     if (!hasSupabase) return;
     try {
       const subRes = await fetch('/api/subscription', { credentials: 'include' });
@@ -312,8 +348,24 @@ export default function StaticAdPromptGenerator() {
         const subData = await subRes.json();
         const credits = Number(subData?.credits_remaining ?? 0);
         if (Number.isFinite(credits)) setCreditsRemaining(credits);
+        setPlanName(typeof subData?.plan_name === 'string' ? subData.plan_name : null);
+        setProductCount(typeof subData?.product_count === 'number' ? subData.product_count : null);
+        setMaxProducts(typeof subData?.max_products === 'number' ? subData.max_products : null);
+        setCanAddProduct(subData?.can_add_product !== false);
+        setCancelAtPeriodEnd(subData?.cancel_at_period_end === true);
+        setCanCancelSubscription(
+          subData?.plan !== 'free_trial' &&
+            subData?.plan !== 'owner' &&
+            subData?.has_whop_membership === true
+        );
       } else {
         setCreditsRemaining(0);
+        setPlanName(null);
+        setProductCount(null);
+        setMaxProducts(null);
+        setCanAddProduct(true);
+        setCanCancelSubscription(false);
+        setCancelAtPeriodEnd(false);
       }
     } catch {
       setCreditsRemaining(null);
@@ -339,6 +391,10 @@ export default function StaticAdPromptGenerator() {
         return false;
       }
       setCreditsRemaining(credits);
+      setPlanName(typeof subData?.plan_name === 'string' ? subData.plan_name : null);
+      setProductCount(typeof subData?.product_count === 'number' ? subData.product_count : null);
+      setMaxProducts(typeof subData?.max_products === 'number' ? subData.max_products : null);
+      setCanAddProduct(subData?.can_add_product !== false);
       return true;
     } catch {
       setShowPricingModal(true);
@@ -356,7 +412,6 @@ export default function StaticAdPromptGenerator() {
 
     setIsGenerating(true);
     setError(null);
-    setCostInfo(null);
     setGeneratedPrompt('');
     setGeneratedImageUrl(null);
     setImageGenMode(null);
@@ -443,7 +498,6 @@ export default function StaticAdPromptGenerator() {
         prompt?: string;
         adVisualMode?: AdVisualMode;
         error?: string;
-        cost?: ClonePipelineCost;
         matchedProductImageUrls?: string[];
       }>(response);
       if (promptErr) {
@@ -456,7 +510,6 @@ export default function StaticAdPromptGenerator() {
       }
 
       setGeneratedPrompt(data.prompt!);
-      setCostInfo(data.cost ?? null);
       const adVisualMode: AdVisualMode =
         data.adVisualMode === 'realistic' ? 'realistic' : 'design';
       setImageGenMode(adVisualMode);
@@ -550,7 +603,7 @@ export default function StaticAdPromptGenerator() {
             'Generación en segundo plano. Puedes cambiar de pestaña; el resultado aparecerá en Historial.'
           );
           void loadCreations({ silent: true });
-          void fetchCredits();
+          void fetchSubscription();
           return;
         }
 
@@ -564,7 +617,7 @@ export default function StaticAdPromptGenerator() {
           setBackgroundGenNotice(null);
           if (creationId) {
             await loadCreations({ silent: true });
-            await fetchCredits();
+            await fetchSubscription();
           } else {
             saveCreation(imgData.imageUrl, aspect, data.prompt!);
           }
@@ -581,12 +634,26 @@ export default function StaticAdPromptGenerator() {
           setError(imgData?.error || 'Failed to generate image.');
         }
       } catch (imgErr: unknown) {
-        setError(imgErr instanceof Error ? imgErr.message : 'Failed to generate image.');
+        if (creationId) {
+          setError(null);
+          setBackgroundGenNotice(
+            'Generación en curso en el servidor. Revisa Historial en unos minutos si pierdes conexión.'
+          );
+          void loadCreations({ silent: true });
+        } else if (isTransientFetchError(imgErr)) {
+          setError('Conexión interrumpida. Revisa Historial por si la imagen ya se generó.');
+        } else {
+          setError(imgErr instanceof Error ? imgErr.message : 'Failed to generate image.');
+        }
       } finally {
         setIsGeneratingImage(false);
       }
     } catch (err: any) {
-      setError(err.message || 'Something went wrong. Please try again.');
+      if (isTransientFetchError(err)) {
+        setError('Conexión interrumpida. Mantén la pantalla encendida e inténtalo de nuevo.');
+      } else {
+        setError(err.message || 'Something went wrong. Please try again.');
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -634,6 +701,8 @@ export default function StaticAdPromptGenerator() {
     setEditPrompt('');
     setEditedImageUrl(null);
 
+    let editCreationId: string | null = null;
+
     try {
       const editImageBase64 = await compressImageForApi(editSourceImage);
       const promptRes = await fetch('/api/generate-edit-prompt', {
@@ -653,7 +722,6 @@ export default function StaticAdPromptGenerator() {
       }
       setEditPrompt(promptData.prompt);
 
-      let editCreationId: string | null = null;
       if (hasSupabase) {
         try {
           const createRes = await fetch('/api/creations', {
@@ -709,7 +777,7 @@ export default function StaticAdPromptGenerator() {
           'Edición en segundo plano. Revisa Historial cuando termine.'
         );
         void loadCreations({ silent: true });
-        void fetchCredits();
+        void fetchSubscription();
         return;
       }
 
@@ -721,7 +789,7 @@ export default function StaticAdPromptGenerator() {
         setBackgroundGenNotice(null);
         if (editCreationId) {
           await loadCreations({ silent: true });
-          await fetchCredits();
+          await fetchSubscription();
         } else {
           saveCreation(editData.imageUrl, 'auto', promptData.prompt!);
         }
@@ -737,7 +805,15 @@ export default function StaticAdPromptGenerator() {
         throw new Error(editData?.error || 'Failed to edit image.');
       }
     } catch (e: unknown) {
-      setEditError(e instanceof Error ? e.message : 'Failed to edit image.');
+      if (editCreationId) {
+        setEditError(null);
+        setBackgroundGenNotice('Edición en curso en el servidor. Revisa Historial en unos minutos.');
+        void loadCreations({ silent: true });
+      } else if (isTransientFetchError(e)) {
+        setEditError('Conexión interrumpida. Revisa Historial por si la edición ya terminó.');
+      } else {
+        setEditError(e instanceof Error ? e.message : 'Failed to edit image.');
+      }
     } finally {
       setIsEditing(false);
     }
@@ -745,7 +821,7 @@ export default function StaticAdPromptGenerator() {
 
   const handleCloneFromLibraryAd = async (imageUrl: string) => {
     try {
-      const res = await fetch(imageUrl);
+      const res = await fetch(`/api/download-image?url=${encodeURIComponent(imageUrl)}&display=1`);
       if (!res.ok) throw new Error('Could not load image');
       const blob = await res.blob();
       const file = new File([blob], 'reference-ad.jpg', { type: blob.type || 'image/jpeg' });
@@ -865,6 +941,9 @@ export default function StaticAdPromptGenerator() {
         setLibraryAds((prev) => (append ? [...prev, ...list] : list));
         setLibraryNextCursor(data.nextCursor ?? null);
         setLibraryTotalCount(Number(data.totalCount) || 0);
+        setLibraryFilteredCount(
+          data.filteredCount != null ? Number(data.filteredCount) : null
+        );
         setLibraryCategories(Array.isArray(data.categories) ? data.categories : []);
         setLibraryPeriod(data.period ?? null);
         setLibraryLastRun(data.meta?.lastRun ?? null);
@@ -941,6 +1020,16 @@ export default function StaticAdPromptGenerator() {
         setGeneratedImageUrl(done.image_url);
         setPendingPreviewCreationId(null);
         setBackgroundGenNotice(null);
+        setError(null);
+        return;
+      }
+      const failed = list.find(
+        (c) => c.id === pendingPreviewCreationId && c.status === 'failed'
+      );
+      if (failed) {
+        setPendingPreviewCreationId(null);
+        setBackgroundGenNotice(null);
+        setError('La generación falló. Inténtalo de nuevo.');
       }
     }
   }, [pendingPreviewCreationId]);
@@ -995,12 +1084,35 @@ export default function StaticAdPromptGenerator() {
   }, []);
 
   useEffect(() => {
-    if (hasSupabase) fetchCredits();
-  }, [hasSupabase, fetchCredits]);
+    if (hasSupabase) fetchSubscription();
+  }, [hasSupabase, fetchSubscription]);
 
   useEffect(() => {
     if (hasSupabase) loadProducts();
   }, [hasSupabase, loadProducts]);
+
+  useEffect(() => {
+    try {
+      setOnboardingDismissed(localStorage.getItem(ONBOARDING_STORAGE) === '1');
+    } catch {
+      setOnboardingDismissed(false);
+    }
+  }, []);
+
+  const showOnboarding =
+    hasSupabase && !productsLoading && products.length === 0 && !onboardingDismissed;
+
+  const dismissOnboarding = () => {
+    try {
+      localStorage.setItem(ONBOARDING_STORAGE, '1');
+    } catch {
+      // ignore
+    }
+    setOnboardingDismissed(true);
+  };
+
+  const libraryResultTotal =
+    libraryFilteredCount != null ? libraryFilteredCount : libraryTotalCount;
 
   useEffect(() => {
     if (hasSupabase && activeTab === 'products') loadProducts();
@@ -1036,10 +1148,26 @@ export default function StaticAdPromptGenerator() {
     (c) => c.status === 'generating' || (!c.image_url && c.status !== 'failed')
   );
   useEffect(() => {
-    if (!hasSupabase || !authUserId || !hasGenerating) return;
-    const interval = setInterval(() => loadCreations({ silent: true }), 4000);
+    if (!hasSupabase || !authUserId || (!hasGenerating && !pendingPreviewCreationId)) return;
+    const ms = pendingPreviewCreationId ? 2500 : 4000;
+    const interval = setInterval(() => loadCreations({ silent: true }), ms);
     return () => clearInterval(interval);
-  }, [hasSupabase, authUserId, hasGenerating, loadCreations]);
+  }, [hasSupabase, authUserId, hasGenerating, pendingPreviewCreationId, loadCreations]);
+
+  useEffect(() => {
+    if (!hasSupabase || !authUserId) return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void loadCreations({ silent: true });
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('pageshow', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('pageshow', onVisible);
+    };
+  }, [hasSupabase, authUserId, loadCreations]);
 
   const saveCreation = useCallback(
     async (imageUrl: string, aspectRatio: string, prompt: string) => {
@@ -1052,12 +1180,12 @@ export default function StaticAdPromptGenerator() {
           body: JSON.stringify({ image_url: imageUrl, aspect_ratio: aspectRatio, prompt }),
         });
         await loadCreations();
-        await fetchCredits();
+        await fetchSubscription();
       } catch {
         // ignore
       }
     },
-    [hasSupabase, loadCreations, fetchCredits]
+    [hasSupabase, loadCreations, fetchSubscription]
   );
 
   const handleSignOut = async () => {
@@ -1085,6 +1213,12 @@ export default function StaticAdPromptGenerator() {
         sidebarOpen={sidebarOpen}
         onSidebarOpen={setSidebarOpen}
         creditsRemaining={creditsRemaining}
+        planName={planName}
+        productCount={productCount}
+        maxProducts={maxProducts}
+        canCancelSubscription={canCancelSubscription}
+        cancelAtPeriodEnd={cancelAtPeriodEnd}
+        onSubscriptionRefresh={fetchSubscription}
         user={user}
         onUpgrade={() => setShowPricingModal(true)}
         onSignOut={handleSignOut}
@@ -1119,10 +1253,11 @@ export default function StaticAdPromptGenerator() {
                         </div>
                       ) : (
                         <a href={c.image_url!} target="_blank" rel="noopener noreferrer" className="block aspect-[9/16] w-full bg-slate-100">
-                          <img
+                          <ProxiedImage
                             src={c.image_url!}
                             alt=""
                             className="h-full w-full object-cover"
+                            fallbackClassName="aspect-[9/16] w-full"
                             loading={index < 12 ? 'eager' : 'lazy'}
                             decoding="async"
                             fetchPriority={index < 6 ? 'high' : 'auto'}
@@ -1209,7 +1344,7 @@ export default function StaticAdPromptGenerator() {
                     </div>
                   ) : (
                     <div className="w-full flex flex-col items-center">
-                      <div className="w-full max-w-lg rounded-xl overflow-hidden bg-slate-50 ring-1 ring-slate-200"><a href={editedImageUrl!} target="_blank" rel="noopener noreferrer" className="block"><img src={editedImageUrl!} alt="Edited ad" className="w-full h-auto object-contain" /></a></div>
+                      <div className="w-full max-w-lg rounded-xl overflow-hidden bg-slate-50 ring-1 ring-slate-200"><a href={editedImageUrl!} target="_blank" rel="noopener noreferrer" className="block"><ProxiedImage src={editedImageUrl!} alt="Edited ad" className="w-full h-auto object-contain" /></a></div>
                       <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
                         <a href={editedImageUrl!} target="_blank" rel="noopener noreferrer" className="dash-btn dash-btn-secondary text-xs min-h-[44px]"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>Open</a>
                         <button type="button" onClick={() => handleDownloadImage(editedImageUrl!, 'edited-ad.jpg')} className="inline-flex items-center gap-1.5 dash-btn dash-btn-primary text-xs min-h-[44px] touch-manipulation"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download</button>
@@ -1225,28 +1360,27 @@ export default function StaticAdPromptGenerator() {
           ) : activeTab === 'ad-library' ? (
         <div className="space-y-6">
           <header className="dash-animate-in">
-            <h1 className="dash-title">Static Ad Library</h1>
-            <p className="dash-subtitle mt-2">
-              Librería global de memes US (Meta Ad Library vía ScrapeCreators). Misma colección para todos los usuarios, actualizada cada 28 días.
-            </p>
+            <h1 className="dash-title">{t('library', 'title')}</h1>
+            <p className="dash-subtitle mt-2">{t('library', 'subtitle')}</p>
           </header>
 
           <div className="dash-card dash-card-lg">
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
               <div className="flex-1 min-w-[140px]">
-                <label className="mb-1 block text-xs font-medium text-slate-600">Category</label>
-                <select
+                <label className="mb-1 block text-xs font-medium text-slate-600">{t('library', 'category')}</label>
+                <DashCombobox
                   value={libraryCategory}
-                  onChange={(e) => loadLibraryCategory(e.target.value, libraryBrowseMode)}
-                  className="dash-select w-full text-sm"
-                >
-                  <option value="all">Choose category…</option>
-                  {libraryCategories.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => loadLibraryCategory(v, libraryBrowseMode)}
+                  placeholder={t('library', 'chooseCategory')}
+                  options={[
+                    { value: 'all', label: t('library', 'chooseCategory') },
+                    ...libraryCategories.map((c) => ({
+                      value: c,
+                      label: c.charAt(0).toUpperCase() + c.slice(1),
+                    })),
+                  ]}
+                  aria-label={t('library', 'category')}
+                />
               </div>
               {libraryCategory !== 'all' && !libraryKeywordMode && !librarySelectedBrand ? (
                 <div className="flex rounded-lg border border-slate-200 p-0.5 text-xs">
@@ -1262,7 +1396,7 @@ export default function StaticAdPromptGenerator() {
                         : 'text-slate-600 hover:bg-slate-50'
                     }`}
                   >
-                    Todos los ads
+                    {t('library', 'allAds')}
                   </button>
                   <button
                     type="button"
@@ -1276,7 +1410,7 @@ export default function StaticAdPromptGenerator() {
                         : 'text-slate-600 hover:bg-slate-50'
                     }`}
                   >
-                    Por marca
+                    {t('library', 'byBrand')}
                   </button>
                 </div>
               ) : null}
@@ -1285,18 +1419,18 @@ export default function StaticAdPromptGenerator() {
               libraryCategory !== 'all' &&
               libraryBrowseMode === 'brands' ? (
                 <div className="flex-[2] min-w-[180px]">
-                  <label className="mb-1 block text-xs font-medium text-slate-600">Search brands</label>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">{t('library', 'byBrand')}</label>
                   <input
                     type="search"
                     value={libraryBrandFilter}
                     onChange={(e) => setLibraryBrandFilter(e.target.value)}
-                    placeholder="Filter by page name…"
+                    placeholder={t('library', 'filterBrands')}
                     className="dash-input w-full text-sm"
                   />
                 </div>
               ) : null}
               <div className="flex-[2] min-w-[180px]">
-                <label className="mb-1 block text-xs font-medium text-slate-600">Keyword (optional)</label>
+                <label className="mb-1 block text-xs font-medium text-slate-600">{t('library', 'keywordOptional')}</label>
                 <input
                   type="search"
                   value={libraryKeywordSearch}
@@ -1308,7 +1442,7 @@ export default function StaticAdPromptGenerator() {
                       fetchStaticLibrary({ keyword: libraryKeywordSearch, brand: null });
                     }
                   }}
-                  placeholder="Seed keyword… (e.g. creatine)"
+                  placeholder="skincare, creatine…"
                   className="dash-input w-full text-sm"
                 />
               </div>
@@ -1331,7 +1465,11 @@ export default function StaticAdPromptGenerator() {
                 disabled={libraryLoading}
                 className="dash-btn dash-btn-primary shrink-0 disabled:opacity-50"
               >
-                {libraryLoading ? 'Loading…' : libraryKeywordSearch.trim() ? 'Search ads' : 'Show brands'}
+                {libraryLoading
+                  ? t('library', 'loading')
+                  : libraryKeywordSearch.trim()
+                    ? t('library', 'searchAds')
+                    : t('library', 'showBrands')}
               </button>
             </div>
             {(librarySelectedBrand || libraryKeywordMode) && (
@@ -1357,7 +1495,7 @@ export default function StaticAdPromptGenerator() {
                   }}
                   className="text-indigo-600 hover:text-indigo-800 font-medium"
                 >
-                  ← Back
+                  ← {t('library', 'back')}
                 </button>
                 <span className="text-slate-400">/</span>
                 {libraryCategory !== 'all' && (
@@ -1372,24 +1510,6 @@ export default function StaticAdPromptGenerator() {
                   </span>
                 )}
               </div>
-            )}
-            {libraryPeriod && (
-              <p className="mt-3 text-xs text-slate-500">
-                Window: <strong>{libraryPeriod.start_date}</strong> → hoy ({libraryPeriod.end_date}) · US · MEME
-                {libraryTotalCount > 0 ? (
-                  <>
-                    {' '}
-                    · <strong>{libraryTotalCount.toLocaleString()}</strong> ads in library
-                  </>
-                ) : null}
-                {libraryLastRun?.finishedAt ? (
-                  <>
-                    {' '}
-                    · Last ingest: {libraryLastRun.status} ({libraryLastRun.adsInserted} new,{' '}
-                    {libraryLastRun.creditsUsed} credits)
-                  </>
-                ) : null}
-              </p>
             )}
             {libraryError && <p className="mt-3 text-sm text-red-600">{libraryError}</p>}
             {libraryLoading && libraryAds.length === 0 && libraryBrands.length === 0 && (
@@ -1469,80 +1589,73 @@ export default function StaticAdPromptGenerator() {
               ) : (
                 <>Ads · {libraryCategory}</>
               )}{' '}
-              ({libraryAds.length}
-              {libraryTotalCount > libraryAds.length ? ` of ${libraryTotalCount.toLocaleString()}` : ''})
+              {t('library', 'adsCount', {
+                shown: libraryAds.length,
+                total: libraryResultTotal.toLocaleString(),
+              })}
             </h2>
-            {(librarySelectedBrand || libraryBrowseMode === 'all_ads') && !libraryKeywordMode && (
-              <p className="mb-4 -mt-2 text-xs text-slate-500">
-                {librarySelectedBrand
-                  ? 'Ordenados por impresiones (mayor a menor).'
-                  : 'Todas las marcas de la categoría, ordenadas por impresiones (mayor a menor).'}
-              </p>
-            )}
             {libraryAds.length > 0 ? (
               <>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                  {libraryAds.map((ad) => (
-                    <article
-                      key={ad.id}
-                      className="dash-media-card group overflow-hidden transition-shadow hover:shadow-md"
-                    >
+                <div className="dash-library-grid">
+                  {libraryAds.map((ad) => {
+                    const impressions = formatLibraryImpressions(ad.totalImpressions);
+                    return (
+                    <article key={ad.id} className="dash-library-card group">
                       <button
                         type="button"
                         onClick={() => handleCloneFromLibraryAd(ad.imageUrl)}
-                        className="block w-full aspect-[9/16] bg-slate-100 text-left"
-                        title="Use as reference in Clone"
+                        className="dash-library-card-media"
+                        title={t('library', 'clone')}
                       >
-                        <img
+                        <ProxiedImage
                           src={ad.imageUrl}
                           alt=""
-                          className="h-full w-full object-cover"
+                          className="transition-transform duration-500 group-hover:scale-[1.03]"
+                          fallbackClassName="flex items-center justify-center"
                           loading="lazy"
                         />
                       </button>
-                      <div className="p-2.5 space-y-1.5">
+                      <div className="dash-library-card-body">
                         <span className={libraryCategoryBadgeClass(ad.category)}>{ad.category}</span>
                         {ad.pageName ? (
                           <button
                             type="button"
                             onClick={() => openLibraryBrand(ad.pageName!)}
-                            className="truncate text-left text-xs font-medium text-indigo-700 hover:underline w-full"
+                            className="dash-library-card-title"
                           >
                             {ad.pageName}
                           </button>
                         ) : (
-                          <p className="truncate text-xs font-medium text-slate-900">{ad.seedLabel}</p>
+                          <p className="dash-library-card-title">{ad.seedLabel}</p>
                         )}
-                        {formatLibraryImpressions(ad.totalImpressions) && (
-                          <p className="text-[10px] font-semibold text-indigo-700 tabular-nums">
-                            {formatLibraryImpressions(ad.totalImpressions)} impressions
-                          </p>
-                        )}
-                        <p className="truncate text-[10px] text-slate-400">
-                          {ad.source} · {ad.seedLabel}
+                        <p className={impressions ? 'dash-library-card-meta' : 'dash-library-card-meta dash-library-card-meta--empty'}>
+                          {impressions ? `${impressions} ${t('library', 'impressions')}` : '—'}
                         </p>
-                        {ad.bodyPreview && (
-                          <p className="line-clamp-2 text-[10px] text-slate-500">{ad.bodyPreview}</p>
-                        )}
-                        <div className="flex gap-1.5 pt-1">
+                        <p className={ad.bodyPreview ? 'dash-library-card-desc' : 'dash-library-card-desc dash-library-card-desc--empty'}>
+                          {ad.bodyPreview || '—'}
+                        </p>
+                        <div className="dash-library-card-actions">
                           <button
                             type="button"
                             onClick={() => handleCloneFromLibraryAd(ad.imageUrl)}
-                            className="flex-1 dash-btn dash-btn-primary !px-2 !py-1.5 text-[10px]"
+                            className="dash-btn dash-btn-primary"
                           >
-                            Clone
+                            {t('library', 'clone')}
                           </button>
                           <button
                             type="button"
                             onClick={() => handleDownloadImage(ad.imageUrl, 'library-ad.jpg')}
-                            className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-medium text-slate-600 hover:bg-slate-50"
+                            className="dash-library-download-btn"
+                            title={t('common', 'download')}
+                            aria-label={t('common', 'download')}
                           >
                             ↓
                           </button>
                         </div>
                       </div>
                     </article>
-                  ))}
+                    );
+                  })}
                 </div>
                 {libraryNextCursor && (
                   <div className="mt-6 flex justify-center">
@@ -1552,7 +1665,7 @@ export default function StaticAdPromptGenerator() {
                       onClick={() => fetchStaticLibrary({ cursor: libraryNextCursor, append: true })}
                       className="dash-btn dash-btn-secondary disabled:opacity-50"
                     >
-                      {libraryLoadingMore ? 'Loading…' : 'Load more'}
+                      {libraryLoadingMore ? t('library', 'loading') : t('library', 'loadMore')}
                     </button>
                   </div>
                 )}
@@ -1575,21 +1688,50 @@ export default function StaticAdPromptGenerator() {
         <div className="space-y-6">
           <header className="dash-animate-in flex flex-wrap items-end justify-between gap-4">
             <div className="max-w-2xl">
-              <h1 className="dash-title">Products</h1>
+              <h1 className="dash-title">{t('products', 'title')}</h1>
               <div className="dash-title-accent" aria-hidden />
-              <p className="dash-subtitle mt-3">Add your brand products once. Clone ads will use their images, copy, and branding automatically.</p>
+              <p className="dash-subtitle mt-3">{t('products', 'subtitle')}</p>
             </div>
-            <button type="button" onClick={() => setShowProductModal(true)} className="dash-btn dash-btn-primary shrink-0">
-              + Add product
+            <button
+              type="button"
+              onClick={() => {
+                if (!canAddProduct) {
+                  setShowPricingModal(true);
+                  return;
+                }
+                setShowProductModal(true);
+              }}
+              disabled={!canAddProduct}
+              className="dash-btn dash-btn-primary shrink-0 disabled:opacity-50"
+            >
+              + {t('products', 'addProduct')}
             </button>
           </header>
+          {maxProducts !== null && productCount !== null && (
+            <p className="text-sm text-slate-500">
+              {productCount}/{maxProducts} products saved
+              {!canAddProduct && ' — upgrade to add more'}
+            </p>
+          )}
           {productsLoading ? (
             <p className="text-sm text-slate-500">Loading products…</p>
           ) : products.length === 0 ? (
             <div className="dash-empty dash-card border-dashed">
               <p className="dash-empty-title">No products yet</p>
               <p className="dash-empty-desc">Add a product from its store URL or enter details manually with up to 3 photos.</p>
-              <button type="button" onClick={() => setShowProductModal(true)} className="dash-btn dash-btn-primary mt-4">Add your first product</button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!canAddProduct) {
+                    setShowPricingModal(true);
+                    return;
+                  }
+                  setShowProductModal(true);
+                }}
+                className="dash-btn dash-btn-primary mt-4"
+              >
+                Add your first product
+              </button>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -1602,9 +1744,6 @@ export default function StaticAdPromptGenerator() {
                     <div className="p-4 space-y-2">
                       <h3 className="font-semibold text-slate-900 truncate">{p.name}</h3>
                       <p className="text-xs text-slate-500">{p.source === 'url' ? 'From URL' : 'Manual'} · {p.images.length} image{p.images.length !== 1 ? 's' : ''}</p>
-                      {(p.scrape_cache?.priceDisplay || p.scrape_cache?.extractedPricing?.salePrice) && (
-                        <p className="text-xs font-medium text-sky-700">Price: {p.scrape_cache?.priceDisplay ?? p.scrape_cache?.extractedPricing?.salePrice}</p>
-                      )}
                       <p className="text-[10px] text-sky-600">Tap to view & edit scraped data →</p>
                     </div>
                   </button>
@@ -1620,11 +1759,11 @@ export default function StaticAdPromptGenerator() {
         <div className="dash-card dash-card-lg max-w-2xl">
           <h1 className="dash-title">Support</h1>
           <p className="dash-subtitle mt-3 leading-relaxed">
-            Need help with an issue, custom deals for more credits, or anything else? We’re here for you.
+            Need help with an issue, plan changes, or anything else? We&apos;re here for you.
           </p>
           <ul className="mt-4 space-y-2 text-sm text-slate-600">
             <li>• Help with technical problems or bugs</li>
-            <li>• Custom credit packs and bulk pricing</li>
+            <li>• Plan upgrades or account questions</li>
             <li>• Feature requests or feedback</li>
           </ul>
           <a
@@ -1678,25 +1817,18 @@ export default function StaticAdPromptGenerator() {
                 <div className="dash-upload-slot">
                   {products.length > 0 && (
                     <>
-                      <label className="dash-label mb-1" htmlFor="product-select">Product source</label>
-                      <select
-                        id="product-select"
-                        value={selectedProductId ?? ''}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          if (v) handleSelectProduct(v);
+                      <label className="dash-label mb-1.5" htmlFor="product-select">Product source</label>
+                      <ProductSourcePicker
+                        products={products}
+                        value={selectedProductId}
+                        onChange={(id) => {
+                          if (id) handleSelectProduct(id);
                           else {
                             setSelectedProductId(null);
                             setProductPreview(null);
                           }
                         }}
-                        className="dash-select text-xs sm:text-sm"
-                      >
-                        <option value="">One-off upload</option>
-                        {products.map((p) => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
-                        ))}
-                      </select>
+                      />
                     </>
                   )}
                   <input type="file" accept="image/*" onChange={handleProductUpload} className="hidden" id="product-upload" disabled={!!selectedProductId} />
@@ -1715,17 +1847,18 @@ export default function StaticAdPromptGenerator() {
               </div>
               <div className="pt-4 border-t border-[var(--dash-border)]">
                 <label className="dash-label mb-2">Output size</label>
-                <select
+                <DashCombobox
                   value={imageSize}
-                  onChange={(e) => setImageSize(e.target.value as ImageSizeOption)}
-                  className="dash-input min-h-[44px]"
-                >
-                  {ASPECT_RATIO_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.value === 'auto' && referenceAdDimensions ? `Auto (${referenceAdDimensions.width}×${referenceAdDimensions.height})` : opt.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setImageSize(v as ImageSizeOption)}
+                  options={ASPECT_RATIO_OPTIONS.map((opt) => ({
+                    value: opt.value,
+                    label:
+                      opt.value === 'auto' && referenceAdDimensions
+                        ? `Auto (${referenceAdDimensions.width}×${referenceAdDimensions.height})`
+                        : opt.label,
+                  }))}
+                  aria-label="Output size"
+                />
                 <p className="dash-muted-text mt-1.5">{imageSize === 'auto' && referenceAdDimensions ? `Using aspect ratio from reference ad (${getResolvedAspectRatio()}).` : imageSize === 'auto' ? 'Match reference ad proportions (vertical by default).' : `Fixed aspect ratio: ${imageSize}.`}</p>
               </div>
             </section>
@@ -1734,17 +1867,15 @@ export default function StaticAdPromptGenerator() {
               <div className="space-y-4">
                 <div>
                   <label className="dash-label mb-1.5">Ad copy language</label>
-                  <select
+                  <DashCombobox
                     value={copyLanguage}
-                    onChange={(e) => setCopyLanguage(e.target.value)}
-                    className="dash-select"
-                  >
-                    {COPY_LANGUAGES.map((lang) => (
-                      <option key={lang.code} value={lang.code}>
-                        {lang.label}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setCopyLanguage}
+                    options={COPY_LANGUAGES.map((lang) => ({
+                      value: lang.code,
+                      label: lang.label,
+                    }))}
+                    aria-label="Ad copy language"
+                  />
                   <p className="dash-muted-text mt-1.5">Headlines and text on the generated ad will be written in this language.</p>
                 </div>
                 {!selectedProductId && (
@@ -1769,18 +1900,6 @@ export default function StaticAdPromptGenerator() {
                 {isGenerating ? <><svg className="h-4 w-4 animate-spin text-white/90" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>{isScraping ? 'Analyzing URL...' : 'Generating Image...'}</span></> : <><span>Generate Image</span><svg className="h-4 w-4 text-white/90 transition-transform group-hover:translate-x-0.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></>}
               </button>
               {error && <div className="dash-alert dash-alert-error mt-4"><svg className="mt-0.5 h-4 w-4 shrink-0 text-red-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><p>{error}</p></div>}
-              {costInfo?.total.cost && (
-                <p className="mt-3 text-xs text-slate-500 leading-relaxed">
-                  Coste Gemini (solo prompting, {costInfo.model}):{' '}
-                  <span className="font-semibold text-slate-800">{costInfo.total.cost.totalCostFormatted}</span>
-                  <span className="block mt-1">
-                    Step 1 {costInfo.breakdown.step1.cost?.totalCostFormatted ?? '—'} · matching{' '}
-                    {costInfo.breakdown.productMatching.cost?.totalCostFormatted ?? '—'} · Step 2
-                    {costInfo.breakdown.step2.mode ? ` (${costInfo.breakdown.step2.mode})` : ''}{' '}
-                    {costInfo.breakdown.step2.cost?.totalCostFormatted ?? '—'}
-                  </span>
-                </p>
-              )}
             </div>
           </div>
           <div className="dash-workspace-preview dash-sticky-preview">
@@ -1790,7 +1909,7 @@ export default function StaticAdPromptGenerator() {
                 {generatedImageUrl && <a href={generatedImageUrl} target="_blank" rel="noopener noreferrer" className="dash-btn dash-btn-secondary !px-3 !py-2 text-xs min-h-[40px] items-center"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>Open</a>}
               </div>
               <div className="dash-preview-panel-body min-h-[240px] sm:min-h-[320px] lg:min-h-[380px]">
-                {!generatedImageUrl && !isGenerating && !isGeneratingImage ? (
+                {!generatedImageUrl && !isGenerating && !isGeneratingImage && !pendingPreviewCreationId ? (
                   backgroundGenNotice ? (
                     <div className="flex flex-col items-center justify-center gap-3 px-4 text-center">
                       <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-indigo-200 bg-indigo-50">
@@ -1812,15 +1931,17 @@ export default function StaticAdPromptGenerator() {
                     <p className="mt-1 max-w-[260px] text-xs text-slate-500">Upload both images and tap Generate Image.</p>
                   </div>
                   )
-                ) : (isGenerating || isGeneratingImage) ? (
+                ) : (isGenerating || isGeneratingImage || pendingPreviewCreationId) ? (
                   <div className="flex flex-col items-center justify-center text-center px-2">
                     <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-slate-200 bg-slate-50"><svg className="h-7 w-7 dash-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg></div>
                     <p className="text-sm font-medium text-slate-700">Generating your ad…</p>
                     <p className="dash-muted-text mt-1">
-                      {isGeneratingImage
+                      {isGeneratingImage || pendingPreviewCreationId
                         ? imageGenMode
                           ? `Rendering — ${adVisualModeLabel(imageGenMode)}`
-                          : 'Rendering your ad…'
+                          : pendingPreviewCreationId && !isGeneratingImage
+                            ? 'Renderizando en el servidor…'
+                            : 'Rendering your ad…'
                         : 'Analyzing reference & building prompt…'}
                     </p>
                     <p className="mt-3 max-w-[280px] text-xs text-slate-500">La imagen se genera en el servidor. Puedes cambiar de pestaña o cerrar la app; verás el resultado en Historial.</p>
@@ -1828,7 +1949,7 @@ export default function StaticAdPromptGenerator() {
                 ) : generatedImageUrl ? (
                   <div className="w-full flex flex-col items-center">
                     <div className="w-full max-w-lg rounded-xl overflow-hidden bg-slate-50 ring-1 ring-slate-200">
-                      <a href={generatedImageUrl} target="_blank" rel="noopener noreferrer" className="block"><img src={generatedImageUrl} alt="Generated ad" className="w-full h-auto object-contain" /></a>
+                      <a href={generatedImageUrl} target="_blank" rel="noopener noreferrer" className="block"><ProxiedImage src={generatedImageUrl} alt="Generated ad" className="w-full h-auto object-contain" /></a>
                     </div>
                     <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
                       <a href={generatedImageUrl} target="_blank" rel="noopener noreferrer" className="dash-btn dash-btn-secondary text-xs min-h-[44px]"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>Open</a>
@@ -1850,6 +1971,7 @@ export default function StaticAdPromptGenerator() {
         onCreated={(p) => {
           setProducts((prev) => [p, ...prev]);
           handleSelectProduct(p.id);
+          void fetchSubscription();
         }}
       />
       <ProductDetailPanel
@@ -1863,8 +1985,27 @@ export default function StaticAdPromptGenerator() {
         onDeleted={(id) => {
           setProducts((prev) => prev.filter((x) => x.id !== id));
           setDetailProduct(null);
+          void fetchSubscription();
         }}
       />
+
+      <OnboardingWelcome
+        open={showOnboarding}
+        onUpload={() => {
+          dismissOnboarding();
+          setActiveTab('products');
+          setShowProductModal(true);
+        }}
+        onSkip={dismissOnboarding}
+      />
     </>
+  );
+}
+
+export default function StaticAdPromptGenerator() {
+  return (
+    <AppProviders>
+      <StaticAdAppPage />
+    </AppProviders>
   );
 }

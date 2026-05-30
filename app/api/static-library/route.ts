@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const { ads, nextCursor, sort } = await queryStaticLibrary(supabase, {
+    const { ads, nextCursor, sort, filteredCount } = await queryStaticLibrary(supabase, {
       category,
       brand,
       keyword,
@@ -63,6 +63,7 @@ export async function GET(request: NextRequest) {
       ads,
       nextCursor,
       totalCount,
+      filteredCount,
       categories: categories.length > 0 ? categories : [...LIBRARY_CATEGORIES],
       period: {
         start_date: period.start_date,

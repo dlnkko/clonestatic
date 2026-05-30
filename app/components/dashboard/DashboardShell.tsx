@@ -1,6 +1,10 @@
 'use client';
 
+import { useState } from 'react';
+import Link from 'next/link';
 import { cn } from '@/lib/cn';
+import { AdmirrorLogo } from '@/app/components/AdmirrorLogo';
+import { LOCALE_LABELS, useI18n, type Locale } from '@/lib/i18n/LocaleProvider';
 
 export type DashboardTab =
   | 'new'
@@ -10,10 +14,10 @@ export type DashboardTab =
   | 'ad-library'
   | 'products';
 
-const NAV: { id: DashboardTab; label: string; icon: React.ReactNode }[] = [
+const NAV: { id: DashboardTab; labelKey: string; icon: React.ReactNode }[] = [
   {
     id: 'new',
-    label: 'Clone',
+    labelKey: 'clone',
     icon: (
       <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
         <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14" />
@@ -22,7 +26,7 @@ const NAV: { id: DashboardTab; label: string; icon: React.ReactNode }[] = [
   },
   {
     id: 'edit',
-    label: 'Edit',
+    labelKey: 'edit',
     icon: (
       <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
         <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
@@ -31,7 +35,7 @@ const NAV: { id: DashboardTab; label: string; icon: React.ReactNode }[] = [
   },
   {
     id: 'products',
-    label: 'Products',
+    labelKey: 'products',
     icon: (
       <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
         <path strokeLinecap="round" strokeLinejoin="round" d="m7.5 4.27 9 5.15" />
@@ -41,7 +45,7 @@ const NAV: { id: DashboardTab; label: string; icon: React.ReactNode }[] = [
   },
   {
     id: 'ad-library',
-    label: 'Ad Library',
+    labelKey: 'adLibrary',
     icon: (
       <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6z" />
@@ -53,7 +57,7 @@ const NAV: { id: DashboardTab; label: string; icon: React.ReactNode }[] = [
   },
   {
     id: 'history',
-    label: 'History',
+    labelKey: 'history',
     icon: (
       <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -62,7 +66,7 @@ const NAV: { id: DashboardTab; label: string; icon: React.ReactNode }[] = [
   },
   {
     id: 'support',
-    label: 'Support',
+    labelKey: 'support',
     icon: (
       <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
         <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -77,6 +81,12 @@ type Props = {
   sidebarOpen: boolean;
   onSidebarOpen: (open: boolean) => void;
   creditsRemaining: number | null;
+  planName: string | null;
+  productCount: number | null;
+  maxProducts: number | null;
+  canCancelSubscription: boolean;
+  cancelAtPeriodEnd: boolean;
+  onSubscriptionRefresh: () => void;
   user: { email: string; name?: string } | null;
   onUpgrade: () => void;
   onSignOut: () => void;
@@ -89,36 +99,82 @@ export function DashboardShell({
   sidebarOpen,
   onSidebarOpen,
   creditsRemaining,
+  planName,
+  productCount,
+  maxProducts,
+  canCancelSubscription,
+  cancelAtPeriodEnd,
+  onSubscriptionRefresh,
   user,
   onUpgrade,
   onSignOut,
   children,
 }: Props) {
+  const { locale, setLocale, t } = useI18n();
   const initial = user?.name?.charAt(0).toUpperCase() ?? user?.email?.charAt(0).toUpperCase() ?? '?';
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelMessage, setCancelMessage] = useState<string | null>(null);
+
+  const handleCancelSubscription = async () => {
+    if (cancelAtPeriodEnd || cancelling) return;
+    const confirmed = window.confirm(
+      'Cancel your subscription at the end of the current billing period? You keep access and credits until then.'
+    );
+    if (!confirmed) return;
+
+    setCancelling(true);
+    setCancelMessage(null);
+    try {
+      const res = await fetch('/api/subscription/cancel', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'at_period_end' }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setCancelMessage(data.error ?? 'Could not cancel subscription');
+        return;
+      }
+      setCancelMessage(data.message ?? 'Cancellation scheduled.');
+      onSubscriptionRefresh();
+    } catch {
+      setCancelMessage('Network error. Try again or contact support.');
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   return (
     <div className="dash-app">
       <div className="dash-bg" aria-hidden />
 
       {!sidebarOpen && (
-      <button
-        type="button"
-        onClick={() => onSidebarOpen(true)}
-        className="dash-mobile-menu-fab md:hidden"
-        aria-label="Open menu"
-      >
-        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
-      </button>
+        <button
+          type="button"
+          onClick={() => onSidebarOpen(true)}
+          className="dash-mobile-menu-fab md:hidden"
+          aria-label="Open menu"
+        >
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
       )}
 
       <aside className={cn('dash-sidebar', sidebarOpen && 'dash-sidebar-open')}>
-        <div className="dash-sidebar-mobile-close md:hidden">
+        <div className="dash-sidebar-header">
+          <Link
+            href="/"
+            className="dash-sidebar-logo-link min-w-0 flex-1"
+            onClick={() => onSidebarOpen(false)}
+          >
+            <AdmirrorLogo theme="dark" size="md" className="max-w-full" />
+          </Link>
           <button
             type="button"
             onClick={() => onSidebarOpen(false)}
-            className="dash-icon-btn"
+            className="dash-icon-btn shrink-0 md:hidden"
             aria-label="Close menu"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -140,27 +196,78 @@ export function DashboardShell({
               className={cn('dash-nav-item', activeTab === item.id && 'dash-nav-item-active')}
             >
               <span className="dash-nav-icon">{item.icon}</span>
-              {item.label}
+              {t('nav', item.labelKey)}
             </button>
           ))}
         </nav>
 
         <div className="dash-sidebar-footer">
+          <label className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-[var(--dash-muted)]">
+            Language
+          </label>
+          <select
+            value={locale}
+            onChange={(e) => setLocale(e.target.value as Locale)}
+            className="dash-select mb-3 w-full text-xs"
+          >
+            {(Object.keys(LOCALE_LABELS) as Locale[]).map((loc) => (
+              <option key={loc} value={loc}>
+                {LOCALE_LABELS[loc]}
+              </option>
+            ))}
+          </select>
+
           <button type="button" onClick={onUpgrade} className="dash-btn dash-btn-primary w-full">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
             </svg>
-            Upgrade plan
+            {t('nav', 'upgrade')}
           </button>
 
-          {creditsRemaining !== null && (
+          {(creditsRemaining !== null || planName) && (
             <div className="dash-credits">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-[var(--dash-muted)]">
-                Credits
-              </span>
-              <span className="mt-0.5 block text-2xl font-semibold tabular-nums tracking-tight text-[var(--dash-fg)]">
-                {creditsRemaining}
-              </span>
+              {planName && (
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--brand-indigo)]">
+                  {planName}
+                </span>
+              )}
+              {creditsRemaining !== null && (
+                <>
+                  <span className="mt-1 block text-[11px] font-medium uppercase tracking-wider text-[var(--dash-muted)]">
+                    Credits
+                  </span>
+                  <span className="mt-0.5 block text-2xl font-semibold tabular-nums tracking-tight text-[var(--dash-fg)]">
+                    {creditsRemaining}
+                  </span>
+                </>
+              )}
+              {productCount !== null && maxProducts !== null && (
+                <span className="mt-2 block text-xs text-[var(--dash-muted)]">
+                  Products {productCount}/{maxProducts}
+                </span>
+              )}
+            </div>
+          )}
+
+          {canCancelSubscription && (
+            <div className="mt-2">
+              {cancelAtPeriodEnd ? (
+                <p className="rounded-lg border border-amber-200/80 bg-amber-50/80 px-3 py-2 text-xs text-amber-900">
+                  Cancels at end of billing period
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleCancelSubscription}
+                  disabled={cancelling}
+                  className="dash-btn dash-btn-ghost w-full text-xs text-[var(--dash-muted)]"
+                >
+                  {cancelling ? 'Cancelling…' : 'Cancel subscription'}
+                </button>
+              )}
+              {cancelMessage && (
+                <p className="mt-1.5 text-[11px] leading-snug text-[var(--dash-muted)]">{cancelMessage}</p>
+              )}
             </div>
           )}
 
@@ -173,7 +280,7 @@ export function DashboardShell({
           </div>
 
           <button type="button" onClick={onSignOut} className="dash-btn dash-btn-secondary w-full text-sm">
-            Sign out
+            {t('nav', 'signOut')}
           </button>
         </div>
       </aside>

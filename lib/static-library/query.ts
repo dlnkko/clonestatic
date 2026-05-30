@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { sortBrandsByPriority } from './priority-brands';
 import { publicStorageUrl } from './storage';
 import type { StaticAdRow } from './types';
 
@@ -46,7 +47,12 @@ export async function queryStaticLibrary(
     cursor?: string | null;
     limit?: number;
   }
-): Promise<{ ads: LibraryAdDto[]; nextCursor: string | null; sort: 'impressions' | 'scraped_at' }> {
+): Promise<{
+  ads: LibraryAdDto[];
+  nextCursor: string | null;
+  sort: 'impressions' | 'scraped_at';
+  filteredCount: number | null;
+}> {
   const limit = Math.min(Math.max(params.limit ?? 48, 1), 100);
 
   const base = supabase
@@ -83,9 +89,31 @@ export async function queryStaticLibrary(
       q = q.eq('page_name', params.brand.trim());
     }
     if (params.keyword?.trim()) {
-      q = q.ilike('seed_label', `%${params.keyword.trim()}%`);
+      const kw = params.keyword.trim().replace(/[%_,]/g, ' ');
+      const pattern = `%${kw}%`;
+      q = q.or(
+        `seed_label.ilike.${pattern},page_name.ilike.${pattern},body_preview.ilike.${pattern}`
+      );
     }
     return q.range(offset, offset + limit);
+  };
+
+  const applyFiltersCount = (q: ReturnType<typeof supabase.from>) => {
+    let query = q.select('id', { count: 'exact', head: true });
+    if (params.category && params.category !== 'all') {
+      query = query.eq('category', params.category);
+    }
+    if (params.brand?.trim()) {
+      query = query.eq('page_name', params.brand.trim());
+    }
+    if (params.keyword?.trim()) {
+      const kw = params.keyword.trim().replace(/[%_,]/g, ' ');
+      const pattern = `%${kw}%`;
+      query = query.or(
+        `seed_label.ilike.${pattern},page_name.ilike.${pattern},body_preview.ilike.${pattern}`
+      );
+    }
+    return query;
   };
 
   let sort: 'impressions' | 'scraped_at' = 'impressions';
@@ -118,10 +146,21 @@ export async function queryStaticLibrary(
   const page = hasMore ? rows.slice(0, limit) : rows;
   const nextCursor = hasMore ? String(offset + limit) : null;
 
+  let filteredCount: number | null = null;
+  try {
+    const countRes = await applyFiltersCount(supabase.from('static_ads'));
+    if (!countRes.error && countRes.count != null) {
+      filteredCount = countRes.count;
+    }
+  } catch {
+    // optional count
+  }
+
   return {
     ads: page.map(rowToDto),
     nextCursor,
     sort,
+    filteredCount,
   };
 }
 
@@ -218,7 +257,7 @@ export async function queryLibraryBrands(
     brands = brands.filter((b) => b.brandName.toLowerCase().includes(needle));
   }
 
-  return brands;
+  return sortBrandsByPriority(category, brands);
 }
 
 export async function getLibraryCategories(supabase: SupabaseClient): Promise<string[]> {

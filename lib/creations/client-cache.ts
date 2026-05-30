@@ -1,3 +1,5 @@
+import { displayImageUrl } from '@/lib/display-image-url';
+
 export type CachedCreation = {
   id: string;
   image_url: string | null;
@@ -56,6 +58,6 @@ export function prefetchCreationImages(creations: CachedCreation[]): void {
     const img = new Image();
     img.decoding = 'async';
     img.fetchPriority = 'low';
-    img.src = c.image_url;
+    img.src = displayImageUrl(c.image_url);
   }
 }

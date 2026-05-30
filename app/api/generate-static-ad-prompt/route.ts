@@ -36,6 +36,8 @@ import { createClient } from '@/lib/supabase/server';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { classifyAdVisualMode } from '@/lib/ad-visual-mode';
 
+export const maxDuration = 300;
+
 /** En `npm run dev`, imprime el prompt completo en la terminal y lo guarda en disco. */
 async function logFinalPromptForDev(finalPrompt: string) {
   if (process.env.NODE_ENV !== 'development') return;

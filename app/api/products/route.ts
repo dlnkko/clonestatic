@@ -6,6 +6,8 @@ import { classifyProductImagesHeuristic } from '@/lib/products/classify-images';
 import { scrapeProductPage } from '@/lib/products/scrape';
 import type { ProductImage, ProductScrapeCache } from '@/lib/products/types';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { assertCanAddProduct } from '@/lib/subscription-limits';
 
 export const dynamic = 'force-dynamic';
 
@@ -89,6 +91,20 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const source = body?.source as string;
+
+    const admin = createAdminClient();
+    const productLimit = await assertCanAddProduct(admin, user.id, user.email ?? '');
+    if (!productLimit.ok) {
+      return NextResponse.json(
+        {
+          error: productLimit.message,
+          code: 'PRODUCT_LIMIT',
+          maxProducts: productLimit.maxProducts,
+          productCount: productLimit.productCount,
+        },
+        { status: 403 }
+      );
+    }
 
     if (source === 'url' && body.saveFromPreview) {
       const b = body as CreateUrlFromPreviewBody;

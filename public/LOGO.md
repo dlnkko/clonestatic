@@ -7,7 +7,7 @@ Si tu logo es **gris/negro sobre fondo negro**, al pegarlo en una web clara ver�
 ## Opciones (de mejor a peor)
 
 1. **SVG / componente vectorial (recomendado)**  
-   El landing usa `AdmirrorLogo` en `app/components/landing/AdmirrorLogo.tsx`. Se ve bien en fondo oscuro y claro sin caja.
+   El landing y el dashboard usan `AdmirrorLogo` en `app/components/AdmirrorLogo.tsx`. Se ve bien en fondo oscuro y claro sin caja.
 
 2. **PNG con fondo transparente**  
    Exporta desde Figma/Canva/Photoshop: **Export → PNG → transparent background**.  

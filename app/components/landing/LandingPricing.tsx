@@ -3,47 +3,11 @@
 import { useState } from 'react';
 import { cn } from '@/lib/cn';
 import { Reveal } from './Reveal';
-
-const PLANS = [
-  {
-    id: 'free',
-    name: 'Free Trial',
-    tagline: '1 generation',
-    monthly: 0,
-    annualMonthly: 0,
-    annualNote: null,
-    features: ['1 free generation', 'All aspect ratios', 'History & download'],
-    cta: 'Get started',
-    href: '/login?next=/app',
-    style: 'default' as const,
-  },
-  {
-    id: 'standard',
-    name: 'Standard',
-    tagline: '20 AI images / month',
-    monthly: 9.99,
-    annualMonthly: 6.67,
-    annualNote: 'Billed $79.99/year',
-    features: ['20 AI images (generate or edit)', 'All aspect ratios', 'History & download'],
-    cta: 'Subscribe',
-    hrefMonthly: '/login?next=checkout&plan=standard_monthly',
-    hrefAnnual: '/login?next=checkout&plan=standard_yearly',
-    style: 'default' as const,
-  },
-  {
-    id: 'pro',
-    name: 'Pro',
-    tagline: '75 AI images / month',
-    monthly: 29.99,
-    annualMonthly: 19.17,
-    annualNote: 'Billed $229.99/year',
-    features: ['75 AI images (generate or edit)', 'All aspect ratios', 'History & download'],
-    cta: 'Subscribe',
-    hrefMonthly: '/login?next=checkout&plan=pro_monthly',
-    hrefAnnual: '/login?next=checkout&plan=pro_yearly',
-    style: 'featured' as const,
-  },
-];
+import {
+  FREE_PLAN_FEATURES,
+  PAID_PLANS,
+  PLAN_FEATURES,
+} from '@/lib/plans';
 
 function Check() {
   return (
@@ -64,7 +28,7 @@ export function LandingPricing() {
           Start free. Scale when you&apos;re winning.
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-slate-600 sm:text-lg">
-          One free generation to try the flow. Paid plans unlock monthly credits instantly after checkout.
+          Try one generation free. Paid plans unlock monthly credits and more saved products — checkout on Whop.
         </p>
       </Reveal>
 
@@ -84,34 +48,47 @@ export function LandingPricing() {
             type="button"
             onClick={() => setAnnually(true)}
             className={cn(
-              'flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-semibold transition-all duration-300',
+              'rounded-full px-6 py-2.5 text-sm font-semibold transition-all duration-300',
               annually ? 'landing-pricing-toggle-active text-white' : 'text-slate-600 hover:text-slate-900'
             )}
           >
             Annually
-            <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-              −33%
-            </span>
           </button>
         </div>
       </Reveal>
 
-      <div className="mt-14 grid gap-6 lg:grid-cols-3 lg:gap-8">
-        {PLANS.map((plan, i) => {
-          const isFeatured = plan.style === 'featured';
-          const price = annually ? plan.annualMonthly : plan.monthly;
-          const href =
-            plan.id === 'free'
-              ? plan.href!
-              : annually
-                ? plan.hrefAnnual!
-                : plan.hrefMonthly!;
+      <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
+        <Reveal direction="up" delayMs={0}>
+          <article className="landing-pricing-card relative flex h-full flex-col overflow-hidden rounded-3xl p-8 sm:p-7">
+            <h3 className="text-xl font-bold text-slate-900">Free trial</h3>
+            <p className="mt-1 text-sm text-slate-500">Try the full flow once</p>
+            <p className="mt-8 text-2xl font-bold tracking-tight text-slate-900">No card required</p>
+            <ul className="mt-8 flex-1 space-y-3.5 text-sm text-slate-600">
+              {FREE_PLAN_FEATURES.map((f) => (
+                <li key={f} className="flex items-start gap-3">
+                  <Check />
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+            <a
+              href="/login?next=/app"
+              className="mt-10 inline-flex w-full items-center justify-center rounded-2xl border-2 border-slate-900 bg-white py-4 text-base font-semibold text-slate-900 transition-all duration-300 hover:bg-slate-50"
+            >
+              Get started
+            </a>
+          </article>
+        </Reveal>
+
+        {PAID_PLANS.map((plan, i) => {
+          const isFeatured = plan.key === 'pro';
+          const href = `/login?next=checkout&plan=${annually ? plan.checkoutYearly : plan.checkoutMonthly}`;
 
           return (
-            <Reveal key={plan.id} direction={i % 2 === 0 ? 'up' : 'down'} delayMs={i * 90}>
+            <Reveal key={plan.key} direction={i % 2 === 0 ? 'up' : 'down'} delayMs={(i + 1) * 90}>
               <article
                 className={cn(
-                  'landing-pricing-card relative flex h-full flex-col overflow-hidden rounded-3xl p-8 sm:p-9',
+                  'landing-pricing-card relative flex h-full flex-col overflow-hidden rounded-3xl p-8 sm:p-7',
                   isFeatured && 'landing-pricing-card-featured'
                 )}
               >
@@ -121,26 +98,14 @@ export function LandingPricing() {
                   </span>
                 )}
                 <h3 className="text-xl font-bold text-slate-900">{plan.name}</h3>
-                <p className="mt-1 text-sm text-slate-500">{plan.tagline}</p>
-                <div className="mt-8">
-                  {price === 0 ? (
-                    <p className="text-5xl font-bold tracking-tight text-slate-900">$0</p>
-                  ) : (
-                    <>
-                      <p className="flex items-baseline gap-1">
-                        <span className="text-5xl font-bold tracking-tight text-slate-900">
-                          ${price.toFixed(price % 1 ? 2 : 0)}
-                        </span>
-                        <span className="text-slate-500">/ mo</span>
-                      </p>
-                      {annually && plan.annualNote && (
-                        <p className="mt-1 text-sm text-slate-500">{plan.annualNote}</p>
-                      )}
-                    </>
-                  )}
-                </div>
-                <ul className="mt-8 flex-1 space-y-3.5 text-sm text-slate-600">
-                  {plan.features.map((f) => (
+                <p className="mt-1 text-sm text-slate-500">
+                  {plan.credits} credits · {plan.maxProducts} products
+                </p>
+                <p className="mt-8 text-sm font-medium text-slate-500">
+                  Price on Whop checkout
+                </p>
+                <ul className="mt-6 flex-1 space-y-3.5 text-sm text-slate-600">
+                  {PLAN_FEATURES(plan).map((f) => (
                     <li key={f} className="flex items-start gap-3">
                       <Check />
                       <span>{f}</span>
@@ -156,7 +121,7 @@ export function LandingPricing() {
                       : 'border-2 border-slate-900 bg-white text-slate-900 hover:bg-slate-50'
                   )}
                 >
-                  {plan.cta}
+                  Subscribe
                 </a>
               </article>
             </Reveal>
@@ -165,13 +130,13 @@ export function LandingPricing() {
       </div>
 
       <Reveal direction="up" delayMs={120} className="mt-8 text-center">
-        <p className="text-sm text-slate-500">Editing an image counts as one generation.</p>
+        <p className="text-sm text-slate-500">Each generate or edit uses 1 credit. Cancel anytime from your dashboard.</p>
       </Reveal>
 
       <Reveal direction="down" delayMs={180}>
         <div className="landing-pricing-contact mt-14 rounded-3xl p-8 text-center sm:p-10">
           <p className="text-lg font-medium text-slate-800 sm:text-xl">
-            Need a custom credit pack or team plan?
+            Need a custom plan or team access?
           </p>
           <a
             href={process.env.NEXT_PUBLIC_TELEGRAM_FOUNDER ?? 'https://t.me/yourusername'}

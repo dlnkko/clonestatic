@@ -1,21 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createHmac } from 'crypto';
+import { creditsForPlan, resolveWhopPlanKey, type PaidPlanKey } from '@/lib/plans';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
-
-const WHOP_PLAN_IDS = {
-  standard: ['plan_1qy7pizl7xAkx', 'plan_KRjrbQ6Z0D2A5'],
-  pro: ['plan_xb9A75BEfcTGk', 'plan_CNk2XegENVQGM'],
-} as const;
-
-function getPlanFromPayload(planId: string | undefined): 'standard' | 'pro' {
-  if (!planId || typeof planId !== 'string') return 'standard';
-  if (WHOP_PLAN_IDS.pro.includes(planId as any)) return 'pro';
-  if (WHOP_PLAN_IDS.standard.includes(planId as any)) return 'standard';
-  return 'standard';
-}
 
 function getEmailFromPayload(body: any): string | null {
   const email =
@@ -40,6 +29,24 @@ function getPlanIdFromPayload(body: any): string | undefined {
   );
 }
 
+function getMembershipIdFromPayload(body: any): string | null {
+  const candidates = [
+    body?.data?.membership?.id,
+    body?.data?.id,
+    body?.membership?.id,
+    body?.object?.membership_id,
+    body?.object?.id,
+  ];
+  for (const id of candidates) {
+    if (typeof id === 'string' && id.startsWith('mem_')) return id;
+  }
+  return null;
+}
+
+function normalizeEvent(body: any): string {
+  return String(body?.action ?? body?.event ?? body?.type ?? '').toLowerCase();
+}
+
 export async function POST(request: NextRequest) {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     console.error('Webhook: Supabase not configured');
@@ -56,37 +63,87 @@ export async function POST(request: NextRequest) {
 
   const secret = process.env.WHOP_WEBHOOK_SECRET;
   if (secret) {
-    const signature = request.headers.get('webhook-signature') ?? request.headers.get('x-whop-signature') ?? request.headers.get('whop-signature');
+    const signature =
+      request.headers.get('webhook-signature') ??
+      request.headers.get('x-whop-signature') ??
+      request.headers.get('whop-signature');
     if (!signature) {
       console.error('Whop webhook: missing signature header');
       return NextResponse.json({ error: 'Missing signature' }, { status: 401 });
     }
-    const payload = rawBody;
-    const expectedHex = createHmac('sha256', secret).update(payload).digest('hex');
-    const expectedBase64 = createHmac('sha256', secret).update(payload).digest('base64');
+    const expectedHex = createHmac('sha256', secret).update(rawBody).digest('hex');
+    const expectedBase64 = createHmac('sha256', secret).update(rawBody).digest('base64');
     const raw = signature.replace(/^v1,/, '').replace(/^sha256=/, '').trim();
-    const valid = raw === expectedHex || raw === expectedBase64 || signature === expectedHex || signature === expectedBase64;
+    const valid =
+      raw === expectedHex ||
+      raw === expectedBase64 ||
+      signature === expectedHex ||
+      signature === expectedBase64;
     if (!valid) {
       console.error('Whop webhook: signature mismatch');
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
   }
 
-  const event = body?.action ?? body?.event ?? body?.type ?? '';
-  const isPayment = /payment\.succeeded|membership\.went_valid|subscription\.(created|activated)/i.test(event);
+  const event = normalizeEvent(body);
+  const email = getEmailFromPayload(body);
+
+  const isDeactivate =
+    /membership\.deactivated|membership\.went_invalid|subscription\.cancelled|subscription\.canceled|payment\.failed/i.test(
+      event
+    );
+
+  if (isDeactivate) {
+    if (!email) {
+      return NextResponse.json({ received: true, skipped: true, event, reason: 'no_email' });
+    }
+    try {
+      const supabase = createAdminClient();
+      await supabase.from('subscriptions').delete().eq('email', email);
+      return NextResponse.json({ received: true, deactivated: true, email });
+    } catch (err) {
+      console.error('Whop webhook deactivate error:', err);
+      return NextResponse.json({ error: 'Failed to deactivate subscription' }, { status: 500 });
+    }
+  }
+
+  const isCancelScheduled = /membership\.cancel_at_period_end_changed|cancel_at_period_end/i.test(event);
+  if (isCancelScheduled && email) {
+    const cancelAtPeriodEnd =
+      body?.data?.cancel_at_period_end === true ||
+      body?.object?.cancel_at_period_end === true ||
+      body?.cancel_at_period_end === true;
+    try {
+      const supabase = createAdminClient();
+      await supabase
+        .from('subscriptions')
+        .update({
+          cancel_at_period_end: cancelAtPeriodEnd,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('email', email);
+      return NextResponse.json({ received: true, cancel_at_period_end: cancelAtPeriodEnd, email });
+    } catch (err) {
+      console.error('Whop webhook cancel flag error:', err);
+    }
+  }
+
+  const isPayment = /payment\.succeeded|membership\.went_valid|membership\.activated|subscription\.(created|activated)/i.test(
+    event
+  );
   if (!isPayment) {
     return NextResponse.json({ received: true, skipped: true, event });
   }
 
-  const email = getEmailFromPayload(body);
   if (!email) {
     console.error('Whop webhook: no email in payload', JSON.stringify(body).slice(0, 500));
     return NextResponse.json({ error: 'No email in payload' }, { status: 400 });
   }
 
   const planId = getPlanIdFromPayload(body);
-  const plan = getPlanFromPayload(planId);
-  const credits = plan === 'pro' ? 75 : 20;
+  const plan: PaidPlanKey = resolveWhopPlanKey(planId);
+  const credits = creditsForPlan(plan);
+  const membershipId = getMembershipIdFromPayload(body);
   const periodEnd = new Date();
   periodEnd.setMonth(periodEnd.getMonth() + 1);
 
@@ -98,7 +155,9 @@ export async function POST(request: NextRequest) {
         plan,
         credits_remaining: credits,
         period_end: periodEnd.toISOString().slice(0, 10),
-        whop_member_id: body?.data?.member?.id ?? body?.member?.id ?? body?.object?.id ?? null,
+        whop_member_id: body?.data?.member?.id ?? body?.member?.id ?? null,
+        whop_membership_id: membershipId,
+        cancel_at_period_end: false,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'email' }
@@ -107,7 +166,7 @@ export async function POST(request: NextRequest) {
       console.error('Whop webhook Supabase upsert error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-    return NextResponse.json({ received: true, email, plan, credits });
+    return NextResponse.json({ received: true, email, plan, credits, membershipId });
   } catch (err) {
     console.error('Whop webhook error:', err);
     return NextResponse.json({ error: 'Failed to update subscription' }, { status: 500 });

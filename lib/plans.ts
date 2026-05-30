@@ -1,0 +1,99 @@
+/** Paid plan keys stored in Supabase `subscriptions.plan`. */
+export type PaidPlanKey = 'standard' | 'pro' | 'scale';
+
+export type SubscriptionPlan = PaidPlanKey | 'free_trial' | 'owner';
+
+export type PlanLimits = {
+  key: PaidPlanKey;
+  name: string;
+  credits: number;
+  maxProducts: number;
+  checkoutMonthly: string;
+  checkoutYearly: string;
+};
+
+export const FREE_TRIAL_MAX_PRODUCTS = 1;
+
+export const PAID_PLANS: PlanLimits[] = [
+  {
+    key: 'standard',
+    name: 'Starter',
+    credits: 40,
+    maxProducts: 5,
+    checkoutMonthly: 'standard_monthly',
+    checkoutYearly: 'standard_yearly',
+  },
+  {
+    key: 'pro',
+    name: 'Growth',
+    credits: 100,
+    maxProducts: 12,
+    checkoutMonthly: 'pro_monthly',
+    checkoutYearly: 'pro_yearly',
+  },
+  {
+    key: 'scale',
+    name: 'Scale',
+    credits: 220,
+    maxProducts: 30,
+    checkoutMonthly: 'scale_monthly',
+    checkoutYearly: 'scale_yearly',
+  },
+];
+
+export const PAID_PLAN_BY_KEY = Object.fromEntries(
+  PAID_PLANS.map((p) => [p.key, p])
+) as Record<PaidPlanKey, PlanLimits>;
+
+/** Whop plan IDs → internal plan key (monthly + yearly per tier). */
+export const WHOP_PLAN_ID_MAP: Record<string, PaidPlanKey> = {
+  plan_1qy7pizl7xAkx: 'standard',
+  plan_KRjrbQ6Z0D2A5: 'standard',
+  plan_xb9A75BEfcTGk: 'pro',
+  plan_CNk2XegENVQGM: 'pro',
+};
+
+export function registerWhopPlanId(planId: string, key: PaidPlanKey) {
+  WHOP_PLAN_ID_MAP[planId] = key;
+}
+
+/** Load optional scale plan IDs from env at runtime (server). */
+export function resolveWhopPlanKey(planId: string | undefined): PaidPlanKey {
+  if (!planId) return 'standard';
+  if (WHOP_PLAN_ID_MAP[planId]) return WHOP_PLAN_ID_MAP[planId];
+
+  const scaleMonthly = process.env.NEXT_PUBLIC_WHOP_PLAN_SCALE_MONTHLY;
+  const scaleYearly = process.env.NEXT_PUBLIC_WHOP_PLAN_SCALE_YEARLY;
+  if (scaleMonthly && planId === scaleMonthly) return 'scale';
+  if (scaleYearly && planId === scaleYearly) return 'scale';
+
+  return 'standard';
+}
+
+export function creditsForPlan(plan: PaidPlanKey): number {
+  return PAID_PLAN_BY_KEY[plan]?.credits ?? PAID_PLAN_BY_KEY.standard.credits;
+}
+
+export function maxProductsForPlan(plan: SubscriptionPlan): number {
+  if (plan === 'owner') return 9999;
+  if (plan === 'free_trial') return FREE_TRIAL_MAX_PRODUCTS;
+  return PAID_PLAN_BY_KEY[plan as PaidPlanKey]?.maxProducts ?? FREE_TRIAL_MAX_PRODUCTS;
+}
+
+export function isPaidPlan(plan: string | null | undefined): plan is PaidPlanKey {
+  return plan === 'standard' || plan === 'pro' || plan === 'scale';
+}
+
+export const PLAN_FEATURES = (plan: PlanLimits) => [
+  `${plan.credits} image credits / month (1 per generate or edit)`,
+  `Up to ${plan.maxProducts} saved products`,
+  'All aspect ratios',
+  'Ad library & history',
+];
+
+export const FREE_PLAN_FEATURES = [
+  '1 free generation to try the flow',
+  '1 saved product',
+  'All aspect ratios',
+  'History & download',
+];

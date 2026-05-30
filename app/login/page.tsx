@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useSearchParams } from 'next/navigation';
-import { ClonestaticLogo } from '@/app/components/ClonestaticLogo';
+import { AdmirrorLogo } from '@/app/components/AdmirrorLogo';
 
 function LoginContent() {
   const searchParams = useSearchParams();
@@ -53,7 +53,7 @@ function LoginContent() {
     <main className="min-h-screen landing-dark landing-dark-grid flex flex-col items-center justify-center px-4 text-white">
       <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-white/5 p-8 shadow-xl backdrop-blur-sm">
         <div className="mb-6 flex justify-center">
-          <ClonestaticLogo variant="light" />
+          <AdmirrorLogo theme="light" size="md" />
         </div>
         <h1 className="text-xl font-bold tracking-tight">
           {isCheckout ? 'Sign in to continue to checkout' : 'Sign in'}

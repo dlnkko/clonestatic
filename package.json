@@ -14,7 +14,11 @@
     "ingest-library:direct": "npx tsx scripts/ingest-direct.ts",
     "validate-seed-names": "npx tsx scripts/validate-seed-names.ts",
     "resolve-brand-names": "npx tsx scripts/resolve-brand-page-names.ts",
-    "reingest-corrected-brands": "npx tsx scripts/reingest-corrected-brands.ts"
+    "reingest-corrected-brands": "npx tsx scripts/reingest-corrected-brands.ts",
+    "resolve-skincare-brands": "npx tsx scripts/resolve-skincare-brands.ts",
+    "ingest-library:skincare": "npx tsx scripts/ingest-skincare-brands.ts",
+    "resolve-all-brands": "npx tsx scripts/resolve-all-db-brands.ts",
+    "ingest-all-brands": "npx tsx scripts/ingest-all-db-brands.ts"
   },
   "dependencies": {
     "@google/genai": "^1.30.0",

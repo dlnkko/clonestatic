@@ -1,5 +1,18 @@
 import { metaPageNameForBrand } from './page-name-corrections';
+import { SKINCARE_TOP_BRANDS } from './seeds-skincare-top';
 import type { StaticAdSeed } from './types';
+
+function mergeUniqueBrands(existing: readonly string[], prepend: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const name of [...prepend, ...existing]) {
+    const key = name.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(name.trim());
+  }
+  return out;
+}
 
 /**
  * DTC / Meta Ad Library page names (US). Each name gets company + brand_keyword seeds.
@@ -28,7 +41,8 @@ export const BRANDS_BY_CATEGORY: Record<string, readonly string[]> = {
     'Bed Threads',
     'Birch Living',
   ],
-  beauty: [
+  beauty: mergeUniqueBrands(
+    [
     'Glossier',
     'Drunk Elephant',
     'Tatcha',
@@ -55,6 +69,8 @@ export const BRANDS_BY_CATEGORY: Record<string, readonly string[]> = {
     'Morphe',
     'ColourPop',
   ],
+    SKINCARE_TOP_BRANDS
+  ),
   supplements: [
     'Omni Creatine',
     'AG1',
