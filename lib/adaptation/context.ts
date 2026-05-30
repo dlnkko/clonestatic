@@ -117,7 +117,11 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
   const resolvedLang: CopyLanguageOption = resolveCopyLanguage(copyLanguage);
   const langInstruction = copyLanguageInstruction(resolvedLang);
 
-  const isGraphicOnly = referenceVisualStyle?.designType === 'graphic-product-only';
+  const isGraphicOnly =
+    referenceVisualStyle?.designType === 'graphic-product-only' ||
+    referenceVisualStyle?.designType === 'illustration-led' ||
+    referenceVisualStyle?.designType === 'diagram-led' ||
+    (referenceVisualStyle?.hasIllustrationOrDiagram === true && !referenceVisualStyle?.hasPerson);
   const oneHeroOnly = referenceVisualStyle?.oneHeroOnly === true;
   const guidelinesAskSingleHero =
     !!guidelinesTrimmed &&
@@ -126,6 +130,16 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     );
   const enforceOneMainElement = oneHeroOnly || guidelinesAskSingleHero;
   const hasPersonInReference = referenceVisualStyle?.hasPerson === true;
+  const hasIllustrativeVisual =
+    referenceVisualStyle?.hasIllustrationOrDiagram === true ||
+    ['illustration', 'diagram', '3d-render', 'mixed'].includes(
+      referenceVisualStyle?.visualMedium ?? ''
+    );
+
+  const referenceTextLines =
+    copywritingProfile?.referenceAllTextLines?.length
+      ? copywritingProfile.referenceAllTextLines
+      : [];
 
   const headlineWords =
     copywritingProfile?.headlineWordCount ??
@@ -185,6 +199,8 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     guidelinesAskSingleHero,
     enforceOneMainElement,
     hasPersonInReference,
+    hasIllustrativeVisual,
+    referenceTextLines,
     headlineWords,
     mainCopyWords,
     brandingIntegration,
@@ -259,8 +275,9 @@ The reference ad does NOT use a separate brand logo mark in the layout (no cente
 - **Do NOT add** a standalone brand logo, wordmark, or emblem in the design — even if scraped branding includes a logo URL.
 - Brand identity = **headline/copy text only** + logos/labels that already appear **on the product** in the user's product image (packaging print only).
 ${logoAnalysis.notes ? `- Reference notes: ${logoAnalysis.notes}` : ''}
-${colorList ? `- Product brand colors (accents/background only): ${colorList}` : ''}
+${colorList ? `- Product brand colors (USE FOR BACKGROUND & ACCENTS — not competitor colors): ${colorList}` : ''}
 ${typographyInfo.fontFamilies || fontList ? `- Typography for headlines: ${typographyInfo.fontFamilies || fontList}` : ''}
+- **Background rule:** Replace reference competitor background hues with these product brand colors. Keep reference layout/mood.
 Maintain the reference's copy-only brand presentation.`;
   }
 
@@ -280,9 +297,10 @@ Maintain the reference's copy-only brand presentation.`;
   return `**Brand Integration:**
 The reference ad includes a **standalone logo** in the layout (not only on packaging). Replicate that placement with the user's brand.
 ${logoInstruction}
-${colorList ? `- Product Brand Colors: ${colorList}` : ''}
+${colorList ? `- Product Brand Colors (USE FOR BACKGROUND & ACCENTS): ${colorList}` : ''}
 ${typographyInfo.fontFamilies || fontList ? `- Product Brand Typography: ${typographyInfo.fontFamilies || fontList}` : ''}
 ${typographyInfo.fontSizes ? `- Brand Font Sizes: ${JSON.stringify(typographyInfo.fontSizes)}` : ''}
+- **Background rule:** Do not keep competitor category colors (e.g. coffee brown). Use product brand palette for backgrounds/gradients while preserving reference color roles.
 Integrate while maintaining the reference ad's overall design structure.`;
 }
 
@@ -329,7 +347,7 @@ The reference uses SHORT, punchy text — grammatically correct, natural phrasin
 - **Spec/credentials line:** If reference has one (e.g. "22 momme. Grade 6A..."), write equivalent using ONLY scraped facts; same brevity and punctuation style.
 - **Icon labels:** If reference has icon row, adapt each label (1–3 words) from scrape; same count and order.
 - **Text structure from reference:** ${copywritingProfile.textStructure || 'match all visible lines'}
-- **Phrasing (CRITICAL):** Every phrase MUST be well-written and grammatically correct. Avoid awkward constructions. Keep the same tone, rhetorical figure, and style — only output phrases that read naturally and correctly in English. Line 2 must be proper ad copy with the same effect as the reference, never a feature list or spec dump.
+- **Phrasing (CRITICAL):** Mirror reference sentence STRUCTURE per line — comparative hooks stay comparative, transparency lines stay transparency, NOT generic category headlines or authority tropes. Every phrase grammatically correct in target language. Line 2 must fulfill the SAME rhetorical function as reference (e.g. "every ingredient earns its place" → parallel craft/transparency line for user's product).
 Using the scraped product page information below, DISTILL the key concepts (offer, product benefit, occasion) into these two SHORT, WELL-PHRASED lines. Same rhetorical figure: "${rhetoricalFigures.primary || 'match style'}", tone: "${copywritingProfile.tone || 'professional'}", style: "${copywritingProfile.styleCategory || 'persuasive'}".
 
 ${antiVerbatimBlock}
@@ -385,11 +403,13 @@ export function contextSummaryForAgent(ctx: AdaptationContext): string {
       rules: {
         isGraphicOnly: ctx.isGraphicOnly,
         hasPersonInReference: ctx.hasPersonInReference,
+        hasIllustrativeVisual: ctx.hasIllustrativeVisual,
         enforceOneMainElement: ctx.enforceOneMainElement,
         headlineWords: ctx.headlineWords,
         mainCopyWords: ctx.mainCopyWords,
       },
       referenceVisualStyle: ctx.referenceVisualStyle,
+      referenceTextLines: ctx.referenceTextLines,
       referenceLogoPlacement: ctx.referenceLogoAnalysis,
       copyLanguage: { code: ctx.copyLanguageCode, name: ctx.copyLanguageName },
       copywritingProfile: ctx.copywritingProfile,

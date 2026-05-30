@@ -85,7 +85,7 @@ export function isPaidPlan(plan: string | null | undefined): plan is PaidPlanKey
 }
 
 export const PLAN_FEATURES = (plan: PlanLimits) => [
-  `${plan.credits} image credits / month (1 per generate or edit)`,
+  `${plan.credits} image credits / month (1 per generate)`,
   `Up to ${plan.maxProducts} saved products`,
   'All aspect ratios',
   'Ad library & history',

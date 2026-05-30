@@ -196,7 +196,7 @@ function StaticAdAppPage() {
   const [referenceAdDimensions, setReferenceAdDimensions] = useState<{ width: number; height: number } | null>(null);
 
   const hasSupabase = isSupabaseConfigured();
-  const [activeTab, setActiveTab] = useState<'new' | 'history' | 'edit' | 'support' | 'ad-library' | 'products'>('new');
+  const [activeTab, setActiveTab] = useState<'new' | 'history' | 'support' | 'ad-library' | 'products'>('new');
   const [products, setProducts] = useState<ProductRecord[]>([]);
   const [productsLoading, setProductsLoading] = useState(hasSupabase);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
@@ -218,14 +218,6 @@ function StaticAdAppPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [pricingBilling, setPricingBilling] = useState<'monthly' | 'yearly'>('monthly');
-
-  const [editSourceImage, setEditSourceImage] = useState<File | null>(null);
-  const [editSourcePreview, setEditSourcePreview] = useState<string | null>(null);
-  const [editInstructions, setEditInstructions] = useState<string>('');
-  const [editPrompt, setEditPrompt] = useState<string>('');
-  const [editedImageUrl, setEditedImageUrl] = useState<string | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editError, setEditError] = useState<string | null>(null);
 
   const [libraryLoading, setLibraryLoading] = useState(false);
   const [libraryLoadingMore, setLibraryLoadingMore] = useState(false);
@@ -317,18 +309,6 @@ function StaticAdAppPage() {
       }
       void fetchSubscription();
     }
-  };
-
-  const handleEditSourceUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setEditSourceImage(file);
-    setEditError(null);
-    setEditPrompt('');
-    setEditedImageUrl(null);
-    const reader = new FileReader();
-    reader.onloadend = () => setEditSourcePreview(reader.result as string);
-    reader.readAsDataURL(file);
   };
 
   const isValidUrl = (string: string): boolean => {
@@ -683,141 +663,6 @@ function StaticAdAppPage() {
   }, [imageSize, referenceAdDimensions]);
 
   const canGenerate = staticAdImage && (productImage || selectedProductId);
-
-  const handleEditGenerate = async () => {
-    if (!editSourceImage || !editSourcePreview) {
-      setEditError('Please upload an ad image to edit.');
-      return;
-    }
-    if (!editInstructions.trim()) {
-      setEditError('Describe what you want to change.');
-      return;
-    }
-    const okToProceed = await gatePaidActionOrShowPricing();
-    if (!okToProceed) return;
-
-    setIsEditing(true);
-    setEditError(null);
-    setEditPrompt('');
-    setEditedImageUrl(null);
-
-    let editCreationId: string | null = null;
-
-    try {
-      const editImageBase64 = await compressImageForApi(editSourceImage);
-      const promptRes = await fetch('/api/generate-edit-prompt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          imageBase64: editImageBase64,
-          instructions: editInstructions.trim(),
-        }),
-      });
-      const { data: promptData, errorMessage: promptErr } = await parseJsonResponse<{ prompt?: string; error?: string }>(promptRes);
-      if (promptErr) {
-        throw new Error(promptErr);
-      }
-      if (!promptRes.ok || !promptData?.prompt) {
-        throw new Error(promptData?.error || 'Failed to generate edit prompt.');
-      }
-      setEditPrompt(promptData.prompt);
-
-      if (hasSupabase) {
-        try {
-          const createRes = await fetch('/api/creations', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-              status: 'generating',
-              aspect_ratio: 'auto',
-              prompt: promptData.prompt,
-            }),
-          });
-          const createData = await createRes.json();
-          if (createRes.ok && createData?.id) editCreationId = createData.id;
-        } catch {
-          // continue without background tracking
-        }
-      }
-
-      if (editCreationId && authUserId) {
-        const optimistic: CreationItem = {
-          id: editCreationId,
-          image_url: null,
-          aspect_ratio: 'auto',
-          created_at: new Date().toISOString(),
-          status: 'generating',
-        };
-        setCreations((prev) => {
-          const next = [optimistic, ...prev.filter((c) => c.id !== editCreationId)];
-          writeCreationsCache(authUserId, next);
-          return next;
-        });
-      }
-
-      const editRes = await fetch('/api/edit-ad-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: promptData.prompt,
-          imageBase64: editImageBase64,
-          aspectRatio: 'auto',
-          ...(editCreationId ? { creationId: editCreationId } : {}),
-        }),
-      });
-      const { data: editData, errorMessage: editErr } = await parseJsonResponse<{
-        imageUrl?: string;
-        error?: string;
-        status?: string;
-      }>(editRes);
-
-      if (editRes.status === 202 || editData?.status === 'processing') {
-        setBackgroundGenNotice(
-          'Edición en segundo plano. Revisa Historial cuando termine.'
-        );
-        void loadCreations({ silent: true });
-        void fetchSubscription();
-        return;
-      }
-
-      if (editErr) {
-        throw new Error(editErr);
-      }
-      if (editRes.ok && editData?.imageUrl) {
-        setEditedImageUrl(editData.imageUrl);
-        setBackgroundGenNotice(null);
-        if (editCreationId) {
-          await loadCreations({ silent: true });
-          await fetchSubscription();
-        } else {
-          saveCreation(editData.imageUrl, 'auto', promptData.prompt!);
-        }
-      } else {
-        if (editRes.status === 401) {
-          window.location.href = '/login?next=/app';
-          return;
-        }
-        if (editRes.status === 402 || editRes.status === 404) {
-          setShowPricingModal(true);
-          return;
-        }
-        throw new Error(editData?.error || 'Failed to edit image.');
-      }
-    } catch (e: unknown) {
-      if (editCreationId) {
-        setEditError(null);
-        setBackgroundGenNotice('Edición en curso en el servidor. Revisa Historial en unos minutos.');
-        void loadCreations({ silent: true });
-      } else if (isTransientFetchError(e)) {
-        setEditError('Conexión interrumpida. Revisa Historial por si la edición ya terminó.');
-      } else {
-        setEditError(e instanceof Error ? e.message : 'Failed to edit image.');
-      }
-    } finally {
-      setIsEditing(false);
-    }
-  };
 
   const handleCloneFromLibraryAd = async (imageUrl: string) => {
     try {
@@ -1249,7 +1094,7 @@ function StaticAdAppPage() {
                       ) : isFailed ? (
                         <div className="flex aspect-[9/16] w-full flex-col items-center justify-center gap-2 bg-red-50 p-4 text-center">
                           <span className="text-xs font-medium text-red-700">Generation failed</span>
-                          <span className="text-[10px] text-red-600">Try again from Clone or Edit</span>
+                          <span className="text-[10px] text-red-600">Try again from Clone</span>
                         </div>
                       ) : (
                         <a href={c.image_url!} target="_blank" rel="noopener noreferrer" className="block aspect-[9/16] w-full bg-slate-100">
@@ -1279,84 +1124,6 @@ function StaticAdAppPage() {
               </div>
             )}
           </div>
-          ) : activeTab === 'edit' ? (
-        <>
-          <header className="dash-animate-in mb-8">
-            <h1 className="dash-title">Edit a generated ad</h1>
-            <p className="dash-subtitle mt-2">Upload an existing ad and describe changes. We&apos;ll generate an edit prompt and render the updated creative.</p>
-          </header>
-
-          <div className="dash-workspace">
-            <div className="flex flex-col gap-4 sm:gap-5 dash-workspace-form">
-              <section className="space-y-4 dash-card">
-                <div className="flex items-center justify-between gap-2">
-                  <h2 className="dash-section-title">1. Upload your ad</h2>
-                  <span className="dash-badge dash-badge-required shrink-0">REQUIRED</span>
-                </div>
-                <input type="file" accept="image/*" onChange={handleEditSourceUpload} className="hidden" id="edit-source-upload" />
-                <label htmlFor="edit-source-upload" className="dash-upload group">
-                  {editSourcePreview ? (
-                    <div className="absolute inset-0 h-full w-full p-2"><img src={editSourcePreview} alt="Ad to edit" className="h-full w-full rounded-xl object-cover shadow-sm" /><div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100"><span className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-slate-800 backdrop-blur-sm">Change</span></div></div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-3 text-center p-4">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white ring-1 ring-slate-200"><svg className="h-5 w-5 text-slate-400" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>
-                      <div><p className="text-sm font-medium text-slate-700">Upload ad image</p><p className="mt-0.5 text-xs text-slate-500">PNG/JPG recommended</p></div>
-                    </div>
-                  )}
-                </label>
-              </section>
-              <section className="space-y-4 dash-card">
-                <div className="flex items-center justify-between gap-2">
-                  <h2 className="dash-section-title">2. What should change?</h2>
-                  <span className="dash-badge dash-badge-optional shrink-0">REQUIRED</span>
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-slate-600">Edit instructions</label>
-                  <textarea value={editInstructions} onChange={(e) => setEditInstructions(e.target.value)} placeholder="Example: Replace the headline with &quot;Buy 2 Get 1 Free&quot;, change the background to a soft gradient, keep the product size and position the same." rows={4} className="dash-input dash-textarea min-h-[104px]" />
-                </div>
-              </section>
-              <div className="dash-card">
-                <button type="button" onClick={handleEditGenerate} disabled={!editSourceImage || !editInstructions.trim() || isEditing} className="dash-btn dash-btn-primary w-full min-h-[52px] touch-manipulation">
-                  {isEditing ? (<><span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /><span>Editing…</span></>) : (<><span>Generate edit</span><svg className="h-4 w-4 text-white/90 transition-transform group-hover:translate-x-0.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></>)}
-                </button>
-                {editError && <div className="mt-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"><svg className="mt-0.5 h-4 w-4 shrink-0 text-red-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><p>{editError}</p></div>}
-              </div>
-            </div>
-            <div className="dash-workspace-preview dash-sticky-preview">
-              <div className="dash-preview-panel flex min-h-[280px] sm:min-h-[380px] lg:min-h-[480px]">
-                <div className="dash-preview-panel-header">
-                  <span className="dash-preview-panel-label">Edited output</span>
-                  {editedImageUrl && <a href={editedImageUrl} target="_blank" rel="noopener noreferrer" className="dash-btn dash-btn-secondary !px-3 !py-2 text-xs min-h-[40px] items-center"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>Open</a>}
-                </div>
-                <div className="dash-preview-panel-body">
-                  {!editedImageUrl && !isEditing ? (
-                    <div className="flex flex-col items-center justify-center text-center px-2">
-                      <div className="mb-3 sm:mb-4 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50"><svg className="h-7 w-7 sm:h-8 sm:w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/></svg></div>
-                      <h3 className="text-sm font-semibold text-slate-800">Your edited ad will appear here</h3>
-                      <p className="mt-1 max-w-[360px] text-xs text-slate-500">Upload an ad, describe changes, then click Generate edit.</p>
-                    </div>
-                  ) : isEditing ? (
-                    <div className="flex flex-col items-center justify-center text-center px-2">
-                      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-slate-200 bg-slate-50"><svg className="h-7 w-7 dash-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg></div>
-                      <p className="text-sm font-medium text-slate-700">Editing your ad…</p>
-                      <p className="dash-muted-text mt-1">Generating edit prompt + rendering with GPT Image 2</p>
-                      <p className="mt-3 max-w-[280px] text-xs text-slate-500">Takes around 90 seconds. You can switch tabs or lock your phone – generation continues in the background.</p>
-                    </div>
-                  ) : (
-                    <div className="w-full flex flex-col items-center">
-                      <div className="w-full max-w-lg rounded-xl overflow-hidden bg-slate-50 ring-1 ring-slate-200"><a href={editedImageUrl!} target="_blank" rel="noopener noreferrer" className="block"><ProxiedImage src={editedImageUrl!} alt="Edited ad" className="w-full h-auto object-contain" /></a></div>
-                      <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
-                        <a href={editedImageUrl!} target="_blank" rel="noopener noreferrer" className="dash-btn dash-btn-secondary text-xs min-h-[44px]"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>Open</a>
-                        <button type="button" onClick={() => handleDownloadImage(editedImageUrl!, 'edited-ad.jpg')} className="inline-flex items-center gap-1.5 dash-btn dash-btn-primary text-xs min-h-[44px] touch-manipulation"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              {editPrompt && <div className="mt-4 dash-card"><h3 className="text-sm font-semibold text-slate-900">Generated edit prompt</h3><p className="mt-2 whitespace-pre-wrap break-words text-sm text-slate-600">{editPrompt}</p></div>}
-            </div>
-          </div>
-        </>
           ) : activeTab === 'ad-library' ? (
         <div className="space-y-6">
           <header className="dash-animate-in">

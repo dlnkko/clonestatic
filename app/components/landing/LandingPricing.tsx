@@ -130,7 +130,7 @@ export function LandingPricing() {
       </div>
 
       <Reveal direction="up" delayMs={120} className="mt-8 text-center">
-        <p className="text-sm text-slate-500">Each generate or edit uses 1 credit. Cancel anytime from your dashboard.</p>
+        <p className="text-sm text-slate-500">Each generate uses 1 credit. Cancel anytime from your dashboard.</p>
       </Reveal>
 
       <Reveal direction="down" delayMs={180}>

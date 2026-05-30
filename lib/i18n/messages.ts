@@ -17,7 +17,6 @@ type Messages = {
 const en: Messages = {
   nav: {
     clone: 'Clone',
-    edit: 'Edit',
     products: 'Products',
     adLibrary: 'Ad Library',
     history: 'History',
@@ -95,7 +94,6 @@ const en: Messages = {
 const es: Messages = {
   nav: {
     clone: 'Clonar',
-    edit: 'Editar',
     products: 'Productos',
     adLibrary: 'Biblioteca',
     history: 'Historial',
@@ -173,7 +171,6 @@ const es: Messages = {
 const pt: Messages = {
   nav: {
     clone: 'Clonar',
-    edit: 'Editar',
     products: 'Produtos',
     adLibrary: 'Biblioteca',
     history: 'Histórico',

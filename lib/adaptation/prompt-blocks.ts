@@ -1,5 +1,11 @@
 import { contextSummaryForAgent } from './context';
 import {
+  backgroundColorAdaptationBlock,
+  illustrativeVisualBlock,
+  noStockPhotoUnlessReferenceBlock,
+  referenceCopyMirroringBlock,
+} from './adaptation-rules';
+import {
   buildCopyAgentInstructions,
   buildFinalPromptGeneration,
   buildVisualAgentInstructions,
@@ -21,7 +27,7 @@ ${structure ? `Reference structure: "${structure}"` : 'Match the reference ad te
 - Output the SAME number and TYPES of text blocks as the reference (e.g. brand wordmark + sub-tagline + serif headline + sans spec line + icon labels).
 - Preserve rhetorical function per line: headline = emotional hook; spec line = condensed credentials/benefits (same brevity as reference); icon labels = 1–3 words each.
 - Do NOT reduce a multi-line luxury layout to only "logo + one headline + one subline" unless the reference truly has only those elements.
-- Line 2+ must NOT become a generic spec dump unrelated to reference tone — match device (aspirational phrase, wordplay, etc.) from copywriting profile.
+- Line 2+ must NOT become a generic spec dump or unrelated authority claim ("Dermatologist recommended") — match reference rhetorical device (transparency, wordplay, contrarian hook, etc.).
 - Max words per line: headline/tagline ≤ ${ctx.headlineWords}, main secondary line ≤ ${ctx.mainCopyWords} (other lines match reference length).`;
 }
 
@@ -43,6 +49,8 @@ export function copyAgentPrompt(ctx: AdaptationContext): string {
   return `You are a copy adaptation specialist for static ads (oldprompts finalPromptGeneration §6).
 
 Clone the REFERENCE ad's text architecture for the USER's product — same number of lines, same roles (brand name, sub-tagline, headline, spec line, icon labels, etc.), same brevity per line.
+
+${referenceCopyMirroringBlock(ctx)}
 
 ${copyStructureRulesBlock(ctx)}
 
@@ -95,12 +103,19 @@ export function visualAgentPrompt(ctx: AdaptationContext): string {
 Define how the USER's product appears in a CLONED ad — identical layout to reference, new product/brand.
 ${multiImageNote}
 
+${illustrativeVisualBlock(ctx)}
+
+${noStockPhotoUnlessReferenceBlock(ctx)}
+
+${backgroundColorAdaptationBlock(ctx)}
+
 ${featureRowInstructionsBlock(ctx)}
 
 ${buildVisualAgentInstructions(ctx)}
 
 RULES (JSON output):
-- poseAndArrangementParagraph: for flat/product-row refs use REFERENCE pose; for lifestyle/model-in-use refs describe USER product in **authentic use** (not literal competitor interaction when wrong)
+- visualMediumNotes: state whether final ad is illustration/diagram/3d-render OR real photo — must match reference, never default to stock lifestyle photo when reference is graphic
+- poseAndArrangementParagraph: for flat/product-row refs use REFERENCE pose; for illustration refs describe equivalent diagram/illustration with user's product; for lifestyle/model-in-use refs describe USER product in **authentic use**
 - peopleAndSceneRules: must state how model uses USER product believably; clone reference framing/mood, not competitor product form (e.g. pillowcase on bed, not as head wrap)
 - compositionRules / brandingNotes / iconRowNotes / trustBadgeNotes
 - compositionRules: visual hierarchy (headline → comparison/table → product row), spacing, shadows, full-bleed; product row with 2–4 units if reference shows multiple; award seal overlaps product per reference
@@ -119,6 +134,7 @@ Output JSON only:
 {
   "productType": string,
   "productDescription": string,
+  "visualMediumNotes": string,
   "poseAndArrangementParagraph": string,
   "peopleAndSceneRules": string,
   "compositionRules": string,
@@ -152,14 +168,17 @@ Rules:
 1. No competitor promo numbers unless in promoClaimsUsed; if referenceHasPromoOfferLine is false, promoClaimsUsed must be empty and prompt must not mention flash sale / % off
 2. Tagline must not match referenceVerbatimPhrases (no plagiarized hooks)
 3. Product pose from reference (not upload) — oldprompts §2 product POSE AND ARRANGEMENT
-4. isGraphicOnly → no people/gym
-5. hasPersonInReference → people still described; user's product in authentic use (not literal competitor interaction when wrong, e.g. no pillowcase as head wrap)
-6. Approved copy verbatim: tagline "${copy.tagline}", mainLine "${copy.mainLine}"
-7. Line 2 same rhetorical function as reference (not unrelated spec dump)
-8. enforceOneMainElement → no packaging as second hero
-9. Logo placement rules respected
-10. Copy language: ${ctx.copyLanguageName} (${ctx.copyLanguageCode})
-11. Pricing: ${ctx.allowedPrice ? `only "${ctx.allowedPrice}"` : 'no dollar amounts'}
+4. isGraphicOnly or hasIllustrativeVisual → no real photographic people; use illustration/diagram if reference did
+5. hasPersonInReference → real photo people still described; user's product in authentic use
+6. Line 2 mirrors reference rhetorical device — FAIL if generic authority/trope unrelated to reference (e.g. "Dermatologist recommended" when reference had ingredient transparency)
+7. Headline mirrors reference sentence structure — FAIL if generic category headline when reference had contrarian/comparative hook
+8. Background uses product brand colors — FAIL if competitor category color copied (e.g. coffee brown for non-coffee product)
+9. Approved copy verbatim: tagline "${copy.tagline}", mainLine "${copy.mainLine}"
+10. Line 2 same rhetorical function as reference (not unrelated spec dump)
+11. enforceOneMainElement → no packaging as second hero
+12. Logo placement rules respected
+13. Copy language: ${ctx.copyLanguageCode} (${ctx.copyLanguageName})
+14. Pricing: ${ctx.allowedPrice ? `only "${ctx.allowedPrice}"` : 'no dollar amounts'}
 ${ctx.referenceTrustBadge.present ? `12. TRUST BADGE: Reference had award seal — prompt must describe overlapping trust badge${ctx.matchedProductVisuals.some((m) => m.role === 'trust_badge') ? ' (product catalog includes trust_badge image)' : ' — FAIL if omitted'}` : ''}
 ${iconCheck}
 ${structureCheck}

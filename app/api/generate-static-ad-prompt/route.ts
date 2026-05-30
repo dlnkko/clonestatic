@@ -12,13 +12,16 @@ import {
 } from '@/lib/adaptation';
 import {
   parseHasPromoOfferLine,
+  parseReferenceTextLines,
   parseReferenceTrustBadge,
+  parseReferenceVisualStyle,
   parseVerbatimPhrasesFromCopyBlock,
 } from '@/lib/adaptation/parse-reference-analysis';
 import { getStaticAdAnalysisPrompt } from '@/lib/adaptation/old-prompts';
 import type {
   MatchedProductVisual,
   ReferenceTrustBadge,
+  ReferenceVisualStyle,
   Step2Usage,
 } from '@/lib/adaptation/types';
 import { refineProductImageKinds } from '@/lib/products/classify-images';
@@ -332,7 +335,7 @@ export async function POST(request: NextRequest) {
     let hasReferenceReviewModule = false;
     let referenceFeatureRow = '';
     let hasReferenceFeatureRow = false;
-    let referenceVisualStyle: { hasPerson: boolean; hasEnvironment: boolean; designType: string; oneHeroOnly?: boolean } | null = null;
+    let referenceVisualStyle: ReferenceVisualStyle | null = null;
     let referenceLogoAnalysis = defaultReferenceLogoAnalysis();
     let copywritingProfile = null;
     let rhetoricalFigures = null;
@@ -365,18 +368,7 @@ export async function POST(request: NextRequest) {
         // Extract visual style (graphic vs person/environment) — do not add gym/person if reference is graphic-only
         const visualStyleMatch = analysisText.match(/\*\*VISUAL STYLE \(REFERENCE AD\):\*\*\s*([\s\S]*?)(?=\*\*BRAND|\*\*COPYWRITING ANALYSIS:\*\*|\*\*REFERENCE AD PROMPT:\*\*|$)/i);
         if (visualStyleMatch) {
-          const vsText = visualStyleMatch[1];
-          const hasPerson = /Has person\/character:\s*yes/i.test(vsText);
-          const hasEnv = /Has gym, sport setting, or location environment:\s*yes/i.test(vsText);
-          const designMatch = vsText.match(/Design type:\s*(graphic-product-only|has-person|has-environment)/i);
-          const mainElementsMatch = vsText.match(/Main elements:\s*(one-hero-only|multiple)/i);
-          const oneHeroOnly = mainElementsMatch ? mainElementsMatch[1].toLowerCase() === 'one-hero-only' : false;
-          referenceVisualStyle = {
-            hasPerson,
-            hasEnvironment: hasEnv,
-            designType: designMatch ? designMatch[1].toLowerCase() : (hasPerson || hasEnv ? 'has-person-or-environment' : 'graphic-product-only'),
-            oneHeroOnly,
-          };
+          referenceVisualStyle = parseReferenceVisualStyle(visualStyleMatch[1]);
           console.log('\n=== REFERENCE VISUAL STYLE EXTRACTED ===', referenceVisualStyle);
         }
 
@@ -406,6 +398,13 @@ export async function POST(request: NextRequest) {
 
           referenceVerbatimPhrases = parseVerbatimPhrasesFromCopyBlock(analysisText2);
           referenceHasPromoOfferLine = parseHasPromoOfferLine(analysisText);
+          const refTextLines = parseReferenceTextLines(analysisText2);
+          const headlineLine = refTextLines.find((l) =>
+            /headline|tagline|hook|main\s*head|title/i.test(l.role)
+          );
+          const line2Candidate = refTextLines.find((l) =>
+            /sub|secondary|body|line\s*2|support|main copy|slogan/i.test(l.role)
+          ) ?? refTextLines[1];
 
           copywritingProfile = {
             wordCount: wordCountMatch ? parseInt(wordCountMatch[1]) : null,
@@ -417,6 +416,9 @@ export async function POST(request: NextRequest) {
             functionOfLine2: functionLine2Match ? functionLine2Match[1].trim() : null,
             linguisticDeviceLine2: linguisticDeviceMatch ? linguisticDeviceMatch[1].trim() : null,
             hasPromoOfferLine: referenceHasPromoOfferLine,
+            referenceHeadlineExample: headlineLine?.text ?? null,
+            referenceLine2Example: line2Candidate?.text ?? null,
+            referenceAllTextLines: refTextLines.length > 0 ? refTextLines : undefined,
           };
 
           rhetoricalFigures = {

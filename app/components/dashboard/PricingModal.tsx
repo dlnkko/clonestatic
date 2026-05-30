@@ -110,7 +110,7 @@ export function PricingModal({ open, onClose, billing, onBillingChange }: Props)
           </div>
 
           <p className="mt-6 text-center text-xs text-[var(--dash-muted)]">
-            Each generate or edit uses 1 credit. Cancel anytime from the sidebar.
+            Each generate uses 1 credit. Cancel anytime from the sidebar.
           </p>
         </div>
 

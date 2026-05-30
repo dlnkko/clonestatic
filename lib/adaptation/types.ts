@@ -1,5 +1,9 @@
 export type ReferenceVisualStyle = {
+  /** Real photographic human model — NOT illustrations/diagrams */
   hasPerson: boolean;
+  hasIllustrationOrDiagram: boolean;
+  visualMedium: 'photo' | 'illustration' | 'diagram' | '3d-render' | 'mixed' | 'product-graphic-only';
+  illustrationNotes?: string;
   hasEnvironment: boolean;
   designType: string;
   oneHeroOnly?: boolean;
@@ -15,6 +19,10 @@ export type CopywritingProfile = {
   functionOfLine2?: string | null;
   linguisticDeviceLine2?: string | null;
   hasPromoOfferLine?: boolean;
+  /** Verbatim reference lines for rhetorical mirroring (not to reuse verbatim in output) */
+  referenceHeadlineExample?: string | null;
+  referenceLine2Example?: string | null;
+  referenceAllTextLines?: { role: string; text: string }[];
 };
 
 export type ReferenceTrustBadge = {
@@ -81,6 +89,8 @@ export type AdaptationContext = {
   guidelinesAskSingleHero: boolean;
   enforceOneMainElement: boolean;
   hasPersonInReference: boolean;
+  hasIllustrativeVisual: boolean;
+  referenceTextLines: { role: string; text: string }[];
   headlineWords: number;
   mainCopyWords: number;
   brandingIntegration: string;
@@ -117,6 +127,7 @@ export type CopyAdaptationResult = {
 export type VisualAdaptationResult = {
   productType: string;
   productDescription: string;
+  visualMediumNotes?: string;
   poseAndArrangementParagraph: string;
   peopleAndSceneRules: string;
   compositionRules: string;

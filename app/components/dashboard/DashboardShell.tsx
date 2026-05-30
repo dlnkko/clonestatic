@@ -9,7 +9,6 @@ import { LOCALE_LABELS, useI18n, type Locale } from '@/lib/i18n/LocaleProvider';
 export type DashboardTab =
   | 'new'
   | 'history'
-  | 'edit'
   | 'support'
   | 'ad-library'
   | 'products';
@@ -21,15 +20,6 @@ const NAV: { id: DashboardTab; labelKey: string; icon: React.ReactNode }[] = [
     icon: (
       <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
         <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14" />
-      </svg>
-    ),
-  },
-  {
-    id: 'edit',
-    labelKey: 'edit',
-    icon: (
-      <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
       </svg>
     ),
   },

@@ -4,6 +4,12 @@
  */
 import type { AdaptationContext, CopyAdaptationResult, VisualAdaptationResult } from './types';
 import { logoPlacementRulesBlock } from './logo-rules';
+import {
+  backgroundColorAdaptationBlock,
+  illustrativeVisualBlock,
+  noStockPhotoUnlessReferenceBlock,
+  referenceCopyMirroringBlock,
+} from './adaptation-rules';
 
 export function featureRowInstructionsBlock(ctx: AdaptationContext): string {
   if (!ctx.hasReferenceFeatureRow || !ctx.referenceFeatureRow) return '';
@@ -60,12 +66,16 @@ Your task:
     - Describe the typography in a dedicated section: font style/type (e.g. sans-serif bold, serif, display, script), approximate sizes (headline vs body), weights (light, regular, bold, black), text placement (top, center, overlay), alignment (left, center, right), and any effects (shadows, outlines, gradients on text, letter-spacing). This will be used to COPY the same typography in the final ad.
 
 3. **Identify VISUAL STYLE / DESIGN TYPE** (CRITICAL — do not add people or gym if reference has none):
-    - Does the reference ad show ANY person, athlete, or human? (yes/no)
-    - Does the reference ad show ANY environment like gym, sport setting, or location? (yes/no)
-    - **Number of main visual elements:** Does the reference have ONE single hero element (e.g. one cookie, one product item only) or multiple (e.g. product + packaging, two items)? Answer: "one-hero-only" if there is exactly one main focal subject; "multiple" if there are two or more distinct main elements (e.g. packaging + item). This will be used to avoid adding packaging when the reference has only one hero.
-    - If NO person and NO gym/environment: the ad is "graphic/product-only" (product + background/graphics only). The adaptation must STAY graphic — do not insert people or gym.
-    - If it HAS a person (or people): the adaptation must **keep the same number of people and the same shot type** (portrait, lifestyle, close-up, hand-holding, etc.) and the same **ad composition** (framing, mood, lighting). The **user's product** must appear in its **authentic real-world use** — not by copying how the competitor's product was worn, held, or placed if that would be wrong for the new product (e.g. reference wears a head wrap → user sells a pillowcase → show sleep/bedding use, NOT a pillowcase worn as a turban).
-    - If it HAS an environment but the key subject is people + product: preserve people and shot energy; adapt setting to the user's product use case when needed (bedroom for bedding, bathroom for skincare, etc.).
+    - Does the reference ad show a **real photographic** person or model (actual photo, not illustration)? (yes/no)
+    - Does the reference use **illustration, diagram, cutaway, 3D render, or animated/stylized graphic** (e.g. anatomical head, brain diagram, icon graphics, vector art)? (yes/no)
+    - **Illustration/diagram type:** If yes above, describe (anatomical cutaway, flat illustration, 3D product render, ingredient callout diagram, circular stylized portrait, etc.). If no, write "none".
+    - **Visual medium:** Choose exactly one: photo | illustration | diagram | 3d-render | mixed | product-graphic-only
+    - Does the reference ad show ANY gym, sport setting, or location environment? (yes/no)
+    - **Number of main visual elements:** one-hero-only OR multiple
+    - **Has person/character (legacy):** yes only if REAL photographic person; no if only illustration/diagram of human anatomy
+    - If illustration/diagram-led: adaptation must STAY in that medium — do NOT convert to stock photo of real person
+    - If NO real photo person and NO gym: "graphic-product-only" or "illustration-led"
+    - If it HAS a **real photographic** person: keep same shot type; user's product in authentic use
 
 4. **PRODUCT POSE, POSITION AND PLACEMENT (CRITICAL — identify exactly for replication):**
     - **Product pose/orientation:** How is the product displayed? (e.g. **lying down** flat or at an angle, **standing upright**, on its side, **scattered** at various angles, grouped in a row, stacked). Describe precisely: "lying down and slightly angled", "standing upright facing camera", "multiple items scattered with different tilts", etc. This MUST be replicated in the generated ad so the new product appears in the SAME pose — e.g. if the reference shows earplugs lying down and scattered, the new product must also be shown lying down and at similar angles, NOT standing upright.
@@ -121,11 +131,16 @@ Format your response EXACTLY as:
 (Describe everything needed to replicate the exact same typography in another ad.)
 
 **VISUAL STYLE (REFERENCE AD):**
-- Has person/character: [yes/no]
+- Has real photographic person/model: [yes/no]
+- Has illustration/diagram/animation: [yes/no]
+- Illustration/diagram type: [anatomical cutaway / flat illustration / 3d render / ingredient callout / stylized graphic / none]
+- Visual medium: [photo | illustration | diagram | 3d-render | mixed | product-graphic-only]
+- Has person/character: [yes/no — yes ONLY for real photos, NOT anatomical illustrations]
 - Has gym, sport setting, or location environment: [yes/no]
-- Main elements: [one-hero-only OR multiple] — if one-hero-only, the reference has a single main focal subject (e.g. one food item, one product); do not add packaging or a second element when adapting.
-- Design type: [graphic-product-only OR has-person OR has-environment]
-If "graphic-product-only": the ad is purely product + background/graphics (no people, no gym). The generated prompt must NOT add people or gym/sport imagery — only adapt product and keep the same graphic style. Only add person/gym if the user explicitly requests it in Guidelines.
+- Main elements: [one-hero-only OR multiple]
+- Design type: [graphic-product-only | illustration-led | diagram-led | has-person | has-environment]
+If illustration/diagram-led: the ad uses stylized graphics — NOT a real person photo. Adaptation must recreate illustration/diagram style with user's product, never default to stock lifestyle photography.
+If "graphic-product-only" or "illustration-led": do NOT add real photographic people or gym/sport imagery.
 
 **BRAND / LOGO PLACEMENT (REFERENCE AD):**
 - Standalone brand logo in layout: [yes/no]
@@ -225,6 +240,9 @@ The reference ad has only ONE main visual hero (e.g. one cookie, one food item).
 }
 
 function graphicOnlyBlock(ctx: AdaptationContext): string {
+  if (ctx.hasIllustrativeVisual) {
+    return illustrativeVisualBlock(ctx);
+  }
   if (!ctx.isGraphicOnly) {
     if (ctx.hasPersonInReference) {
       return `**Person/Environment (reference has people):** **Priority: keep people + same shot type/framing.** Show the user's product in **authentic use** — adapt pose/setting when the competitor's product interaction does not fit (see AUTHENTIC PRODUCT USE). Optional: refresh avatar diversity.`;
@@ -453,17 +471,22 @@ Adapt the reference prompt above to create a NEW prompt for the product in the p
 
 ${peopleModelsCriticalBlock(ctx)}${productUseCaseAdaptationBlock(ctx)}${oneHeroBlock(ctx)}${graphicOnlyBlock(ctx)}
 
+${illustrativeVisualBlock(ctx)}
+
+${noStockPhotoUnlessReferenceBlock(ctx)}
+
 ${analyzeProductContextBlock(ctx)}
 
 ${maintainDesignElementsBlock(ctx)}
 
 3. **Adapt Colors and Typography:**
-${scrapedBranding ? brandingIntegration : '- Use reference colors and typography, but adapt product-specific elements'}
-${scrapedBranding ? '- Integrate product brand colors from branding data where appropriate (product elements, accents, highlights)' : ''}
-${scrapedBranding ? '- Prefer REFERENCE AD typography for headline and main copy; use product brand typography only for small product labels if needed' : ''}
+${backgroundColorAdaptationBlock(ctx)}
+${scrapedBranding ? brandingIntegration : '- Use product brand colors for background; keep reference layout color roles'}
+${scrapedBranding ? '- Integrate product brand colors from branding data for backgrounds, gradients, accent bars, and highlights' : ''}
+${scrapedBranding ? '- Prefer REFERENCE AD typography hierarchy; use product brand typography only for small product labels if needed' : ''}
 - **Always preserve the reference ad typography** (font style, sizes, weights, placement, effects) so the new ad looks like the reference.
-- Maintain reference color palette for background and overall design
-- Use brand colors strategically for product elements and accents
+- Do NOT copy competitor category background colors (coffee brown, etc.) — use user product branding hues with same mood/role as reference
+- Use brand colors strategically for product elements, backgrounds, and accents
 
 ${replaceAdaptProductBlock(ctx)}
 
@@ -474,6 +497,7 @@ ${replaceAdaptProductBlock(ctx)}
 - **When scraped data does NOT have a fact** — omit. Never copy competitor copy or numbers from the reference.
 
 6. **Create Copywriting (SAME TONE + CLEAR, PERFECT COPY — CRITICAL):**
+${referenceCopyMirroringBlock(ctx)}
 ${copywritingInstructions}
 **The reference ad has SHORT text.** Match its tone and style exactly, but every phrase MUST be clear, understandable, and effective copywriting — no confusing or vague wordplay (e.g. avoid "GUMMIES YOU CAN BUILD WITH A POP" which is unclear; use clear lines like "TASTES LIKE BERRY", "BOOST YOUR STRENGTH", "5G CREATINE ZERO SUGAR"). Same brevity: short tagline (${ctx.headlineWords} words or fewer) and short main line (${ctx.mainCopyWords} words or fewer). Grammatically correct and natural. The copy must be immediately understandable and conversion-ready while keeping the reference's tone, rhetorical figure, and style. Do NOT describe one long headline. Describe all short lines that match the reference text architecture (brand, headline, spec line, icon labels). **REMEMBER: ALL promotional text (FREE GIFTS, BIG DISCOUNTS, discount %, review numbers, etc.) must come STRICTLY from scraped data. If not in scraped data, omit. Never invent or copy from the reference.**
 ${ctx.trustBadgeInstructions ? `\n${ctx.trustBadgeInstructions}\n` : ''}
@@ -490,9 +514,11 @@ ${outputRequirementsBlock(ctx)}`;
 
 /** Copy agent — sección 6 de finalPromptGeneration + estructura de texto */
 export function buildCopyAgentInstructions(ctx: AdaptationContext): string {
-  return `${ctx.copywritingInstructions}
+  return `${referenceCopyMirroringBlock(ctx)}
 
-**The reference ad has SHORT text (oldprompts finalPromptGeneration §6).** Match tone and style; every phrase clear and conversion-ready. Same brevity per line. Do NOT collapse multi-line layouts to 2 lines. Line 2 must fulfill the SAME rhetorical function as reference (wordplay/punchline/spec — match reference, not generic dumps). **Never copy reference headline wording verbatim** — new hooks for the user's product. Promo claims only if reference had a promo line AND scrape supports them; otherwise promoClaimsUsed must be empty.
+${ctx.copywritingInstructions}
+
+**The reference ad has SHORT text (oldprompts finalPromptGeneration §6).** Match tone and style; every phrase clear and conversion-ready. Same brevity per line. Do NOT collapse multi-line layouts to 2 lines. Line 2 must fulfill the SAME rhetorical function as reference (wordplay/punchline/transparency/spec — match reference device, NOT generic authority claims or unrelated spec dumps). **Never copy reference headline wording verbatim** — mirror structure with new words for the user's product. Promo claims only if reference had a promo line AND scrape supports them; otherwise promoClaimsUsed must be empty.
 
 **Text structure:** ${ctx.copywritingProfile?.textStructure ?? 'mirror every visible line from reference'}
 **Function of line 2:** ${ctx.copywritingProfile?.functionOfLine2 ?? 'match reference'}
@@ -501,7 +527,13 @@ export function buildCopyAgentInstructions(ctx: AdaptationContext): string {
 
 /** Visual agent — secciones 2 y 4 de finalPromptGeneration */
 export function buildVisualAgentInstructions(ctx: AdaptationContext): string {
-  return `${productUseCaseAdaptationBlock(ctx)}
+  return `${illustrativeVisualBlock(ctx)}
+
+${noStockPhotoUnlessReferenceBlock(ctx)}
+
+${backgroundColorAdaptationBlock(ctx)}
+
+${productUseCaseAdaptationBlock(ctx)}
 
 ${maintainDesignElementsBlock(ctx)}
 
