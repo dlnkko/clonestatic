@@ -233,6 +233,7 @@ function StaticAdAppPage() {
   const [libraryBrowseMode, setLibraryBrowseMode] = useState<'all_ads' | 'brands'>('all_ads');
   const [libraryPeriod, setLibraryPeriod] = useState<LibraryPeriod | null>(null);
   const [libraryTotalCount, setLibraryTotalCount] = useState(0);
+  const [libraryMetaLoaded, setLibraryMetaLoaded] = useState(false);
   const [libraryFilteredCount, setLibraryFilteredCount] = useState<number | null>(null);
   const [libraryNextCursor, setLibraryNextCursor] = useState<string | null>(null);
   const [onboardingDismissed, setOnboardingDismissed] = useState(true);
@@ -707,6 +708,8 @@ function StaticAdAppPage() {
       setLibraryLastRun(data.meta?.lastRun ?? null);
     } catch {
       /* meta optional */
+    } finally {
+      setLibraryMetaLoaded(true);
     }
   }, []);
 
@@ -756,11 +759,18 @@ function StaticAdAppPage() {
       category?: string;
       brand?: string | null;
       keyword?: string;
+      variety?: boolean;
     }) => {
       const append = Boolean(opts?.append);
       const category = opts?.category ?? libraryCategory;
       const brand = opts?.brand !== undefined ? opts.brand : librarySelectedBrand;
       const keyword = opts?.keyword ?? libraryKeywordSearch;
+      const useVariety =
+        opts?.variety ??
+        (libraryBrowseMode === 'all_ads' &&
+          category !== 'all' &&
+          !brand?.trim() &&
+          !keyword.trim());
 
       if (append) setLibraryLoadingMore(true);
       else {
@@ -774,6 +784,7 @@ function StaticAdAppPage() {
         if (category && category !== 'all') params.set('category', category);
         if (brand?.trim()) params.set('brand', brand.trim());
         if (keyword.trim()) params.set('keyword', keyword.trim());
+        if (useVariety) params.set('variety', '1');
         if (opts?.cursor) params.set('cursor', opts.cursor);
 
         const res = await fetch(`/api/static-library?${params}`, { credentials: 'include' });
@@ -799,7 +810,7 @@ function StaticAdAppPage() {
         setLibraryLoadingMore(false);
       }
     },
-    [libraryCategory, librarySelectedBrand, libraryKeywordSearch]
+    [libraryCategory, librarySelectedBrand, libraryKeywordSearch, libraryBrowseMode]
   );
 
   const openLibraryBrand = useCallback(
@@ -1282,12 +1293,15 @@ function StaticAdAppPage() {
             {libraryLoading && libraryAds.length === 0 && libraryBrands.length === 0 && (
               <p className="mt-3 text-sm text-slate-600">Loading…</p>
             )}
+            {!libraryMetaLoaded && !libraryLoading && libraryCategory === 'all' && (
+              <p className="mt-3 text-sm text-slate-600">Loading…</p>
+            )}
             {libraryCategory === 'all' && !libraryKeywordMode && !librarySelectedBrand && (
               <p className="mt-3 text-sm text-slate-600">
                 Elige una categoría (ej. beauty) para ver ads de todas las marcas mezclados, o navega por marca.
               </p>
             )}
-            {libraryTotalCount === 0 && !libraryLoading && !libraryError && (
+            {libraryMetaLoaded && libraryTotalCount === 0 && !libraryLoading && !libraryError && (
               <p className="mt-3 text-sm text-amber-800 bg-amber-50 rounded-lg px-3 py-2">
                 Library is empty. Run bootstrap ingest:{' '}
                 <code className="text-xs">npm run ingest-library:brands</code> (requires SCRAPECREATORS_API_KEY and migrations 010–012).

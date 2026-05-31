@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdsDateRange } from '@/lib/competitors/dates';
 import { getLatestLibraryRun, getLibraryAdCount } from '@/lib/static-library/ingest';
-import { getLibraryCategories, queryLibraryBrands, queryStaticLibrary } from '@/lib/static-library/query';
+import {
+  getLibraryCategories,
+  queryCategoryAdsByVariety,
+  queryLibraryBrands,
+  queryStaticLibrary,
+} from '@/lib/static-library/query';
 import { LIBRARY_CATEGORIES } from '@/lib/static-library/seeds-mvp';
 import { createClient } from '@/lib/supabase/server';
 
@@ -41,13 +46,32 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const { ads, nextCursor, sort, filteredCount } = await queryStaticLibrary(supabase, {
-      category,
-      brand,
-      keyword,
-      cursor,
-      limit: 48,
-    });
+    const variety =
+      searchParams.get('variety') === '1' &&
+      Boolean(category && category !== 'all') &&
+      !brand?.trim() &&
+      !keyword?.trim();
+
+    const libraryResult = variety
+      ? await queryCategoryAdsByVariety(supabase, {
+          category: category!,
+          cursor,
+          limit: 48,
+        })
+      : await queryStaticLibrary(supabase, {
+          category,
+          brand,
+          keyword,
+          cursor,
+          limit: 48,
+        });
+
+    const { ads, nextCursor, filteredCount } = libraryResult;
+    const sort = variety
+      ? ('variety' as const)
+      : 'sort' in libraryResult
+        ? libraryResult.sort
+        : ('impressions' as const);
 
     const [totalCount, categories, lastRun] = await Promise.all([
       getLibraryAdCount(),

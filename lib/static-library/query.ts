@@ -38,6 +38,152 @@ export function rowToDto(row: StaticAdRow): LibraryAdDto {
   };
 }
 
+function impressionValue(row: StaticAdRow): number {
+  return typeof row.total_impressions === 'number' ? row.total_impressions : 0;
+}
+
+function interleaveCategoryAdsByBrand(rows: StaticAdRow[]): StaticAdRow[] {
+  const byBrand = new Map<string, StaticAdRow[]>();
+  for (const row of rows) {
+    const name = row.page_name?.trim();
+    if (!name) continue;
+    const list = byBrand.get(name) ?? [];
+    list.push(row);
+    byBrand.set(name, list);
+  }
+
+  for (const list of byBrand.values()) {
+    list.sort((a, b) => {
+      const diff = impressionValue(b) - impressionValue(a);
+      if (diff !== 0) return diff;
+      const scraped = b.scraped_at.localeCompare(a.scraped_at);
+      if (scraped !== 0) return scraped;
+      return b.id.localeCompare(a.id);
+    });
+  }
+
+  const brandOrder = [...byBrand.entries()]
+    .sort((a, b) => {
+      if (b[1].length !== a[1].length) return b[1].length - a[1].length;
+      const topA = impressionValue(a[1][0]);
+      const topB = impressionValue(b[1][0]);
+      if (topB !== topA) return topB - topA;
+      return a[0].localeCompare(b[0]);
+    })
+    .map(([name]) => name);
+
+  const maxDepth = Math.max(0, ...[...byBrand.values()].map((list) => list.length));
+  const interleaved: StaticAdRow[] = [];
+  for (let round = 0; round < maxDepth; round++) {
+    for (const brand of brandOrder) {
+      const ad = byBrand.get(brand)?.[round];
+      if (ad) interleaved.push(ad);
+    }
+  }
+  return interleaved;
+}
+
+async function queryCategoryAdsByVarietyFallback(
+  supabase: SupabaseClient,
+  category: string,
+  offset: number,
+  limit: number
+): Promise<{ rows: StaticAdRow[]; filteredCount: number | null }> {
+  const allRows: StaticAdRow[] = [];
+  const pageSize = 1000;
+  let fetchOffset = 0;
+
+  for (;;) {
+    const { data, error } = await supabase
+      .from('static_ads')
+      .select(
+        'id, ad_archive_id, image_storage_path, page_name, body_preview, category, source, seed_label, scraped_at, total_impressions'
+      )
+      .eq('category', category)
+      .range(fetchOffset, fetchOffset + pageSize - 1);
+    if (error) throw new Error(error.message);
+    if (!data?.length) break;
+    allRows.push(...(data as StaticAdRow[]));
+    if (data.length < pageSize) break;
+    fetchOffset += pageSize;
+  }
+
+  const interleaved = interleaveCategoryAdsByBrand(allRows);
+  return {
+    rows: interleaved.slice(offset, offset + limit + 1),
+    filteredCount: allRows.length,
+  };
+}
+
+/** Category "all ads": round-robin top ad per brand, brands with most ads first. */
+export async function queryCategoryAdsByVariety(
+  supabase: SupabaseClient,
+  params: {
+    category: string;
+    cursor?: string | null;
+    limit?: number;
+  }
+): Promise<{
+  ads: LibraryAdDto[];
+  nextCursor: string | null;
+  filteredCount: number | null;
+}> {
+  const limit = Math.min(Math.max(params.limit ?? 48, 1), 100);
+  const offset = params.cursor ? Math.max(0, parseInt(params.cursor, 10) || 0) : 0;
+
+  const { data, error } = await supabase.rpc('library_category_ads_variety', {
+    p_category: params.category,
+    p_offset: offset,
+    p_limit: limit + 1,
+  });
+
+  let rows: StaticAdRow[];
+  let filteredCount: number | null = null;
+
+  if (error) {
+    const msg = error.message.toLowerCase();
+    if (
+      msg.includes('library_category_ads_variety') ||
+      msg.includes('does not exist') ||
+      msg.includes('could not find the function')
+    ) {
+      const fallback = await queryCategoryAdsByVarietyFallback(
+        supabase,
+        params.category,
+        offset,
+        limit
+      );
+      rows = fallback.rows;
+      filteredCount = fallback.filteredCount;
+    } else {
+      throw new Error(error.message);
+    }
+  } else {
+    rows = (data ?? []) as StaticAdRow[];
+    try {
+      const countRes = await supabase
+        .from('static_ads')
+        .select('id', { count: 'exact', head: true })
+        .eq('category', params.category);
+      if (!countRes.error && countRes.count != null) {
+        filteredCount = countRes.count;
+      }
+    } catch {
+      // optional count
+    }
+  }
+
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+  const nextCursor = hasMore ? String(offset + limit) : null;
+
+  return {
+    ads: page.map(rowToDto),
+    nextCursor,
+    filteredCount,
+  };
+}
+
 export async function queryStaticLibrary(
   supabase: SupabaseClient,
   params: {
