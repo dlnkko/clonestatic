@@ -13,43 +13,53 @@ export type PlanLimits = {
   maxProducts: number;
   /** Display price on landing (USD / month). Checkout amount is on Whop. */
   monthlyPriceUsd: number;
+  /** Whop yearly charge (USD / year). */
+  yearlyTotalUsd: number;
+  /** Shown on Annual tab: effective monthly price when billed yearly. */
+  annualMonthlyDisplayUsd: number;
   badge?: PlanBadge;
   checkoutMonthly: string;
   checkoutYearly: string;
 };
 
 export const FREE_TRIAL_MAX_PRODUCTS = 1;
+export const FREE_TRIAL_CREDITS = 2;
 
 export const PAID_PLANS: PlanLimits[] = [
   {
     key: 'standard',
     name: 'Starter',
-    tagline: 'Explore and validate',
+    tagline: 'Explore and validate your first AI ads',
     credits: 40,
     maxProducts: 3,
     monthlyPriceUsd: 29,
+    yearlyTotalUsd: 279,
+    annualMonthlyDisplayUsd: 23,
     checkoutMonthly: 'standard_monthly',
     checkoutYearly: 'standard_yearly',
   },
   {
     key: 'pro',
-    name: 'Pro',
-    tagline: 'For active creators',
-    credits: 120,
-    maxProducts: 10,
-    monthlyPriceUsd: 79,
-    badge: 'popular',
+    name: 'Creator',
+    tagline: 'For creators scaling content consistently',
+    credits: 100,
+    maxProducts: 8,
+    monthlyPriceUsd: 59,
+    yearlyTotalUsd: 569,
+    annualMonthlyDisplayUsd: 47,
     checkoutMonthly: 'pro_monthly',
     checkoutYearly: 'pro_yearly',
   },
   {
     key: 'scale',
-    name: 'Studio',
-    tagline: 'For teams and brands',
-    credits: 300,
-    maxProducts: 25,
-    monthlyPriceUsd: 179,
-    badge: 'best_value',
+    name: 'Pro',
+    tagline: 'For active brands producing ads at volume',
+    credits: 200,
+    maxProducts: 20,
+    monthlyPriceUsd: 99,
+    yearlyTotalUsd: 950,
+    annualMonthlyDisplayUsd: 79,
+    badge: 'popular',
     checkoutMonthly: 'scale_monthly',
     checkoutYearly: 'scale_yearly',
   },
@@ -76,17 +86,45 @@ export const AGENCY_PLAN_DISPLAY = {
 
 /** Whop plan IDs → internal plan key (monthly + yearly per tier). */
 export const WHOP_PLAN_ID_MAP: Record<string, PaidPlanKey> = {
-  plan_1qy7pizl7xAkx: 'standard',
-  plan_KRjrbQ6Z0D2A5: 'standard',
-  plan_xb9A75BEfcTGk: 'pro',
-  plan_CNk2XegENVQGM: 'pro',
+  plan_tNyLmHA6Ecbve: 'standard',
+  plan_o5L5Qt9SceSYe: 'standard',
+  plan_3kuJzf26hKZk4: 'pro',
+  plan_PPgQmxqA06tS1: 'pro',
+  plan_5MIJfbYUpkoBx: 'scale',
+  plan_gnK3r9F8Qx3pX: 'scale',
 };
+
+export const WHOP_CHECKOUT_URLS = {
+  standard_monthly: 'https://whop.com/checkout/plan_tNyLmHA6Ecbve',
+  standard_yearly: 'https://whop.com/checkout/plan_o5L5Qt9SceSYe',
+  pro_monthly: 'https://whop.com/checkout/plan_3kuJzf26hKZk4',
+  pro_yearly: 'https://whop.com/checkout/plan_PPgQmxqA06tS1',
+  scale_monthly: 'https://whop.com/checkout/plan_5MIJfbYUpkoBx',
+  scale_yearly: 'https://whop.com/checkout/plan_gnK3r9F8Qx3pX',
+} as const;
+
+export type BillingPeriod = 'monthly' | 'yearly';
+
+export function planDisplayPrice(plan: PlanLimits, billing: BillingPeriod): {
+  amount: number;
+  suffix: string;
+  sublabel: string | null;
+} {
+  if (billing === 'monthly') {
+    return { amount: plan.monthlyPriceUsd, suffix: '/mo', sublabel: null };
+  }
+  return {
+    amount: plan.annualMonthlyDisplayUsd,
+    suffix: '/mo',
+    sublabel: 'billed annually',
+  };
+}
 
 export function registerWhopPlanId(planId: string, key: PaidPlanKey) {
   WHOP_PLAN_ID_MAP[planId] = key;
 }
 
-/** Load optional Studio (scale) plan IDs from env at runtime (server). */
+/** Load optional Pro tier (scale key) plan IDs from env at runtime (server). */
 export function resolveWhopPlanKey(planId: string | undefined): PaidPlanKey {
   if (!planId) return 'standard';
   if (WHOP_PLAN_ID_MAP[planId]) return WHOP_PLAN_ID_MAP[planId];
@@ -129,7 +167,7 @@ export function planFeatureList(plan: PlanLimits): string[] {
     'HD export',
   ];
   if (plan.key === 'scale') {
-    features.push('3 team seats');
+    features.push('Priority support');
   }
   return features;
 }
@@ -138,7 +176,7 @@ export function planFeatureList(plan: PlanLimits): string[] {
 export const PLAN_FEATURES = planFeatureList;
 
 export const FREE_PLAN_FEATURES = [
-  '1 free generation',
+  `${FREE_TRIAL_CREDITS} free generations`,
   '1 saved product',
   'Ad library',
   'History',

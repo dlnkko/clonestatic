@@ -4,10 +4,12 @@ import { useState } from 'react';
 import { cn } from '@/lib/cn';
 import { Reveal } from './Reveal';
 import {
-  AGENCY_PLAN_DISPLAY,
   FREE_PLAN_FEATURES,
+  FREE_TRIAL_CREDITS,
   PAID_PLANS,
+  planDisplayPrice,
   planFeatureList,
+  type BillingPeriod,
 } from '@/lib/plans';
 
 function Check() {
@@ -18,22 +20,52 @@ function Check() {
   );
 }
 
-function Badge({ children, variant }: { children: React.ReactNode; variant: 'popular' | 'best_value' }) {
+function BillingToggle({
+  billing,
+  onChange,
+}: {
+  billing: BillingPeriod;
+  onChange: (b: BillingPeriod) => void;
+}) {
   return (
-    <span
-      className={cn(
-        'absolute right-6 top-6 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white',
-        variant === 'popular' ? 'bg-[var(--brand-gradient)]' : 'bg-emerald-500'
-      )}
-    >
-      {children}
-    </span>
+    <div className="landing-pricing-toggle inline-flex items-center gap-1 rounded-full border border-slate-200/80 bg-white p-1 shadow-lg shadow-slate-200/40">
+      <button
+        type="button"
+        onClick={() => onChange('monthly')}
+        className={cn(
+          'rounded-full px-6 py-2.5 text-sm font-semibold transition-all duration-300',
+          billing === 'monthly' ? 'landing-pricing-toggle-active text-white' : 'text-slate-600 hover:text-slate-900'
+        )}
+      >
+        Monthly
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange('yearly')}
+        className={cn(
+          'flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-all duration-300',
+          billing === 'yearly' ? 'landing-pricing-toggle-active text-white' : 'text-slate-600 hover:text-slate-900'
+        )}
+      >
+        Annual
+        <span
+          className={cn(
+            'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
+            billing === 'yearly' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'
+          )}
+        >
+          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h10v10M7 17L17 7" />
+          </svg>
+          20% off
+        </span>
+      </button>
+    </div>
   );
 }
 
 export function LandingPricing() {
-  const [annually, setAnnually] = useState(false);
-  const founderUrl = process.env.NEXT_PUBLIC_TELEGRAM_FOUNDER ?? 'https://t.me/yourusername';
+  const [billing, setBilling] = useState<BillingPeriod>('monthly');
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -42,45 +74,24 @@ export function LandingPricing() {
         <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
           Start free. Scale when you&apos;re winning.
         </h2>
-        <p className="mx-auto mt-4 max-w-xl text-slate-600 sm:text-lg">
-          Try one generation free. Paid plans unlock monthly images, more products, ad library, and history.
-        </p>
       </Reveal>
 
-      <Reveal direction="up" delayMs={100} className="mt-10 flex justify-center">
-        <div className="landing-pricing-toggle inline-flex rounded-full border border-slate-200/80 bg-white p-1 shadow-lg shadow-slate-200/40">
-          <button
-            type="button"
-            onClick={() => setAnnually(false)}
-            className={cn(
-              'rounded-full px-6 py-2.5 text-sm font-semibold transition-all duration-300',
-              !annually ? 'landing-pricing-toggle-active text-white' : 'text-slate-600 hover:text-slate-900'
-            )}
-          >
-            Monthly
-          </button>
-          <button
-            type="button"
-            onClick={() => setAnnually(true)}
-            className={cn(
-              'rounded-full px-6 py-2.5 text-sm font-semibold transition-all duration-300',
-              annually ? 'landing-pricing-toggle-active text-white' : 'text-slate-600 hover:text-slate-900'
-            )}
-          >
-            Annually
-          </button>
-        </div>
+      <Reveal direction="up" delayMs={80} className="mt-10 flex justify-center">
+        <BillingToggle billing={billing} onChange={setBilling} />
       </Reveal>
 
-      <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <Reveal direction="up" delayMs={0}>
-          <article className="landing-pricing-card relative flex h-full flex-col overflow-hidden rounded-3xl p-8 sm:p-7">
-            <h3 className="text-xl font-bold text-slate-900">Free trial</h3>
-            <p className="mt-1 text-sm text-slate-500">Try the full flow once</p>
-            <p className="mt-8 text-2xl font-bold tracking-tight text-slate-900">$0</p>
-            <ul className="mt-8 flex-1 space-y-3.5 text-sm text-slate-600">
+          <article className="landing-pricing-card flex h-full flex-col rounded-3xl border border-slate-200/80 bg-white p-7 shadow-sm transition-shadow hover:shadow-md">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Free trial</p>
+            <h3 className="mt-2 text-xl font-bold text-slate-900">Try it free</h3>
+            <p className="mt-8 flex items-baseline gap-1">
+              <span className="text-4xl font-bold tracking-tight text-slate-900">$0</span>
+            </p>
+            <p className="mt-1 text-sm text-slate-500">{FREE_TRIAL_CREDITS} generations, no card</p>
+            <ul className="mt-6 flex-1 space-y-3 text-sm text-slate-600">
               {FREE_PLAN_FEATURES.map((f) => (
-                <li key={f} className="flex items-start gap-3">
+                <li key={f} className="flex items-start gap-2.5">
                   <Check />
                   <span>{f}</span>
                 </li>
@@ -88,7 +99,7 @@ export function LandingPricing() {
             </ul>
             <a
               href="/login?next=/app"
-              className="mt-10 inline-flex w-full items-center justify-center rounded-2xl border-2 border-slate-900 bg-white py-4 text-base font-semibold text-slate-900 transition-all duration-300 hover:bg-slate-50"
+              className="mt-8 inline-flex w-full items-center justify-center rounded-xl border-2 border-slate-900 py-3.5 text-sm font-semibold text-slate-900 transition-colors hover:bg-slate-50"
             >
               Get started
             </a>
@@ -97,30 +108,36 @@ export function LandingPricing() {
 
         {PAID_PLANS.map((plan, i) => {
           const isFeatured = plan.badge === 'popular';
-          const href = `/login?next=checkout&plan=${annually ? plan.checkoutYearly : plan.checkoutMonthly}`;
+          const price = planDisplayPrice(plan, billing);
+          const href = `/login?next=checkout&plan=${billing === 'yearly' ? plan.checkoutYearly : plan.checkoutMonthly}`;
 
           return (
-            <Reveal key={plan.key} direction={i % 2 === 0 ? 'up' : 'down'} delayMs={(i + 1) * 90}>
+            <Reveal key={plan.key} direction="up" delayMs={(i + 1) * 70}>
               <article
                 className={cn(
-                  'landing-pricing-card relative flex h-full flex-col overflow-hidden rounded-3xl p-8 sm:p-7',
-                  isFeatured && 'landing-pricing-card-featured'
+                  'relative flex h-full flex-col rounded-3xl p-7 transition-all',
+                  isFeatured
+                    ? 'landing-pricing-card-featured border-2 border-indigo-400/60 bg-gradient-to-b from-indigo-50/80 to-white shadow-lg shadow-indigo-100/50'
+                    : 'landing-pricing-card border border-slate-200/80 bg-white shadow-sm hover:shadow-md'
                 )}
               >
-                {plan.badge === 'popular' && <Badge variant="popular">Most popular</Badge>}
-                {plan.badge === 'best_value' && <Badge variant="best_value">Best value</Badge>}
-                <h3 className="text-xl font-bold text-slate-900">{plan.name}</h3>
-                <p className="mt-1 text-sm text-slate-500">{plan.tagline}</p>
-                <p className="mt-8 flex items-baseline gap-1">
-                  <span className="text-4xl font-bold tracking-tight text-slate-900">${plan.monthlyPriceUsd}</span>
-                  <span className="text-slate-500">/ mo</span>
-                </p>
-                {annually && (
-                  <p className="mt-1 text-xs text-slate-500">Billed yearly on Whop checkout</p>
+                {isFeatured && (
+                  <span className="absolute right-5 top-5 rounded-full bg-[var(--brand-gradient)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
+                    Most popular
+                  </span>
                 )}
-                <ul className="mt-6 flex-1 space-y-3.5 text-sm text-slate-600">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{plan.name}</p>
+                <p className="mt-2 min-h-[2.5rem] text-sm leading-snug text-slate-500">{plan.tagline}</p>
+                <p className="mt-6 flex items-baseline gap-1">
+                  <span className="text-4xl font-bold tracking-tight text-slate-900">${price.amount}</span>
+                  <span className="text-slate-500">{price.suffix}</span>
+                </p>
+                {price.sublabel && (
+                  <p className="mt-1 text-sm font-medium text-emerald-600">{price.sublabel}</p>
+                )}
+                <ul className="mt-5 flex-1 space-y-2.5 text-sm text-slate-600">
                   {planFeatureList(plan).map((f) => (
-                    <li key={f} className="flex items-start gap-3">
+                    <li key={f} className="flex items-start gap-2.5">
                       <Check />
                       <span>{f}</span>
                     </li>
@@ -129,10 +146,10 @@ export function LandingPricing() {
                 <a
                   href={href}
                   className={cn(
-                    'mt-10 inline-flex w-full items-center justify-center rounded-2xl py-4 text-base font-semibold transition-all duration-300',
+                    'mt-8 inline-flex w-full items-center justify-center rounded-xl py-3.5 text-sm font-semibold transition-all',
                     isFeatured
-                      ? 'landing-btn-primary shadow-lg'
-                      : 'border-2 border-slate-900 bg-white text-slate-900 hover:bg-slate-50'
+                      ? 'landing-btn-primary shadow-md'
+                      : 'border-2 border-slate-900 text-slate-900 hover:bg-slate-50'
                   )}
                 >
                   Subscribe
@@ -141,37 +158,10 @@ export function LandingPricing() {
             </Reveal>
           );
         })}
-
-        <Reveal direction="up" delayMs={360}>
-          <article className="landing-pricing-card relative flex h-full flex-col overflow-hidden rounded-3xl p-8 sm:p-7">
-            <h3 className="text-xl font-bold text-slate-900">{AGENCY_PLAN_DISPLAY.name}</h3>
-            <p className="mt-1 text-sm text-slate-500">{AGENCY_PLAN_DISPLAY.tagline}</p>
-            <p className="mt-8 text-2xl font-bold tracking-tight text-slate-900">Custom pricing</p>
-            <ul className="mt-8 flex-1 space-y-3.5 text-sm text-slate-600">
-              {AGENCY_PLAN_DISPLAY.features.map((f) => (
-                <li key={f} className="flex items-start gap-3">
-                  <Check />
-                  <span>{f}</span>
-                </li>
-              ))}
-            </ul>
-            <a
-              href={founderUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-10 inline-flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-slate-900 bg-white py-4 text-base font-semibold text-slate-900 transition-all hover:bg-slate-50"
-            >
-              Contact sales
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7 17L17 7M7 7h10v10" />
-              </svg>
-            </a>
-          </article>
-        </Reveal>
       </div>
 
-      <Reveal direction="up" delayMs={120} className="mt-8 text-center">
-        <p className="text-sm text-slate-500">Each generate uses 1 credit. Cancel anytime from your dashboard.</p>
+      <Reveal direction="up" delayMs={100} className="mt-6 text-center">
+        <p className="text-xs text-slate-400">1 credit = 1 image · Cancel anytime</p>
       </Reveal>
     </div>
   );

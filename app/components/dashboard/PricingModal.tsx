@@ -1,13 +1,13 @@
 'use client';
 
 import { cn } from '@/lib/cn';
-import { AGENCY_PLAN_DISPLAY, PAID_PLANS, planFeatureList } from '@/lib/plans';
+import { AGENCY_PLAN_DISPLAY, PAID_PLANS, planDisplayPrice, planFeatureList, type BillingPeriod } from '@/lib/plans';
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  billing: 'monthly' | 'yearly';
-  onBillingChange: (b: 'monthly' | 'yearly') => void;
+  billing: BillingPeriod;
+  onBillingChange: (b: BillingPeriod) => void;
 };
 
 export function PricingModal({ open, onClose, billing, onBillingChange }: Props) {
@@ -17,21 +17,13 @@ export function PricingModal({ open, onClose, billing, onBillingChange }: Props)
 
   return (
     <div className="dash-modal-root" role="dialog" aria-modal="true" aria-labelledby="pricing-title">
-      <button
-        type="button"
-        className="dash-modal-backdrop"
-        aria-label="Close"
-        onClick={onClose}
-      />
+      <button type="button" className="dash-modal-backdrop" aria-label="Close" onClick={onClose} />
       <div className="dash-modal dash-modal-wide dash-animate-scale">
         <div className="dash-modal-header">
           <div>
             <h2 id="pricing-title" className="text-lg font-semibold tracking-tight text-[var(--dash-fg)]">
               Choose a plan
             </h2>
-            <p className="mt-1 text-sm text-[var(--dash-muted)]">
-              Explore the dashboard for free. Generating images requires credits.
-            </p>
           </div>
           <button type="button" onClick={onClose} className="dash-icon-btn" aria-label="Close">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -53,54 +45,56 @@ export function PricingModal({ open, onClose, billing, onBillingChange }: Props)
               <button
                 type="button"
                 onClick={() => onBillingChange('yearly')}
-                className={cn('dash-segmented-item', billing === 'yearly' && 'dash-segmented-item-active')}
+                className={cn(
+                  'dash-segmented-item inline-flex items-center gap-1.5',
+                  billing === 'yearly' && 'dash-segmented-item-active'
+                )}
               >
-                Annually
+                Annual
+                <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-600">
+                  20% off
+                </span>
               </button>
             </div>
-            <p className="text-xs text-[var(--dash-muted)]">Secure checkout via Whop · same Google email</p>
+            <p className="text-xs text-[var(--dash-muted)]">Whop checkout · same Google email</p>
           </div>
 
-          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
             {PAID_PLANS.map((plan) => {
               const featured = plan.badge === 'popular';
+              const price = planDisplayPrice(plan, billing);
               const checkoutKey = billing === 'yearly' ? plan.checkoutYearly : plan.checkoutMonthly;
 
               return (
                 <div
                   key={plan.key}
-                  className={cn(
-                    'dash-pricing-card relative',
-                    featured && 'dash-pricing-card-featured'
-                  )}
+                  className={cn('dash-pricing-card relative', featured && 'dash-pricing-card-featured')}
                 >
-                  {plan.badge === 'popular' && (
+                  {featured && (
                     <span className="absolute right-4 top-4 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold uppercase text-white">
                       Popular
                     </span>
                   )}
-                  {plan.badge === 'best_value' && (
-                    <span className="absolute right-4 top-4 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold uppercase text-white">
-                      Best value
-                    </span>
-                  )}
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className={cn('font-semibold', featured ? 'text-white' : 'text-[var(--dash-fg)]')}>
-                      {plan.name}
-                    </h3>
-                    <span className={cn('dash-pill shrink-0', featured && 'dash-pill-dark')}>
-                      ${plan.monthlyPriceUsd}/mo
-                    </span>
-                  </div>
+                  <h3 className={cn('font-semibold', featured ? 'text-white' : 'text-[var(--dash-fg)]')}>
+                    {plan.name}
+                  </h3>
                   <p className={cn('mt-1 text-xs', featured ? 'text-white/70' : 'text-[var(--dash-muted)]')}>
                     {plan.tagline}
                   </p>
+                  <p className={cn('mt-4 flex items-baseline gap-1', featured ? 'text-white' : 'text-[var(--dash-fg)]')}>
+                    <span className="text-2xl font-bold">${price.amount}</span>
+                    <span className={cn('text-sm', featured ? 'text-white/70' : 'text-[var(--dash-muted)]')}>
+                      {price.suffix}
+                    </span>
+                  </p>
+                  {price.sublabel && (
+                    <p className={cn('mt-0.5 text-xs font-medium', featured ? 'text-emerald-200' : 'text-emerald-600')}>
+                      {price.sublabel}
+                    </p>
+                  )}
                   <ul className={cn('mt-4 space-y-2 text-sm', featured ? 'text-white/75' : 'text-[var(--dash-muted)]')}>
                     {planFeatureList(plan).map((f) => (
-                      <li
-                        key={f}
-                        className={cn('dash-check-item', featured && 'dash-check-item-light')}
-                      >
+                      <li key={f} className={cn('dash-check-item', featured && 'dash-check-item-light')}>
                         {f}
                       </li>
                     ))}
@@ -108,10 +102,8 @@ export function PricingModal({ open, onClose, billing, onBillingChange }: Props)
                   <a
                     href={`/checkout-redirect?plan=${checkoutKey}`}
                     className={cn(
-                      'dash-btn mt-6 w-full',
-                      featured
-                        ? 'bg-white text-zinc-900 hover:bg-zinc-100'
-                        : 'dash-btn-secondary'
+                      'dash-btn mt-5 w-full',
+                      featured ? 'bg-white text-zinc-900 hover:bg-zinc-100' : 'dash-btn-secondary'
                     )}
                   >
                     Continue
@@ -126,9 +118,6 @@ export function PricingModal({ open, onClose, billing, onBillingChange }: Props)
               <div>
                 <h3 className="font-semibold text-[var(--dash-fg)]">{AGENCY_PLAN_DISPLAY.name}</h3>
                 <p className="mt-0.5 text-xs text-[var(--dash-muted)]">{AGENCY_PLAN_DISPLAY.tagline}</p>
-                <p className="mt-2 text-sm text-[var(--dash-muted)]">
-                  {AGENCY_PLAN_DISPLAY.features.join(' · ')}
-                </p>
               </div>
               <a
                 href={founderUrl}
@@ -140,10 +129,6 @@ export function PricingModal({ open, onClose, billing, onBillingChange }: Props)
               </a>
             </div>
           </div>
-
-          <p className="mt-6 text-center text-xs text-[var(--dash-muted)]">
-            Each generate uses 1 credit. Cancel anytime from the sidebar.
-          </p>
         </div>
 
         <div className="dash-modal-footer">
