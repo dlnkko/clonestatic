@@ -24,6 +24,22 @@ export type ReferenceTypographyHierarchy = {
   lines: TypographyHierarchyLine[];
 };
 
+/** Rhetorical pattern of the subhero / line-2 under the headline. */
+export type Line2CopyPattern =
+  | 'product-helps-you'
+  | 'authority-credential'
+  | 'ingredient-spec'
+  | 'transparency-craft'
+  | 'wordplay'
+  | 'other';
+
+export type AdCopyStyle =
+  | 'dtc-benefit-led'
+  | 'authority-led'
+  | 'spec-led'
+  | 'promo-led'
+  | 'other';
+
 export type CopywritingProfile = {
   wordCount: number | null;
   headlineWordCount: number | null;
@@ -33,6 +49,10 @@ export type CopywritingProfile = {
   styleCategory: string | null;
   functionOfLine2?: string | null;
   linguisticDeviceLine2?: string | null;
+  /** From Step 1 or inferred — drives subhero adaptation rules */
+  adCopyStyle?: AdCopyStyle | null;
+  line2Pattern?: Line2CopyPattern | null;
+  line2SentenceTemplate?: string | null;
   hasPromoOfferLine?: boolean;
   /** Verbatim reference lines for rhetorical mirroring (not to reuse verbatim in output) */
   referenceHeadlineExample?: string | null;
@@ -109,6 +129,7 @@ export type AdaptationContext = {
   hasPersonInReference: boolean;
   hasIllustrativeVisual: boolean;
   referenceTextLines: { role: string; text: string }[];
+  line2Pattern: Line2CopyPattern;
   headlineWords: number;
   mainCopyWords: number;
   brandingIntegration: string;

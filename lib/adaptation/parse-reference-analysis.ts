@@ -1,4 +1,11 @@
-import type { ReferenceTrustBadge, ReferenceTypographyHierarchy, TypographyHierarchyLine } from './types';
+import type {
+  AdCopyStyle,
+  CopywritingProfile,
+  Line2CopyPattern,
+  ReferenceTrustBadge,
+  ReferenceTypographyHierarchy,
+  TypographyHierarchyLine,
+} from './types';
 
 function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length;
@@ -138,6 +145,164 @@ export function parseTypographyHierarchy(
 }
 
 /** Cap secondary-line word limits from reference text lines (roles), not generic defaults. */
+const LINE2_PATTERN_VALUES: Line2CopyPattern[] = [
+  'product-helps-you',
+  'authority-credential',
+  'ingredient-spec',
+  'transparency-craft',
+  'wordplay',
+  'other',
+];
+
+export function parseLine2CopyPattern(raw: string | undefined): Line2CopyPattern | null {
+  if (!raw?.trim()) return null;
+  const n = raw.toLowerCase().replace(/\s+/g, '-');
+  for (const p of LINE2_PATTERN_VALUES) {
+    if (n.includes(p.replace(/-/g, '')) || n.includes(p)) return p;
+  }
+  if (/product-helps|helps-you|benefit-bridge|benefit bridge/.test(n)) return 'product-helps-you';
+  if (/authority|credential|dermatologist|doctor/.test(n)) return 'authority-credential';
+  if (/ingredient|spec/.test(n)) return 'ingredient-spec';
+  if (/transparency|craft/.test(n)) return 'transparency-craft';
+  if (/wordplay|pun|joke/.test(n)) return 'wordplay';
+  return null;
+}
+
+export function parseAdCopyStyle(raw: string | undefined): AdCopyStyle | null {
+  if (!raw?.trim()) return null;
+  const n = raw.toLowerCase();
+  if (/dtc|benefit-led|benefit led|pain-point|pain point|emotional hook/.test(n))
+    return 'dtc-benefit-led';
+  if (/authority/.test(n)) return 'authority-led';
+  if (/spec/.test(n)) return 'spec-led';
+  if (/promo/.test(n)) return 'promo-led';
+  return 'other';
+}
+
+/** Infer subhero pattern from reference line 2 text + Step 1 labels. */
+export function detectSubheroCopyPattern(
+  line2Text: string | null | undefined,
+  functionOfLine2?: string | null,
+  linguisticDevice?: string | null,
+  explicitPattern?: Line2CopyPattern | null
+): { pattern: Line2CopyPattern; template: string | null; adCopyStyle: AdCopyStyle } {
+  if (explicitPattern) {
+    return {
+      pattern: explicitPattern,
+      template: templateForPattern(explicitPattern),
+      adCopyStyle: explicitPattern === 'product-helps-you' ? 'dtc-benefit-led' : 'other',
+    };
+  }
+
+  const text = (line2Text ?? '').trim();
+  const fn = (functionOfLine2 ?? '').toLowerCase();
+  const device = (linguisticDevice ?? '').toLowerCase();
+
+  if (
+    /\bhelps you\b|\bhelp(s)?\s+(you|your)\b|\bso you can\b|\blets you\b/i.test(text) ||
+    /benefit bridge|outcome|helps.*fall|helps.*stay|helps.*wake/i.test(fn) ||
+    (device.includes('straight benefit') && !/dermatologist|doctor|clinician|recommended by/i.test(text))
+  ) {
+    return {
+      pattern: 'product-helps-you',
+      template: extractHelpsYouTemplate(text),
+      adCopyStyle: 'dtc-benefit-led',
+    };
+  }
+
+  if (
+    /dermatologist|doctor recommended|clinician|clinically proven|fda|physician|expert recommended/i.test(
+      text
+    ) ||
+    /authority|credential|endorsement/i.test(fn)
+  ) {
+    return {
+      pattern: 'authority-credential',
+      template: '[Authority] recommended [product/credential claim]',
+      adCopyStyle: 'authority-led',
+    };
+  }
+
+  if (
+    /every ingredient|nothing is here for marketing|earns its place|transparent/i.test(text) ||
+    /transparency|craft/i.test(fn)
+  ) {
+    return {
+      pattern: 'transparency-craft',
+      template: 'Transparency / craft messaging parallel to reference',
+      adCopyStyle: 'dtc-benefit-led',
+    };
+  }
+
+  if (/wordplay|pun|joke|double meaning|sarcasm/i.test(device) || /wordplay|pun|joke/i.test(fn)) {
+    return { pattern: 'wordplay', template: null, adCopyStyle: 'other' };
+  }
+
+  if (
+    /\d+\s*(mg|g|ml|%|momme)|grade\s*\d|zero sugar|db\b/i.test(text) ||
+    /spec|feature list/i.test(fn)
+  ) {
+    return {
+      pattern: 'ingredient-spec',
+      template: 'Condensed specs/credentials line',
+      adCopyStyle: 'spec-led',
+    };
+  }
+
+  return { pattern: 'other', template: null, adCopyStyle: 'other' };
+}
+
+function templateForPattern(pattern: Line2CopyPattern): string | null {
+  switch (pattern) {
+    case 'product-helps-you':
+      return '[Product name] helps you [primary benefit] & [secondary benefit]';
+    case 'authority-credential':
+      return '[Authority] recommended [claim]';
+    case 'ingredient-spec':
+      return '[Material/spec]. [Grade/certification].';
+    case 'transparency-craft':
+      return 'Craft/transparency parallel structure';
+    default:
+      return null;
+  }
+}
+
+function extractHelpsYouTemplate(text: string): string {
+  if (!text) return '[Product] helps you [benefit] & [benefit]';
+  const m = text.match(/^(.+?\bhelps you\b.+)$/i);
+  if (m) {
+    return m[1]
+      .replace(/\b[\w']+\b/g, (w, i, s) => {
+        const lower = w.toLowerCase();
+        if (i < 30 && /^(magnesium|glycinate|protein|silk|creatine|[\w-]+)$/i.test(w) && s.indexOf('helps') > i)
+          return '[Product]';
+        if (/faster|longer|better|smoother|calmer|stronger|asleep|awake/i.test(lower)) return '[benefit]';
+        return w;
+      })
+      .slice(0, 120);
+  }
+  return '[Product] helps you [primary benefit] & [secondary benefit]';
+}
+
+export function enrichCopywritingProfile(
+  profile: CopywritingProfile | null
+): CopywritingProfile | null {
+  if (!profile) return null;
+  const detected = detectSubheroCopyPattern(
+    profile.referenceLine2Example,
+    profile.functionOfLine2,
+    profile.linguisticDeviceLine2,
+    profile.line2Pattern ?? null
+  );
+  return {
+    ...profile,
+    adCopyStyle: profile.adCopyStyle ?? detected.adCopyStyle,
+    line2Pattern: profile.line2Pattern ?? detected.pattern,
+    line2SentenceTemplate:
+      profile.line2SentenceTemplate ?? detected.template ?? profile.line2SentenceTemplate,
+  };
+}
+
 export function inferSecondaryWordLimitFromReferenceLines(
   lines: ParsedTextLine[],
   fallback: number

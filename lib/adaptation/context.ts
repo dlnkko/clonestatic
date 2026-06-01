@@ -5,9 +5,13 @@ import {
 } from '@/lib/copy-languages';
 import { buildPricingInstructions } from './pricing-rules';
 import {
+  detectSubheroCopyPattern,
+  enrichCopywritingProfile,
   inferSecondaryWordLimitFromReferenceLines,
   parseTypographyHierarchy,
 } from './parse-reference-analysis';
+import { subheroCopyPatternBlockForProfile } from './adaptation-rules';
+import type { Line2CopyPattern } from './types';
 import type {
   AdaptationContext,
   CopywritingProfile,
@@ -149,6 +153,15 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
 
   const typographyHierarchy = parseTypographyHierarchy(referenceTypography);
 
+  const enrichedCopywritingProfile = enrichCopywritingProfile(copywritingProfile);
+  const line2Detected = detectSubheroCopyPattern(
+    enrichedCopywritingProfile?.referenceLine2Example,
+    enrichedCopywritingProfile?.functionOfLine2,
+    enrichedCopywritingProfile?.linguisticDeviceLine2,
+    enrichedCopywritingProfile?.line2Pattern ?? null
+  );
+  const line2Pattern = line2Detected.pattern;
+
   const headlineWords =
     copywritingProfile?.headlineWordCount ??
     (copywritingProfile?.wordCount != null
@@ -170,18 +183,22 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     scrapedBranding,
     referenceLogoAnalysis
   );
-  const copywritingInstructions = buildCopywritingInstructions({
-    isUrlScraped,
-    scrapedSummary,
-    scrapedMarkdown,
-    copywriting,
-    copywritingProfile,
-    rhetoricalFigures,
-    headlineWords,
-    mainCopyWords,
-    referenceHasPromoOfferLine,
-    referenceVerbatimPhrases,
-  });
+  const copywritingInstructions =
+    buildCopywritingInstructions({
+      isUrlScraped,
+      scrapedSummary,
+      scrapedMarkdown,
+      copywriting,
+      copywritingProfile: enrichedCopywritingProfile,
+      rhetoricalFigures,
+      headlineWords,
+      mainCopyWords,
+      referenceHasPromoOfferLine,
+      referenceVerbatimPhrases,
+      line2Pattern,
+    }) +
+    '\n\n' +
+    subheroCopyPatternBlockForProfile(enrichedCopywritingProfile, line2Pattern);
   const trustBadgeInstructions = buildTrustBadgeInstructions(
     referenceTrustBadge,
     matchedProductVisuals
@@ -201,7 +218,7 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     hasReferenceFeatureRow,
     referenceLogoAnalysis,
     referenceVisualStyle,
-    copywritingProfile,
+    copywritingProfile: enrichedCopywritingProfile,
     rhetoricalFigures,
     scrapedSummary,
     scrapedBranding,
@@ -217,6 +234,7 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     hasPersonInReference,
     hasIllustrativeVisual,
     referenceTextLines,
+    line2Pattern,
     headlineWords,
     mainCopyWords,
     brandingIntegration,
@@ -331,6 +349,7 @@ function buildCopywritingInstructions(opts: {
   mainCopyWords: number;
   referenceHasPromoOfferLine: boolean;
   referenceVerbatimPhrases: string[];
+  line2Pattern: Line2CopyPattern;
 }): string {
   const {
     isUrlScraped,
@@ -343,6 +362,7 @@ function buildCopywritingInstructions(opts: {
     mainCopyWords,
     referenceHasPromoOfferLine,
     referenceVerbatimPhrases,
+    line2Pattern,
   } = opts;
 
   const antiVerbatimBlock =
@@ -359,7 +379,7 @@ function buildCopywritingInstructions(opts: {
 The reference ad has a specific text stack (see Text Structure). Your output MUST use the SAME number and types of lines — brand name, sub-tagline, headline, spec line, icon labels, etc. Do NOT collapse to a simplified 2-line ad.
 The reference uses SHORT, punchy text — grammatically correct, natural phrasing:
 - **Line 1 (tagline/headline):** MAX ${headlineWords} words.
-- **Line 2 (main copy/slogan) — SAME FUNCTION AS REFERENCE:** MAX ${mainCopyWords} words. ${copywritingProfile.functionOfLine2 ? `Reference function: "${copywritingProfile.functionOfLine2}". Device: ${copywritingProfile.linguisticDeviceLine2 || 'match reference'}.` : 'Match reference tone/device.'}
+- **Line 2 (subhero / main copy) — SAME FUNCTION AS REFERENCE:** MAX ${mainCopyWords} words. Pattern: **${line2Pattern}**. ${copywritingProfile.functionOfLine2 ? `Reference function: "${copywritingProfile.functionOfLine2}". Device: ${copywritingProfile.linguisticDeviceLine2 || 'match reference'}.` : 'Match reference tone/device.'}${line2Pattern === 'product-helps-you' ? ' Use "[Product] helps you [outcome] & [outcome]" — NOT authority-led openers.' : ''}
 - **Spec/credentials line:** If reference has one (e.g. "22 momme. Grade 6A..."), write equivalent using ONLY scraped facts; same brevity and punctuation style.
 - **Icon labels:** If reference has icon row, adapt each label (1–3 words) from scrape; same count and order.
 - **Text structure from reference:** ${copywritingProfile.textStructure || 'match all visible lines'}
@@ -424,6 +444,7 @@ export function contextSummaryForAgent(ctx: AdaptationContext): string {
         referenceShowsPackaging: ctx.referenceShowsPackaging,
         headlineWords: ctx.headlineWords,
         mainCopyWords: ctx.mainCopyWords,
+        line2Pattern: ctx.line2Pattern,
       },
       referenceVisualStyle: ctx.referenceVisualStyle,
       referenceTextLines: ctx.referenceTextLines,

@@ -11,7 +11,9 @@ import {
   usageFromMetadata,
 } from '@/lib/adaptation';
 import {
+  parseAdCopyStyle,
   parseHasPromoOfferLine,
+  parseLine2CopyPattern,
   parseReferenceTextLines,
   parseReferenceTrustBadge,
   parseReferenceVisualStyle,
@@ -395,6 +397,11 @@ export async function POST(request: NextRequest) {
           const styleMatch = analysisText2.match(/Style:\s*(.+)/i);
           const functionLine2Match = analysisText2.match(/Function of Line 2 \(CRITICAL\):\s*([\s\S]+?)(?=\n-\s*\*\*|\n\*\*|$)/i);
           const linguisticDeviceMatch = analysisText2.match(/Linguistic device of second line:\s*\[?\s*(.+?)\s*\]/i);
+          const adCopyStyleMatch = analysisText2.match(/Ad copy style:\s*\[?\s*(.+?)\s*\]?/i);
+          const line2PatternMatch = analysisText2.match(/Line 2 pattern:\s*\[?\s*(.+?)\s*\]?/i);
+          const line2TemplateMatch = analysisText2.match(
+            /Line 2 sentence template:\s*\[?\s*(.+?)\s*\]?(?=\n-\s|\n\*\*|$)/i
+          );
 
           referenceVerbatimPhrases = parseVerbatimPhrasesFromCopyBlock(analysisText2);
           referenceHasPromoOfferLine = parseHasPromoOfferLine(analysisText);
@@ -415,6 +422,13 @@ export async function POST(request: NextRequest) {
             styleCategory: styleMatch ? styleMatch[1].trim() : null,
             functionOfLine2: functionLine2Match ? functionLine2Match[1].trim() : null,
             linguisticDeviceLine2: linguisticDeviceMatch ? linguisticDeviceMatch[1].trim() : null,
+            adCopyStyle: adCopyStyleMatch
+              ? parseAdCopyStyle(adCopyStyleMatch[1].trim())
+              : null,
+            line2Pattern: line2PatternMatch
+              ? parseLine2CopyPattern(line2PatternMatch[1].trim())
+              : null,
+            line2SentenceTemplate: line2TemplateMatch ? line2TemplateMatch[1].trim() : null,
             hasPromoOfferLine: referenceHasPromoOfferLine,
             referenceHeadlineExample: headlineLine?.text ?? null,
             referenceLine2Example: line2Candidate?.text ?? null,

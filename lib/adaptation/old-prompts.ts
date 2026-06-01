@@ -10,8 +10,10 @@ import {
   noStockPhotoUnlessReferenceBlock,
   packagingMirroringBlock,
   referenceCopyMirroringBlock,
+  subheroCopyPatternBlock,
   typographyHierarchyBlock,
 } from './adaptation-rules';
+import type { CopywritingProfile } from './types';
 
 export function featureRowInstructionsBlock(ctx: AdaptationContext): string {
   if (!ctx.hasReferenceFeatureRow || !ctx.referenceFeatureRow) return '';
@@ -24,7 +26,10 @@ ${ctx.referenceFeatureRow}
 Use the adapted icon labels from the copy agent. Do NOT omit the icon row. Do NOT replace with different UI (badges, bullets only, or extra headline).`;
 }
 
-export function formatApprovedCopyBlock(copy: CopyAdaptationResult): string {
+export function formatApprovedCopyBlock(
+  copy: CopyAdaptationResult,
+  profile?: CopywritingProfile | null
+): string {
   const lines =
     copy.textLines && copy.textLines.length > 0
       ? copy.textLines.map((l) => `- [${l.role}]: "${l.text}"`).join('\n')
@@ -40,8 +45,14 @@ export function formatApprovedCopyBlock(copy: CopyAdaptationResult): string {
           .join('\n')}`
       : '';
 
+  const subheroRender =
+    profile?.line2Pattern === 'product-helps-you'
+      ? '\n**Subhero typography in image:** light/regular sans-serif only, ~28–38% of headline cap height (≈⅓ size), max 2 lines — must look clearly smaller than headline.'
+      : '\n**Subhero typography in image:** light/regular weight, ~28–38% of headline cap height — never same size as headline.';
+
   return `**Approved copy — use EXACTLY this visible text in the ad:**
 ${lines}
+${subheroRender}
 ${copy.brandName ? `- Brand name: "${copy.brandName}"` : ''}
 ${copy.brandSubtagline ? `- Brand sub-tagline: "${copy.brandSubtagline}"` : ''}
 ${copy.specLine ? `- Spec/credentials line: "${copy.specLine}"` : ''}
@@ -165,8 +176,11 @@ If "graphic-product-only" or "illustration-led": do NOT add real photographic pe
 - Rhetorical Figure: [primary figure: metaphor/personification/hyperbole/analogy/slogan/motivational/aspirational/wordplay/sarcasm/other]
 - Tone: [tone: e.g. playful, sarcastic, humorous, serious, professional]
 - Style: [style category]
-- **Function of Line 2 (CRITICAL):** What does the second line do? (e.g. wordplay on a word like "uninterrupted" → "sleep interrupted", punchline, sarcastic twist, metaphor, benefit with a joke, double meaning). Describe so the generated ad can replicate the SAME function — the second line must NOT become a generic product spec (e.g. "45db noise cancelling") but must fulfill the same rhetorical role (e.g. clever twist, joke, wordplay).
-- **Linguistic device of second line:** [wordplay / sarcasm / metaphor / joke / punchline / double meaning / straight benefit / other]. The new copy must use the same kind of device.
+- **Function of Line 2 (CRITICAL):** What does the second line do? (e.g. benefit bridge "product helps you X", wordplay, punchline, transparency/craft, authority credential, spec list). Describe so adaptation replicates the SAME function — NOT a generic scrape dump.
+- **Linguistic device of second line:** [wordplay / sarcasm / metaphor / joke / punchline / double meaning / straight benefit / benefit-bridge / authority / other]
+- **Ad copy style:** [dtc-benefit-led | authority-led | spec-led | promo-led | other] — DTC = pain-point headline + emotional outcome subhero (common in Meta static ads)
+- **Line 2 pattern:** [product-helps-you | authority-credential | ingredient-spec | transparency-craft | wordplay | other] — use product-helps-you when line 2 is "[Product] helps you [outcome]"
+- **Line 2 sentence template:** [abstract pattern, e.g. "[Product name] helps you [benefit] & [benefit]" — no competitor brand names]
 - **DO NOT COPY when adapting (product-specific data):** List any discount percentages (e.g. "64% OFF"), review numbers (e.g. "4.8/5 From 27,000+"), or other numerical claims in the reference. These must come ONLY from the scraped product page — never copy from reference.
 - **Promo / offer line in layout:** Does the reference have a SEPARATE line for sales/discounts (e.g. "30% OFF", "FLASH SALE", "FREE SHIPPING") distinct from the main headline? (yes/no). If no, adaptation must NOT add promo lines even if the product page has discounts.
 
@@ -370,7 +384,7 @@ Provide ONLY the final, complete, EXTREMELY DETAILED prompt ready for AI image g
 - **Product pose, position and placement (CRITICAL):**${hasPersonInReference ? ' For lifestyle/model shots: describe the user\'s product in **authentic use** with the same shot framing as the reference — do NOT copy competitor wear/placement when wrong for the new product. For flat product-row references: use the PRODUCT POSE block.' : ''} Include product pose/arrangement from the "PRODUCT POSE AND ARRANGEMENT" block when it describes layout (row, angles, shadows) — adapted for "the product from the provided image". Product design (colors, branding, shape) comes from the provided image${hasPersonInReference ? '; interaction and scene come from the user\'s real use case' : '; pose and arrangement come from the reference block'}.
 ${scrapedBranding ? "- Where the reference ad shows brand name or logo, specify that the product's brand logo (from the scraped page) appears in the same position and style for a personalized look." : ''}
 - **Copy length and phrasing:** Describe EVERY text line from the reference (brand name, sub-tagline, headline, spec line, icon labels) — not a simplified 2-line layout. Tagline ≤ ${headlineWords} words; main secondary ≤ ${mainCopyWords} words. Same tone as reference; clear, conversion-ready copy. **The second line must fulfill the SAME function as the reference** (wordplay, punchline, sarcasm, metaphor) — never use generic product specs as main copy unless the reference does. Grammatically correct. Never one long sentence as the headline.
-- **Typography hierarchy (CRITICAL):** In the image description, specify **relative font sizes per line** — headline visually dominant; subheadline/supporting copy clearly smaller (~35–55% of headline height) even when it has more words; footer/reviews smallest. FAIL if subheadline competes with headline size.
+- **Typography hierarchy (CRITICAL):** In the image description, specify **relative font sizes per line** — headline visually dominant; subhero clearly smaller (~28–38% of headline height, light/regular weight only) even when it has more words; footer/reviews smallest. FAIL if subhero competes with headline size.
 ${ctx.hasReferenceFeatureRow ? '- **Icon/feature row:** Include the full icon row with same count, style, and placement as reference; use approved icon labels.' : ''}
 - **Promo lines:** ${ctx.referenceHasPromoOfferLine ? 'Only if approved copy includes promo claims from scrape.' : 'Reference had no promo line — final image must NOT include sale/discount/flash-offer text.'}
 - **Original headlines:** No verbatim reuse of reference competitor hooks${ctx.referenceVerbatimPhrases.length ? ` (${ctx.referenceVerbatimPhrases.join('; ')})` : ''}.
@@ -441,7 +455,7 @@ You MUST replicate the same typography style, font appearance, **relative sizes 
   const typographyHierarchySection = typographyHierarchyBlock(ctx);
 
   const approvedCopyBlock = options.approvedCopy
-    ? `\n${formatApprovedCopyBlock(options.approvedCopy)}\n`
+    ? `\n${formatApprovedCopyBlock(options.approvedCopy, ctx.copywritingProfile)}\n`
     : '';
 
   const visualBlock = options.visual
@@ -513,6 +527,7 @@ ${replaceAdaptProductBlock(ctx)}
 
 6. **Create Copywriting (SAME TONE + CLEAR, PERFECT COPY — CRITICAL):**
 ${referenceCopyMirroringBlock(ctx)}
+${subheroCopyPatternBlock(ctx)}
 ${copywritingInstructions}
 **The reference ad has SHORT text.** Match its tone and style exactly, but every phrase MUST be clear, understandable, and effective copywriting — no confusing or vague wordplay (e.g. avoid "GUMMIES YOU CAN BUILD WITH A POP" which is unclear; use clear lines like "TASTES LIKE BERRY", "BOOST YOUR STRENGTH", "5G CREATINE ZERO SUGAR"). Same brevity: short tagline (${ctx.headlineWords} words or fewer) and short main line (${ctx.mainCopyWords} words or fewer). Grammatically correct and natural. The copy must be immediately understandable and conversion-ready while keeping the reference's tone, rhetorical figure, and style. Do NOT describe one long headline. Describe all short lines that match the reference text architecture (brand, headline, spec line, icon labels). **REMEMBER: ALL promotional text (FREE GIFTS, BIG DISCOUNTS, discount %, review numbers, etc.) must come STRICTLY from scraped data. If not in scraped data, omit. Never invent or copy from the reference.**
 ${ctx.trustBadgeInstructions ? `\n${ctx.trustBadgeInstructions}\n` : ''}
@@ -537,7 +552,8 @@ ${ctx.copywritingInstructions}
 
 **Text structure:** ${ctx.copywritingProfile?.textStructure ?? 'mirror every visible line from reference'}
 **Function of line 2:** ${ctx.copywritingProfile?.functionOfLine2 ?? 'match reference'}
-**Device:** ${ctx.copywritingProfile?.linguisticDeviceLine2 ?? 'match reference'}`;
+**Device:** ${ctx.copywritingProfile?.linguisticDeviceLine2 ?? 'match reference'}
+**Line 2 pattern:** ${ctx.line2Pattern}`;
 }
 
 /** Visual agent — secciones 2 y 4 de finalPromptGeneration */
