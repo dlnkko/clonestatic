@@ -30,32 +30,55 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [targetAudience, setTargetAudience] = useState('');
-  const [colorPalette, setColorPalette] = useState('');
-  const [priceDisplay, setPriceDisplay] = useState('');
+  const [paletteColors, setPaletteColors] = useState<string[]>([]);
+  const [priceAmount, setPriceAmount] = useState('');
+  const [priceCurrency, setPriceCurrency] = useState('USD');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const currencyCodes: string[] =
+    typeof Intl !== 'undefined' && 'supportedValuesOf' in Intl
+      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ((Intl as any).supportedValuesOf('currency') as string[])
+      : ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'MXN', 'BRL', 'JPY', 'KRW', 'CNY', 'INR'];
+
+  const formatPrice = (amt: string, currency: string): string => {
+    const n = Number(amt);
+    if (!Number.isFinite(n) || n <= 0) return '';
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency,
+        maximumFractionDigits: 2,
+      }).format(n);
+    } catch {
+      return `${n} ${currency}`;
+    }
+  };
 
   useEffect(() => {
     if (!product) return;
     setName(product.name);
     setDescription(product.description ?? '');
     setTargetAudience(product.target_audience ?? '');
-    setColorPalette(product.color_palette?.colors?.join(', ') ?? '');
-    setPriceDisplay(
+    setPaletteColors((product.color_palette?.colors ?? []).map((c) => c.toUpperCase()).slice(0, 8));
+    const detectedCurrency = product.scrape_cache?.extractedPricing?.currency?.toUpperCase?.() || 'USD';
+    setPriceCurrency(currencyCodes.includes(detectedCurrency) ? detectedCurrency : 'USD');
+    const raw =
       product.scrape_cache?.priceDisplay ??
-        product.scrape_cache?.extractedPricing?.salePrice ??
-        product.scrape_cache?.extractedPricing?.regularPrice ??
-        ''
-    );
+      product.scrape_cache?.extractedPricing?.salePrice ??
+      product.scrape_cache?.extractedPricing?.regularPrice ??
+      '';
+    setPriceAmount(raw.replace(/[^\d.,]/g, '').replace(',', '.').trim());
     setError(null);
   }, [product]);
 
   const swatches = useMemo(() => {
     const fromProduct = product?.color_palette?.colors ?? [];
-    const fromInput = parseHexColors(colorPalette);
+    const fromInput = paletteColors;
     const merged = [...fromProduct, ...fromInput].map(normalizeHex);
     return [...new Set(merged)].slice(0, 12);
-  }, [product, colorPalette]);
+  }, [product, paletteColors]);
 
   if (!product) return null;
 
@@ -63,10 +86,11 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
     setSaving(true);
     setError(null);
     try {
+      const priceDisplay = formatPrice(priceAmount, priceCurrency) || null;
       const scrape_cache: ProductScrapeCache | null = product.scrape_cache
         ? {
             ...product.scrape_cache,
-            priceDisplay: priceDisplay.trim() || null,
+            priceDisplay,
           }
         : null;
 
@@ -78,8 +102,8 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
           name: name.trim(),
           description: description.trim(),
           target_audience: targetAudience.trim(),
-          color_palette: colorPalette.trim(),
-          priceDisplay: priceDisplay.trim() || null,
+          color_palette: paletteColors.join(', '),
+          priceDisplay,
           scrape_cache,
         }),
       });
@@ -181,23 +205,100 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
               ) : (
                 <p className="mb-2 text-xs text-slate-400">#574CD5, #FF4500, …</p>
               )}
-              <input
-                value={colorPalette}
-                onChange={(e) => setColorPalette(e.target.value)}
-                className="dash-input font-mono text-xs"
-                placeholder="#574CD5, #FFFFFF"
-              />
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {paletteColors.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setPaletteColors((prev) => prev.filter((x) => x !== c))}
+                    className="group flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:border-slate-300"
+                    title="Remove color"
+                  >
+                    <span className="h-4 w-4 rounded-full ring-1 ring-slate-200" style={{ background: c }} />
+                    <span>{c}</span>
+                    <span className="text-slate-400 group-hover:text-slate-600">✕</span>
+                  </button>
+                ))}
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  type="color"
+                  aria-label="Pick color"
+                  onChange={(e) => {
+                    const c = e.target.value.toUpperCase();
+                    if (!c) return;
+                    setPaletteColors((prev) => (prev.includes(c) || prev.length >= 8 ? prev : [...prev, c]));
+                  }}
+                  className="h-9 w-10 rounded-lg border border-slate-200 bg-white p-1"
+                />
+                <input
+                  type="text"
+                  placeholder="#1F2937"
+                  className="dash-input flex-1"
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Enter') return;
+                    const v = (e.target as HTMLInputElement).value;
+                    const matches = parseHexColors(v);
+                    if (!matches.length) return;
+                    setPaletteColors((prev) => {
+                      const next = [...prev];
+                      for (const h of matches) {
+                        const c = h.toUpperCase();
+                        if (!next.includes(c) && next.length < 8) next.push(c);
+                      }
+                      return next;
+                    });
+                    (e.target as HTMLInputElement).value = '';
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setPaletteColors((prev) => prev.slice(0, Math.max(0, prev.length - 1)))}
+                  className="dash-btn dash-btn-secondary"
+                >
+                  Undo
+                </button>
+              </div>
             </div>
 
             <div>
               <label className="dash-label mb-1.5">{t('products', 'price')}</label>
-              <input
-                value={priceDisplay}
-                onChange={(e) => setPriceDisplay(e.target.value)}
-                placeholder={t('products', 'pricePh')}
-                className="dash-input"
-              />
-              <p className="mt-1.5 text-[11px] text-slate-500">{t('products', 'priceHint')}</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <div className="sm:col-span-2">
+                  <input
+                    value={priceAmount}
+                    onChange={(e) => setPriceAmount(e.target.value)}
+                    placeholder="e.g. 120"
+                    className="dash-input"
+                    inputMode="decimal"
+                  />
+                </div>
+                <div>
+                  <input
+                    list="currency-codes-edit"
+                    value={priceCurrency}
+                    onChange={(e) => setPriceCurrency(e.target.value.toUpperCase())}
+                    className="dash-input"
+                    placeholder="USD"
+                  />
+                  <datalist id="currency-codes-edit">
+                    {currencyCodes.map((c) => (
+                      <option key={c} value={c} />
+                    ))}
+                  </datalist>
+                </div>
+                <p className="sm:col-span-3 text-[11px] text-slate-500">
+                  {t('products', 'priceHint')}{' '}
+                  {priceAmount ? (
+                    <>
+                      Preview:{' '}
+                      <span className="font-medium text-slate-700">
+                        {formatPrice(priceAmount, priceCurrency) || '—'}
+                      </span>
+                    </>
+                  ) : null}
+                </p>
+              </div>
               {product.scrape_cache?.extractedPricing && (
                 <p className="mt-1 text-[11px] text-slate-400">
                   {t('products', 'detectedPrice')}: {product.scrape_cache.extractedPricing.regularPrice}

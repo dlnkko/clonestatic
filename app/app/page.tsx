@@ -13,7 +13,7 @@ import { AppProviders } from './providers';
 import { useI18n } from '@/lib/i18n/LocaleProvider';
 import { COPY_LANGUAGES } from '@/lib/copy-languages';
 import type { ProductRecord } from '@/lib/products/types';
-import { adVisualModeLabel, type AdVisualMode } from '@/lib/ad-visual-mode';
+import type { AdVisualMode } from '@/lib/ad-visual-mode';
 import {
   prefetchCreationImages,
   readCreationsCache,
@@ -191,7 +191,6 @@ function StaticAdAppPage() {
   const [productPreview, setProductPreview] = useState<string | null>(null);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState<boolean>(false);
-  const [imageGenMode, setImageGenMode] = useState<AdVisualMode | null>(null);
   const [imageSize, setImageSize] = useState<ImageSizeOption>('auto');
   const [referenceAdDimensions, setReferenceAdDimensions] = useState<{ width: number; height: number } | null>(null);
 
@@ -395,7 +394,6 @@ function StaticAdAppPage() {
     setError(null);
     setGeneratedPrompt('');
     setGeneratedImageUrl(null);
-    setImageGenMode(null);
 
     try {
       const staticAdBase64 = await compressImageForApi(staticAdImage);
@@ -493,8 +491,6 @@ function StaticAdAppPage() {
       setGeneratedPrompt(data.prompt!);
       const adVisualMode: AdVisualMode =
         data.adVisualMode === 'realistic' ? 'realistic' : 'design';
-      setImageGenMode(adVisualMode);
-
       const matchedUrls = data.matchedProductImageUrls?.filter((u) => u.startsWith('http')) ?? [];
 
       let productImageUrl: string | null = null;
@@ -581,7 +577,7 @@ function StaticAdAppPage() {
         if (imgRes.status === 202 || imgData?.status === 'processing') {
           setError(null);
           setBackgroundGenNotice(
-            'Generación en segundo plano. Puedes cambiar de pestaña; el resultado aparecerá en Historial.'
+            'Running in the background (~90 sec). Switch tabs anytime—your ad will appear in History.'
           );
           void loadCreations({ silent: true });
           void fetchSubscription();
@@ -618,11 +614,11 @@ function StaticAdAppPage() {
         if (creationId) {
           setError(null);
           setBackgroundGenNotice(
-            'Generación en curso en el servidor. Revisa Historial en unos minutos si pierdes conexión.'
+            'Still processing in the background. Check History in a few minutes if you lost connection.'
           );
           void loadCreations({ silent: true });
         } else if (isTransientFetchError(imgErr)) {
-          setError('Conexión interrumpida. Revisa Historial por si la imagen ya se generó.');
+          setError('Connection lost. Check History in case your ad already finished.');
         } else {
           setError(imgErr instanceof Error ? imgErr.message : 'Failed to generate image.');
         }
@@ -631,7 +627,7 @@ function StaticAdAppPage() {
       }
     } catch (err: any) {
       if (isTransientFetchError(err)) {
-        setError('Conexión interrumpida. Mantén la pantalla encendida e inténtalo de nuevo.');
+        setError('Connection lost. Keep this tab open and try again.');
       } else {
         setError(err.message || 'Something went wrong. Please try again.');
       }
@@ -885,7 +881,7 @@ function StaticAdAppPage() {
       if (failed) {
         setPendingPreviewCreationId(null);
         setBackgroundGenNotice(null);
-        setError('La generación falló. Inténtalo de nuevo.');
+        setError('Generation failed. Please try again.');
       }
     }
   }, [pendingPreviewCreationId]);
@@ -1083,7 +1079,7 @@ function StaticAdAppPage() {
           <div className="dash-card dash-card-lg">
             <h2 className="dash-section-title mb-1">Your creations</h2>
             <p className="mb-6 text-xs text-slate-500">
-              Las imágenes se guardan 30 días y luego se eliminan del historial.
+              Images are kept for 30 days, then removed from History.
             </p>
             {creationsLoading && creations.length === 0 ? (
               <div className="flex items-center justify-center py-12"><svg className="h-8 w-8 dash-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></div>
@@ -1298,7 +1294,7 @@ function StaticAdAppPage() {
             )}
             {libraryCategory === 'all' && !libraryKeywordMode && !librarySelectedBrand && (
               <p className="mt-3 text-sm text-slate-600">
-                Elige una categoría (ej. beauty) para ver ads de todas las marcas mezclados, o navega por marca.
+                Choose a category (e.g. beauty) to browse ads across brands, or switch to brand view.
               </p>
             )}
             {libraryMetaLoaded && libraryTotalCount === 0 && !libraryLoading && !libraryError && (
@@ -1322,7 +1318,7 @@ function StaticAdAppPage() {
                 )
               </h2>
               <p className="mb-4 text-xs text-slate-500">
-                Ordenadas por mayor impresión en un solo ad. Entra en una marca para ver todos sus ads (mayor → menor).
+                Sorted by each brand’s top single-ad impressions. Open a brand to see all its ads (highest → lowest).
               </p>
               {libraryBrandsFiltered.length > 0 ? (
                 <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
@@ -1702,7 +1698,7 @@ function StaticAdAppPage() {
                         onClick={() => setActiveTab('history')}
                         className="dash-btn dash-btn-secondary text-xs min-h-[40px]"
                       >
-                        Ver historial
+                        View History
                       </button>
                     </div>
                   ) : (
@@ -1715,17 +1711,10 @@ function StaticAdAppPage() {
                 ) : (isGenerating || isGeneratingImage || pendingPreviewCreationId) ? (
                   <div className="flex flex-col items-center justify-center text-center px-2">
                     <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-slate-200 bg-slate-50"><svg className="h-7 w-7 dash-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg></div>
-                    <p className="text-sm font-medium text-slate-700">Generating your ad…</p>
-                    <p className="dash-muted-text mt-1">
-                      {isGeneratingImage || pendingPreviewCreationId
-                        ? imageGenMode
-                          ? `Rendering — ${adVisualModeLabel(imageGenMode)}`
-                          : pendingPreviewCreationId && !isGeneratingImage
-                            ? 'Renderizando en el servidor…'
-                            : 'Rendering your ad…'
-                        : 'Analyzing reference & building prompt…'}
+                    <p className="text-sm font-medium text-slate-700">Analyzing & adapting image…</p>
+                    <p className="mt-3 max-w-[280px] text-xs text-slate-500">
+                      Runs in the background (~90 sec). Switch tabs anytime—your ad will appear in History.
                     </p>
-                    <p className="mt-3 max-w-[280px] text-xs text-slate-500">La imagen se genera en el servidor. Puedes cambiar de pestaña o cerrar la app; verás el resultado en Historial.</p>
                   </div>
                 ) : generatedImageUrl ? (
                   <div className="w-full flex flex-col items-center">

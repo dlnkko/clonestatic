@@ -9,6 +9,21 @@ export type ReferenceVisualStyle = {
   oneHeroOnly?: boolean;
 };
 
+export type TypographyHierarchyLine = {
+  role: string;
+  sizeTier: string;
+  weight?: string;
+};
+
+/** Relative text sizes from reference ad (headline vs subheadline vs footer). */
+export type ReferenceTypographyHierarchy = {
+  headlineTier: string;
+  subheadlineTier: string;
+  sizeRatioHeadlineToSub: string | null;
+  hierarchySummary: string;
+  lines: TypographyHierarchyLine[];
+};
+
 export type CopywritingProfile = {
   wordCount: number | null;
   headlineWordCount: number | null;
@@ -69,6 +84,7 @@ export type MatchedProductVisual = {
 export type AdaptationContext = {
   referencePrompt: string;
   referenceTypography: string;
+  typographyHierarchy: ReferenceTypographyHierarchy | null;
   referenceProductPoseAndArrangement: string;
   referenceReviewModule: string;
   hasReferenceReviewModule: boolean;
@@ -88,6 +104,8 @@ export type AdaptationContext = {
   oneHeroOnly: boolean;
   guidelinesAskSingleHero: boolean;
   enforceOneMainElement: boolean;
+  /** Reference shows retail packaging (bottle, box, pouch) as its own layout element */
+  referenceShowsPackaging: boolean;
   hasPersonInReference: boolean;
   hasIllustrativeVisual: boolean;
   referenceTextLines: { role: string; text: string }[];

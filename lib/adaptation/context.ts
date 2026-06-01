@@ -4,6 +4,10 @@ import {
   type CopyLanguageOption,
 } from '@/lib/copy-languages';
 import { buildPricingInstructions } from './pricing-rules';
+import {
+  inferSecondaryWordLimitFromReferenceLines,
+  parseTypographyHierarchy,
+} from './parse-reference-analysis';
 import type {
   AdaptationContext,
   CopywritingProfile,
@@ -128,7 +132,9 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     /main\s*element|as\s*(the\s*)?main\s*element|only\s*one\s*(main\s*)?element|single\s*(main\s*)?element/i.test(
       guidelinesTrimmed
     );
-  const enforceOneMainElement = oneHeroOnly || guidelinesAskSingleHero;
+  const referenceShowsPackaging = matchedProductVisuals.some((m) => m.role === 'packaging');
+  const enforceOneMainElement =
+    (oneHeroOnly || guidelinesAskSingleHero) && !referenceShowsPackaging;
   const hasPersonInReference = referenceVisualStyle?.hasPerson === true;
   const hasIllustrativeVisual =
     referenceVisualStyle?.hasIllustrationOrDiagram === true ||
@@ -141,16 +147,24 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
       ? copywritingProfile.referenceAllTextLines
       : [];
 
+  const typographyHierarchy = parseTypographyHierarchy(referenceTypography);
+
   const headlineWords =
     copywritingProfile?.headlineWordCount ??
     (copywritingProfile?.wordCount != null
       ? Math.min(5, Math.max(2, Math.floor((copywritingProfile.wordCount || 8) / 2)))
       : 4);
-  const mainCopyWords =
+  let mainCopyWords =
     copywritingProfile?.mainCopyWordCount ??
     (copywritingProfile?.wordCount != null
       ? Math.min(8, Math.max(3, copywritingProfile.wordCount || 8))
       : 6);
+  if (referenceTextLines.length > 0) {
+    mainCopyWords = inferSecondaryWordLimitFromReferenceLines(
+      referenceTextLines,
+      mainCopyWords
+    );
+  }
 
   const brandingIntegration = buildBrandingIntegration(
     scrapedBranding,
@@ -179,6 +193,7 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
   return {
     referencePrompt,
     referenceTypography,
+    typographyHierarchy,
     referenceProductPoseAndArrangement,
     referenceReviewModule,
     hasReferenceReviewModule,
@@ -198,6 +213,7 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     oneHeroOnly,
     guidelinesAskSingleHero,
     enforceOneMainElement,
+    referenceShowsPackaging,
     hasPersonInReference,
     hasIllustrativeVisual,
     referenceTextLines,
@@ -405,6 +421,7 @@ export function contextSummaryForAgent(ctx: AdaptationContext): string {
         hasPersonInReference: ctx.hasPersonInReference,
         hasIllustrativeVisual: ctx.hasIllustrativeVisual,
         enforceOneMainElement: ctx.enforceOneMainElement,
+        referenceShowsPackaging: ctx.referenceShowsPackaging,
         headlineWords: ctx.headlineWords,
         mainCopyWords: ctx.mainCopyWords,
       },
@@ -425,6 +442,7 @@ export function contextSummaryForAgent(ctx: AdaptationContext): string {
       scrapedSummary: ctx.scrapedSummary?.slice(0, 4000) ?? null,
       scrapedMarkdown: ctx.scrapedMarkdown?.slice(0, 6000) ?? null,
       referenceTypography: ctx.referenceTypography?.slice(0, 2000) ?? null,
+      typographyHierarchy: ctx.typographyHierarchy,
       referenceProductPoseAndArrangement: ctx.referenceProductPoseAndArrangement?.slice(0, 2000) ?? null,
       referenceReviewModule: ctx.hasReferenceReviewModule
         ? ctx.referenceReviewModule.slice(0, 1500)

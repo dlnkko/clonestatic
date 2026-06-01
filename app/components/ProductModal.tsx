@@ -12,9 +12,7 @@ type ScrapePreview = {
   description: string;
   targetAudience: string;
   colorPalette: string;
-  summary: string;
   branding: Record<string, unknown> | null;
-  markdown: string | null;
   images: ProductImage[];
   extractedPricing: ExtractedPricing;
   priceDisplay: string;
@@ -37,16 +35,56 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [targetAudience, setTargetAudience] = useState('');
-  const [colorPalette, setColorPalette] = useState('');
-  const [priceDisplay, setPriceDisplay] = useState('');
-  const [summary, setSummary] = useState('');
-  const [markdown, setMarkdown] = useState('');
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [paletteColors, setPaletteColors] = useState<string[]>([]);
+  const [priceAmount, setPriceAmount] = useState('');
+  const [priceCurrency, setPriceCurrency] = useState('USD');
+  const [logoFiles, setLogoFiles] = useState<File[]>([]);
+  const [logoPreviews, setLogoPreviews] = useState<string[]>([]);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
 
   if (!open) return null;
+
+  const currencyCodes: string[] =
+    typeof Intl !== 'undefined' && 'supportedValuesOf' in Intl
+      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ((Intl as any).supportedValuesOf('currency') as string[])
+      : ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'MXN', 'BRL', 'JPY', 'KRW', 'CNY', 'INR'];
+
+  const normalizeHex = (value: string): string | null => {
+    const v = value.trim();
+    if (!v) return null;
+    const raw = v.startsWith('#') ? v : `#${v}`;
+    if (!/^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(raw)) return null;
+    return raw.toUpperCase();
+  };
+
+  const parsePalette = (value: string): string[] => {
+    const tokens = value
+      .split(/[\s,;|]+/)
+      .map((t) => normalizeHex(t))
+      .filter(Boolean) as string[];
+    const uniq: string[] = [];
+    for (const c of tokens) {
+      if (!uniq.includes(c)) uniq.push(c);
+      if (uniq.length >= 8) break;
+    }
+    return uniq;
+  };
+
+  const formatPrice = (amt: string, currency: string): string => {
+    const n = Number(amt);
+    if (!Number.isFinite(n) || n <= 0) return '';
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency,
+        maximumFractionDigits: 2,
+      }).format(n);
+    } catch {
+      return `${n} ${currency}`;
+    }
+  };
 
   const readFileAsDataUrl = (file: File) =>
     new Promise<string>((resolve, reject) => {
@@ -56,15 +94,16 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
       r.readAsDataURL(file);
     });
 
-  const handleLogo = (file: File | null) => {
-    setLogoFile(file);
-    if (logoPreview) URL.revokeObjectURL(logoPreview);
-    setLogoPreview(file ? URL.createObjectURL(file) : null);
+  const handleLogos = (files: FileList | null) => {
+    const list = files ? Array.from(files).slice(0, 2) : [];
+    setLogoFiles(list);
+    logoPreviews.forEach((u) => URL.revokeObjectURL(u));
+    setLogoPreviews(list.map((f) => URL.createObjectURL(f)));
   };
 
   const handleImages = (files: FileList | null) => {
     if (!files) return;
-    const list = Array.from(files).slice(0, 3);
+    const list = Array.from(files).slice(0, 10);
     setImageFiles(list);
     imagePreviews.forEach((u) => URL.revokeObjectURL(u));
     setImagePreviews(list.map((f) => URL.createObjectURL(f)));
@@ -78,11 +117,12 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     setName('');
     setDescription('');
     setTargetAudience('');
-    setColorPalette('');
-    setPriceDisplay('');
-    setSummary('');
-    setMarkdown('');
-    handleLogo(null);
+    setPaletteColors([]);
+    setPriceAmount('');
+    setPriceCurrency('USD');
+    setLogoFiles([]);
+    logoPreviews.forEach((u) => URL.revokeObjectURL(u));
+    setLogoPreviews([]);
     setImageFiles([]);
     imagePreviews.forEach((u) => URL.revokeObjectURL(u));
     setImagePreviews([]);
@@ -109,10 +149,15 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
       setName(p.name);
       setDescription(p.description);
       setTargetAudience(p.targetAudience);
-      setColorPalette(p.colorPalette);
-      setPriceDisplay(p.priceDisplay);
-      setSummary(p.summary);
-      setMarkdown(p.markdown ?? '');
+      setPaletteColors(parsePalette(p.colorPalette));
+      const detectedCurrency = p.extractedPricing?.currency?.toUpperCase?.() || 'USD';
+      setPriceCurrency(currencyCodes.includes(detectedCurrency) ? detectedCurrency : 'USD');
+      setPriceAmount(
+        (p.priceDisplay || '')
+          .replace(/[^\d.,]/g, '')
+          .replace(',', '.')
+          .trim()
+      );
       setUrlStep('review');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Scrape failed');
@@ -126,6 +171,9 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     setLoading(true);
     setError(null);
     try {
+      const logoBase64List =
+        logoFiles.length > 0 ? await Promise.all(logoFiles.map(readFileAsDataUrl)) : undefined;
+      const priceDisplay = formatPrice(priceAmount, priceCurrency);
       const res = await fetch('/api/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -137,10 +185,9 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
           name: name.trim(),
           description: description.trim(),
           targetAudience: targetAudience.trim(),
-          colorPalette: colorPalette.trim(),
-          priceDisplay: priceDisplay.trim(),
-          summary: summary.trim(),
-          markdown: markdown.trim(),
+          colorPalette: paletteColors.join(', '),
+          priceDisplay: priceDisplay || null,
+          logoBase64List,
           branding: preview.branding,
           extractedPricing: preview.extractedPricing,
           images: preview.images,
@@ -165,11 +212,13 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
       if (!name.trim()) throw new Error('Product name is required');
       if (!description.trim()) throw new Error('Product description is required');
       if (!targetAudience.trim()) throw new Error('Target audience is required');
-      if (!colorPalette.trim()) throw new Error('Color palette is required');
+      if (paletteColors.length < 1) throw new Error('Select at least one brand color');
       if (imageFiles.length < 1) throw new Error('Upload at least one product image');
 
       const imageBase64List = await Promise.all(imageFiles.map(readFileAsDataUrl));
-      const logoBase64 = logoFile ? await readFileAsDataUrl(logoFile) : undefined;
+      const logoBase64List =
+        logoFiles.length > 0 ? await Promise.all(logoFiles.map(readFileAsDataUrl)) : undefined;
+      const priceDisplay = formatPrice(priceAmount, priceCurrency) || undefined;
 
       const res = await fetch('/api/products', {
         method: 'POST',
@@ -180,10 +229,10 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
           name: name.trim(),
           description: description.trim(),
           targetAudience: targetAudience.trim(),
-          colorPalette: colorPalette.trim(),
-          priceDisplay: priceDisplay.trim() || undefined,
+          colorPalette: paletteColors.join(', '),
+          priceDisplay,
           imageBase64List,
-          logoBase64,
+          logoBase64List,
         }),
       });
       const data = await res.json();
@@ -198,43 +247,158 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     }
   };
 
+  const palettePicker = (
+    <div>
+      <div className="flex items-center justify-between gap-3">
+        <label className="block text-xs font-medium text-slate-600">Brand colors</label>
+        <button
+          type="button"
+          onClick={() => setPaletteColors([])}
+          className="text-[11px] font-medium text-slate-500 hover:text-slate-800"
+        >
+          Clear
+        </button>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {paletteColors.map((c) => (
+          <button
+            key={c}
+            type="button"
+            onClick={() => setPaletteColors((prev) => prev.filter((x) => x !== c))}
+            className="group flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:border-slate-300"
+            title="Remove color"
+          >
+            <span className="h-4 w-4 rounded-full ring-1 ring-slate-200" style={{ background: c }} />
+            <span>{c}</span>
+            <span className="text-slate-400 group-hover:text-slate-600">✕</span>
+          </button>
+        ))}
+        {paletteColors.length === 0 && (
+          <span className="text-xs text-slate-500">Add 1–8 brand colors (hex).</span>
+        )}
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <input
+          type="color"
+          aria-label="Pick color"
+          onChange={(e) => {
+            const c = normalizeHex(e.target.value);
+            if (!c) return;
+            setPaletteColors((prev) => (prev.includes(c) || prev.length >= 8 ? prev : [...prev, c]));
+          }}
+          className="h-9 w-10 rounded-lg border border-slate-200 bg-white p-1"
+        />
+        <input
+          type="text"
+          placeholder="#1F2937"
+          className="dash-input flex-1"
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter') return;
+            const v = (e.target as HTMLInputElement).value;
+            const c = normalizeHex(v);
+            if (!c) return;
+            setPaletteColors((prev) => (prev.includes(c) || prev.length >= 8 ? prev : [...prev, c]));
+            (e.target as HTMLInputElement).value = '';
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => {
+            const input = document.activeElement?.tagName === 'INPUT' ? (document.activeElement as HTMLInputElement) : null;
+            const v = input?.value ?? '';
+            const c = normalizeHex(v);
+            if (!c) return;
+            setPaletteColors((prev) => (prev.includes(c) || prev.length >= 8 ? prev : [...prev, c]));
+            if (input) input.value = '';
+          }}
+          className="dash-btn dash-btn-secondary"
+        >
+          Add
+        </button>
+      </div>
+    </div>
+  );
+
+  const priceFields = (
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <div className="sm:col-span-2">
+        <label className="mb-1 block text-xs font-medium text-slate-600">Price amount (optional)</label>
+        <input
+          value={priceAmount}
+          onChange={(e) => setPriceAmount(e.target.value)}
+          inputMode="decimal"
+          placeholder="e.g. 120"
+          className="dash-input"
+        />
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-600">Currency</label>
+        <input
+          list="currency-codes"
+          value={priceCurrency}
+          onChange={(e) => setPriceCurrency(e.target.value.toUpperCase())}
+          className="dash-input"
+          placeholder="USD"
+        />
+        <datalist id="currency-codes">
+          {currencyCodes.map((c) => (
+            <option key={c} value={c} />
+          ))}
+        </datalist>
+      </div>
+      <p className="sm:col-span-3 text-[11px] text-slate-500">
+        This price is optional and never copied from reference ads. Leave empty to hide all prices in generated ads.
+        {priceAmount && (
+          <>
+            {' '}
+            Preview: <span className="font-medium text-slate-700">{formatPrice(priceAmount, priceCurrency) || '—'}</span>
+          </>
+        )}
+      </p>
+    </div>
+  );
+
   const reviewFields = (
-    <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
-      <p className="text-xs text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">Review scraped data before saving. Fix price if wrong — only this price may appear in ads.</p>
-      <div>
-        <label className="mb-1 block text-xs font-medium text-slate-600">Product name</label>
-        <input value={name} onChange={(e) => setName(e.target.value)} className="dash-input" />
+    <div className="space-y-4 max-h-[55vh] overflow-y-auto pr-1">
+      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+        Review and tweak the essentials. We don’t show or store page markdown.
       </div>
-      <div>
-        <label className="mb-1 block text-xs font-medium text-slate-600">Price for ads</label>
-        <input value={priceDisplay} onChange={(e) => setPriceDisplay(e.target.value)} placeholder="e.g. $120" className="dash-input" />
-      </div>
-      <div>
-        <label className="mb-1 block text-xs font-medium text-slate-600">Description</label>
-        <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="dash-input" />
-      </div>
-      <div>
-        <label className="mb-1 block text-xs font-medium text-slate-600">Target audience</label>
-        <input value={targetAudience} onChange={(e) => setTargetAudience(e.target.value)} className="dash-input" />
-      </div>
-      <div>
-        <label className="mb-1 block text-xs font-medium text-slate-600">Color palette</label>
-        <input value={colorPalette} onChange={(e) => setColorPalette(e.target.value)} className="dash-input" />
-      </div>
-      <div>
-        <label className="mb-1 block text-xs font-medium text-slate-600">Summary</label>
-        <textarea value={summary} onChange={(e) => setSummary(e.target.value)} rows={3} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs" />
-      </div>
-      <div>
-        <label className="mb-1 block text-xs font-medium text-slate-600">Page markdown</label>
-        <textarea value={markdown} onChange={(e) => setMarkdown(e.target.value)} rows={5} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-[10px] font-mono" />
+      <div className="space-y-3">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-600">Product name</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} className="dash-input" />
+        </div>
+        {priceFields}
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-600">Description</label>
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="dash-input" />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-600">Target audience</label>
+          <input value={targetAudience} onChange={(e) => setTargetAudience(e.target.value)} className="dash-input" />
+        </div>
+        {palettePicker}
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-600">Logo images (optional, up to 2)</label>
+          <input type="file" accept="image/*" multiple onChange={(e) => handleLogos(e.target.files)} className="text-sm" />
+          {logoPreviews.length > 0 && (
+            <div className="mt-2 flex gap-2">
+              {logoPreviews.map((src, i) => (
+                <img key={i} src={src} alt="" className="h-16 w-16 rounded-lg object-contain ring-1 ring-slate-200 bg-white" />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
       {preview && preview.images.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {preview.images.slice(0, 8).map((img, i) => (
-            <img key={i} src={img.url} alt="" className="h-14 w-14 rounded-lg object-cover ring-1 ring-slate-200" />
-          ))}
-          <p className="w-full text-[10px] text-slate-500">{preview.images.length} images will be stored</p>
+        <div>
+          <p className="mb-2 text-xs font-medium text-slate-600">Images found on page</p>
+          <div className="flex flex-wrap gap-2">
+            {preview.images.slice(0, 10).map((img, i) => (
+              <img key={i} src={img.url} alt="" className="h-14 w-14 rounded-lg object-cover ring-1 ring-slate-200" />
+            ))}
+          </div>
+          <p className="mt-2 text-[10px] text-slate-500">Up to 10 images will be stored.</p>
         </div>
       )}
     </div>
@@ -283,10 +447,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
                   <label className="mb-1 block text-xs font-medium text-slate-600">Product name</label>
                   <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="dash-input" />
                 </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600">Price for ads (optional)</label>
-                  <input type="text" value={priceDisplay} onChange={(e) => setPriceDisplay(e.target.value)} placeholder="e.g. $120" className="dash-input" />
-                </div>
+                {priceFields}
                 <div>
                   <label className="mb-1 block text-xs font-medium text-slate-600">What is this product?</label>
                   <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className="dash-input" />
@@ -295,17 +456,20 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
                   <label className="mb-1 block text-xs font-medium text-slate-600">Target audience</label>
                   <input type="text" value={targetAudience} onChange={(e) => setTargetAudience(e.target.value)} className="dash-input" />
                 </div>
+                {palettePicker}
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600">Color palette</label>
-                  <input type="text" value={colorPalette} onChange={(e) => setColorPalette(e.target.value)} className="dash-input" />
+                  <label className="mb-1 block text-xs font-medium text-slate-600">Logo images (optional, up to 2)</label>
+                  <input type="file" accept="image/*" multiple onChange={(e) => handleLogos(e.target.files)} className="text-sm" />
+                  {logoPreviews.length > 0 && (
+                    <div className="mt-2 flex gap-2">
+                      {logoPreviews.map((src, i) => (
+                        <img key={i} src={src} alt="" className="h-16 w-16 rounded-lg object-contain ring-1 ring-slate-200 bg-white" />
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600">Logo image</label>
-                  <input type="file" accept="image/*" onChange={(e) => handleLogo(e.target.files?.[0] ?? null)} className="text-sm" />
-                  {logoPreview && <img src={logoPreview} alt="" className="mt-2 h-16 w-16 rounded-lg object-contain" />}
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600">Product images (1–3)</label>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">Product images (1–10)</label>
                   <input type="file" accept="image/*" multiple onChange={(e) => handleImages(e.target.files)} className="text-sm" />
                   {imagePreviews.length > 0 && (
                     <div className="mt-2 flex gap-2">
@@ -315,6 +479,9 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
                     </div>
                   )}
                 </div>
+                <p className="text-[11px] text-slate-500">
+                  Tip: upload packaging, product shots, lifestyle, and trust badges. We’ll auto-classify what’s most useful for cloning.
+                </p>
               </div>
             )}
 

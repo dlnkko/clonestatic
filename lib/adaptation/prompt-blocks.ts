@@ -3,7 +3,9 @@ import {
   backgroundColorAdaptationBlock,
   illustrativeVisualBlock,
   noStockPhotoUnlessReferenceBlock,
+  packagingMirroringBlock,
   referenceCopyMirroringBlock,
+  typographyHierarchyBlock,
 } from './adaptation-rules';
 import {
   buildCopyAgentInstructions,
@@ -28,7 +30,8 @@ ${structure ? `Reference structure: "${structure}"` : 'Match the reference ad te
 - Preserve rhetorical function per line: headline = emotional hook; spec line = condensed credentials/benefits (same brevity as reference); icon labels = 1–3 words each.
 - Do NOT reduce a multi-line luxury layout to only "logo + one headline + one subline" unless the reference truly has only those elements.
 - Line 2+ must NOT become a generic spec dump or unrelated authority claim ("Dermatologist recommended") — match reference rhetorical device (transparency, wordplay, contrarian hook, etc.).
-- Max words per line: headline/tagline ≤ ${ctx.headlineWords}, main secondary line ≤ ${ctx.mainCopyWords} (other lines match reference length).`;
+- Max words per line: headline/tagline ≤ ${ctx.headlineWords}, main secondary line ≤ ${ctx.mainCopyWords} (other lines match reference length).
+- **Visual size (image):** headline = largest tier; subheadline/supporting = clearly smaller (~35–55% of headline height) even if word count is higher; footer/reviews = smallest.`;
 }
 
 /** Síntesis del agente — finalPromptGeneration completo de oldprompts.md */
@@ -107,18 +110,22 @@ ${illustrativeVisualBlock(ctx)}
 
 ${noStockPhotoUnlessReferenceBlock(ctx)}
 
+${packagingMirroringBlock(ctx)}
+
 ${backgroundColorAdaptationBlock(ctx)}
 
 ${featureRowInstructionsBlock(ctx)}
 
 ${buildVisualAgentInstructions(ctx)}
 
+${typographyHierarchyBlock(ctx)}
+
 RULES (JSON output):
 - visualMediumNotes: state whether final ad is illustration/diagram/3d-render OR real photo — must match reference, never default to stock lifestyle photo when reference is graphic
-- poseAndArrangementParagraph: for flat/product-row refs use REFERENCE pose; for illustration refs describe equivalent diagram/illustration with user's product; for lifestyle/model-in-use refs describe USER product in **authentic use**
+- poseAndArrangementParagraph: for flat/product-row refs use REFERENCE pose; for illustration refs describe equivalent diagram/illustration with user's product; for lifestyle/model-in-use refs describe USER product in **authentic use**; if referenceShowsPackaging, describe both the unit/stack hero AND the packaging position (box/bottle) using the packaging image
 - peopleAndSceneRules: must state how model uses USER product believably; clone reference framing/mood, not competitor product form (e.g. pillowcase on bed, not as head wrap)
 - compositionRules / brandingNotes / iconRowNotes / trustBadgeNotes
-- compositionRules: visual hierarchy (headline → comparison/table → product row), spacing, shadows, full-bleed; product row with 2–4 units if reference shows multiple; award seal overlaps product per reference
+- compositionRules: visual hierarchy (headline → comparison/table → product row), spacing, shadows, full-bleed; product row with 2–4 units if reference shows multiple; award seal overlaps product per reference; **typography size ladder** — headline largest, subheadline clearly smaller, footer smallest
 ${ctx.referenceTrustBadge.present ? `- trustBadgeNotes: describe placing user's award seal (${ctx.referenceTrustBadge.placement || 'overlap on hero product'})` : ''}
 ${ctx.trustBadgeInstructions ? ctx.trustBadgeInstructions : ''}
 
@@ -175,7 +182,8 @@ Rules:
 8. Background uses product brand colors — FAIL if competitor category color copied (e.g. coffee brown for non-coffee product)
 9. Approved copy verbatim: tagline "${copy.tagline}", mainLine "${copy.mainLine}"
 10. Line 2 same rhetorical function as reference (not unrelated spec dump)
-11. enforceOneMainElement → no packaging as second hero
+11. enforceOneMainElement → no packaging as second hero (only when referenceShowsPackaging is false)
+${ctx.referenceShowsPackaging ? '11b. PACKAGING: Reference had packaging in layout — prompt must show user box/bottle/pouch in same position; FAIL if packaging slot is another loose product view' : ''}
 12. Logo placement rules respected
 13. Copy language: ${ctx.copyLanguageCode} (${ctx.copyLanguageName})
 14. Pricing: ${ctx.allowedPrice ? `only "${ctx.allowedPrice}"` : 'no dollar amounts'}
@@ -183,7 +191,8 @@ ${ctx.referenceTrustBadge.present ? `12. TRUST BADGE: Reference had award seal �
 ${iconCheck}
 ${structureCheck}
 15. Full-bleed composition, same layout modules as reference (oldprompts Output section)
-16. Typography matches reference hierarchy
+16. TYPOGRAPHY HIERARCHY: Prompt must specify headline as visually DOMINANT and subheadline/supporting copy clearly SMALLER (~35–55% of headline cap height). FAIL if prompt uses equal sizes, "large subheadline", or omits per-line relative sizes. Long subheadline copy must still render smaller than headline.
+${ctx.typographyHierarchy?.sizeRatioHeadlineToSub ? `    Reference ratio hint: ${ctx.typographyHierarchy.sizeRatioHeadlineToSub}` : ''}
 
 referenceHasPromoOfferLine: ${ctx.referenceHasPromoOfferLine}
 referenceVerbatimPhrases: ${JSON.stringify(ctx.referenceVerbatimPhrases)}

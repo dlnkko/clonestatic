@@ -72,6 +72,23 @@ The reference ad uses **${vs?.visualMedium ?? 'illustration'}** — NOT a stock 
 - Image generation mode: **design/graphic** — describe as illustration, diagram, or stylized render explicitly in the prompt.`;
 }
 
+export function packagingMirroringBlock(ctx: AdaptationContext): string {
+  if (!ctx.referenceShowsPackaging) return '';
+
+  const packagingMatch = ctx.matchedProductVisuals.find((m) => m.role === 'packaging');
+  const packagingNote = packagingMatch
+    ? `Use the provided **packaging** product image (${packagingMatch.description}).`
+    : 'Use a product catalog image that shows **retail packaging** (box, pouch, bottle, jar) — not a loose product flat lay.';
+
+  return `**PACKAGING IN LAYOUT (CRITICAL — mirror reference):**
+The reference ad shows the product **both** as the item/units AND as **retail packaging** (bottle, box, pouch, jar, tube) in a distinct layout position (e.g. lower-right hero, beside the stack, foreground packshot).
+- You MUST include the **user's retail packaging** in the **same role and position** as the reference — same scale, angle, and corner/zone placement.
+- ${packagingNote}
+- **FORBIDDEN:** Replacing the reference's packaging slot with another loose product view (e.g. folded pillowcase instead of the product box, extra capsules instead of the bottle).
+- The loose/units hero uses the **product** image; the packaging slot uses the **packaging** image — two distinct visuals, same layout grammar as reference.
+- Packaging labels, logo, and colors must match the user's packaging photo exactly — do not invent a generic box.`;
+}
+
 export function noStockPhotoUnlessReferenceBlock(ctx: AdaptationContext): string {
   if (ctx.hasPersonInReference) return '';
   if (ctx.hasIllustrativeVisual) {
@@ -83,4 +100,46 @@ The reference does NOT use real photographic people. Do NOT add stock photos, sl
 Keep product + graphics only. No people, no faces, no lifestyle models.`;
   }
   return '';
+}
+
+/**
+ * Enforces visual size ladder for all ad types — headline dominant, subheadline subordinate.
+ */
+export function typographyHierarchyBlock(ctx: AdaptationContext): string {
+  const h = ctx.typographyHierarchy;
+  const ratio =
+    h?.sizeRatioHeadlineToSub?.trim() ||
+    'subheadline roughly 35–55% of headline cap height (clearly subordinate, not competing)';
+  const headlineTier = h?.headlineTier ?? 'largest — primary hook, dominant in the top text zone';
+  const subTier =
+    h?.subheadlineTier ??
+    'clearly smaller than headline — lightweight supporting sans-serif, secondary information only';
+  const ladder =
+    h?.lines && h.lines.length > 0
+      ? h.lines.map((l) => `  - ${l.role}: ${l.sizeTier}${l.weight ? ` (${l.weight})` : ''}`).join('\n')
+      : '  - Headline: largest\n  - Subheadline / supporting copy: medium-small\n  - Footer / social proof: smallest';
+
+  const summary = h?.hierarchySummary
+    ? `\nReference hierarchy notes: ${h.hierarchySummary}`
+    : '';
+
+  return `**TYPOGRAPHY HIERARCHY (CRITICAL — every ad, every layout):**
+The generated image MUST respect a clear visual text ladder — same relative sizes as the reference, NOT equal-sized headline and subheadline.
+
+**Mandatory size relationship (image generation):**
+- **Headline / primary hook:** ${headlineTier}. This is the ONLY line that should read as "big" in the top text block.
+- **Subheadline / supporting copy / spec line under headline:** ${subTier}. Target scale vs headline: **${ratio}**.
+- **Footer / reviews / legal:** smallest tier — do not enlarge to match subheadline.
+
+Reference text size ladder:
+${ladder}
+${summary}
+
+**FORBIDDEN (common failure — fix before output):**
+- Subheadline or body copy rendered at **nearly the same size** as the headline (looks cluttered; breaks hierarchy)
+- Bold, heavy subheadline that **competes** with the headline for attention
+- Describing only "centered black text" without **explicit relative sizes** per line
+- Letting long subheadline copy **inflate** visually because the text is long — **shrink type** to keep hierarchy
+
+**In your final prompt, for EACH text line specify:** font family style, weight, color, alignment, AND **relative size vs headline** (e.g. "subheadline in light sans-serif at ~40% of headline height, two lines max, centered below headline"). Word count limits do NOT replace size hierarchy — a 15-word subheadline must still be **visually smaller** than a 4-word headline.`;
 }

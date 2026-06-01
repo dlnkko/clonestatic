@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   isPaidPlan,
   maxProductsForPlan,
+  planDisplayName,
   type SubscriptionPlan,
 } from '@/lib/plans';
 
@@ -92,12 +93,7 @@ export async function assertCanAddProduct(
   const ctx = await getUserSubscriptionContext(admin, userId, email);
   if (ctx.canAddProduct) return { ok: true };
 
-  const planLabel =
-    ctx.plan === 'free_trial'
-      ? 'Free trial'
-      : ctx.plan === 'owner'
-        ? 'Owner'
-        : ctx.plan;
+  const planLabel = planDisplayName(ctx.plan);
 
   return {
     ok: false,

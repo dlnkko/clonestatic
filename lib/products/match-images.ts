@@ -69,8 +69,8 @@ Available product images (by index):
 ${catalog.map((c) => `[${c.index}] kind=${c.kind} url=${c.url.slice(0, 120)}${c.alt ? ` alt=${c.alt}` : ''}`).join('\n')}
 
 For EACH reference element, pick the best matching image index. Rules:
-- packaging → image showing box/pouch/tub/bottle packaging
-- product → loose item, gummies, powder, device, pillowcase hero (NOT award seals)
+- packaging → MUST be box/pouch/tub/bottle/jar/carton with visible packaging graphics (prefer kind=packaging). NEVER assign a loose product flat lay, folded item, or duplicate hero stack to packaging.
+- product → loose item, units, gummies, capsules, powder, device, pillowcase stack (NOT the retail bottle/box unless reference has no separate packaging)
 - lifestyle → prefer kind=lifestyle (model, in-use, on bed, worn correctly) over flat packshots when reference shows a person using the product
 - logo → brand logo image if available
 - trust_badge → MUST pick an image with kind=trust_badge (award seal, press badge, certification). If several trust_badge images exist, pick the clearest award/press seal. NEVER skip trust_badge when reference needs it.
@@ -139,6 +139,32 @@ Output JSON only:
         description: el.description,
       });
       used.add(pick);
+    }
+  }
+
+  // Ensure packaging slots use packaging photos, not loose product shots
+  for (let i = 0; i < referenceElements.length; i++) {
+    const el = referenceElements[i];
+    if (el.role !== 'packaging') continue;
+
+    const existingIdx = matches.findIndex((m) => m.role === 'packaging');
+    const packagingIdx = productImages.findIndex((img) => img.kind === 'packaging');
+
+    if (packagingIdx >= 0) {
+      const packagingUrl = productImages[packagingIdx].url;
+      if (existingIdx >= 0) {
+        matches[existingIdx] = {
+          role: 'packaging',
+          url: packagingUrl,
+          description: el.description,
+        };
+      } else if (matches.length < referenceElements.length) {
+        matches.push({
+          role: 'packaging',
+          url: packagingUrl,
+          description: el.description,
+        });
+      }
     }
   }
 

@@ -29,7 +29,8 @@ export async function POST(request: NextRequest) {
     }
 
     const scraped = await scrapeProductPage(productUrl.trim());
-    const pricingText = [scraped.summary, scraped.markdown].filter(Boolean).join('\n');
+    // Keep preview lean: no page markdown/body dump in UI.
+    const pricingText = [scraped.summary].filter(Boolean).join('\n');
     const extractedPricing = extractPricingFromText(pricingText);
 
     const productName =
@@ -52,10 +53,7 @@ export async function POST(request: NextRequest) {
         description: scraped.summary,
         targetAudience: '',
         colorPalette: colorPalette?.colors?.join(', ') ?? '',
-        summary: scraped.summary,
         branding: scraped.branding,
-        markdown: scraped.markdown,
-        metadata: scraped.metadata,
         images: scraped.images,
         extractedPricing,
         priceDisplay: extractedPricing.salePrice ?? extractedPricing.regularPrice ?? '',

@@ -4,9 +4,10 @@ import { useState } from 'react';
 import { cn } from '@/lib/cn';
 import { Reveal } from './Reveal';
 import {
+  AGENCY_PLAN_DISPLAY,
   FREE_PLAN_FEATURES,
   PAID_PLANS,
-  PLAN_FEATURES,
+  planFeatureList,
 } from '@/lib/plans';
 
 function Check() {
@@ -17,8 +18,22 @@ function Check() {
   );
 }
 
+function Badge({ children, variant }: { children: React.ReactNode; variant: 'popular' | 'best_value' }) {
+  return (
+    <span
+      className={cn(
+        'absolute right-6 top-6 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white',
+        variant === 'popular' ? 'bg-[var(--brand-gradient)]' : 'bg-emerald-500'
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
 export function LandingPricing() {
   const [annually, setAnnually] = useState(false);
+  const founderUrl = process.env.NEXT_PUBLIC_TELEGRAM_FOUNDER ?? 'https://t.me/yourusername';
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -28,7 +43,7 @@ export function LandingPricing() {
           Start free. Scale when you&apos;re winning.
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-slate-600 sm:text-lg">
-          Try one generation free. Paid plans unlock monthly credits and more saved products — checkout on Whop.
+          Try one generation free. Paid plans unlock monthly images, more products, ad library, and history.
         </p>
       </Reveal>
 
@@ -57,12 +72,12 @@ export function LandingPricing() {
         </div>
       </Reveal>
 
-      <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
+      <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Reveal direction="up" delayMs={0}>
           <article className="landing-pricing-card relative flex h-full flex-col overflow-hidden rounded-3xl p-8 sm:p-7">
             <h3 className="text-xl font-bold text-slate-900">Free trial</h3>
             <p className="mt-1 text-sm text-slate-500">Try the full flow once</p>
-            <p className="mt-8 text-2xl font-bold tracking-tight text-slate-900">No card required</p>
+            <p className="mt-8 text-2xl font-bold tracking-tight text-slate-900">$0</p>
             <ul className="mt-8 flex-1 space-y-3.5 text-sm text-slate-600">
               {FREE_PLAN_FEATURES.map((f) => (
                 <li key={f} className="flex items-start gap-3">
@@ -81,7 +96,7 @@ export function LandingPricing() {
         </Reveal>
 
         {PAID_PLANS.map((plan, i) => {
-          const isFeatured = plan.key === 'pro';
+          const isFeatured = plan.badge === 'popular';
           const href = `/login?next=checkout&plan=${annually ? plan.checkoutYearly : plan.checkoutMonthly}`;
 
           return (
@@ -92,20 +107,19 @@ export function LandingPricing() {
                   isFeatured && 'landing-pricing-card-featured'
                 )}
               >
-                {isFeatured && (
-                  <span className="absolute right-6 top-6 rounded-full bg-[var(--brand-gradient)] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
-                    Popular
-                  </span>
-                )}
+                {plan.badge === 'popular' && <Badge variant="popular">Most popular</Badge>}
+                {plan.badge === 'best_value' && <Badge variant="best_value">Best value</Badge>}
                 <h3 className="text-xl font-bold text-slate-900">{plan.name}</h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  {plan.credits} credits · {plan.maxProducts} products
+                <p className="mt-1 text-sm text-slate-500">{plan.tagline}</p>
+                <p className="mt-8 flex items-baseline gap-1">
+                  <span className="text-4xl font-bold tracking-tight text-slate-900">${plan.monthlyPriceUsd}</span>
+                  <span className="text-slate-500">/ mo</span>
                 </p>
-                <p className="mt-8 text-sm font-medium text-slate-500">
-                  Price on Whop checkout
-                </p>
+                {annually && (
+                  <p className="mt-1 text-xs text-slate-500">Billed yearly on Whop checkout</p>
+                )}
                 <ul className="mt-6 flex-1 space-y-3.5 text-sm text-slate-600">
-                  {PLAN_FEATURES(plan).map((f) => (
+                  {planFeatureList(plan).map((f) => (
                     <li key={f} className="flex items-start gap-3">
                       <Check />
                       <span>{f}</span>
@@ -127,26 +141,37 @@ export function LandingPricing() {
             </Reveal>
           );
         })}
+
+        <Reveal direction="up" delayMs={360}>
+          <article className="landing-pricing-card relative flex h-full flex-col overflow-hidden rounded-3xl p-8 sm:p-7">
+            <h3 className="text-xl font-bold text-slate-900">{AGENCY_PLAN_DISPLAY.name}</h3>
+            <p className="mt-1 text-sm text-slate-500">{AGENCY_PLAN_DISPLAY.tagline}</p>
+            <p className="mt-8 text-2xl font-bold tracking-tight text-slate-900">Custom pricing</p>
+            <ul className="mt-8 flex-1 space-y-3.5 text-sm text-slate-600">
+              {AGENCY_PLAN_DISPLAY.features.map((f) => (
+                <li key={f} className="flex items-start gap-3">
+                  <Check />
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+            <a
+              href={founderUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-10 inline-flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-slate-900 bg-white py-4 text-base font-semibold text-slate-900 transition-all hover:bg-slate-50"
+            >
+              Contact sales
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 17L17 7M7 7h10v10" />
+              </svg>
+            </a>
+          </article>
+        </Reveal>
       </div>
 
       <Reveal direction="up" delayMs={120} className="mt-8 text-center">
         <p className="text-sm text-slate-500">Each generate uses 1 credit. Cancel anytime from your dashboard.</p>
-      </Reveal>
-
-      <Reveal direction="down" delayMs={180}>
-        <div className="landing-pricing-contact mt-14 rounded-3xl p-8 text-center sm:p-10">
-          <p className="text-lg font-medium text-slate-800 sm:text-xl">
-            Need a custom plan or team access?
-          </p>
-          <a
-            href={process.env.NEXT_PUBLIC_TELEGRAM_FOUNDER ?? 'https://t.me/yourusername'}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-[#0088cc] px-6 py-3 text-sm font-semibold text-white transition-transform hover:scale-[1.02] hover:bg-[#0077b5]"
-          >
-            Chat with founder
-          </a>
-        </div>
       </Reveal>
     </div>
   );

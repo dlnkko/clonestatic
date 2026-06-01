@@ -28,8 +28,8 @@ export async function identifyReferenceProductElements(
 Identify each DISTINCT product-related visual element shown that would need a separate source photo when cloning for another brand.
 
 Examples of roles:
-- product: the consumable/item itself (gummies, powder, device, pillowcases)
-- packaging: box, pouch, bottle label, tub
+- product: the consumable/item itself (gummies, capsules, powder, device, pillowcases rolled/stacked)
+- packaging: retail container shown as its own hero — bottle with label, box, pouch, jar, tube, product carton (often lower corner or beside the stack). NOT the same as loose units.
 - logo: standalone brand mark (not on packaging)
 - trust_badge: award seal, press badge, certification circle overlaid on product (e.g. "Award Winner", magazine logo)
 - lifestyle: product in use on model (worn, held, on bed, applied) — note HOW the competitor product is used (e.g. worn on head, hand hold, resting on pillow)
@@ -41,8 +41,9 @@ Context from prior analysis:
 - Visual style: ${styleHint}
 - Product pose/arrangement notes: ${referenceProductPose.slice(0, 1500)}
 
-If the ad shows only ONE hero product element, return a single element with role "product".
-If it shows packaging AND the product (e.g. box + gummies), return TWO elements.
+If the ad shows only ONE hero product element (no separate bottle/box/pouch shot), return a single element with role "product".
+If it shows loose units/items AND separate retail packaging (e.g. capsules + supplement bottle, gummies + pouch, pillowcases + product box), return TWO elements: role "product" for the units/stack, role "packaging" for the bottle/box/pouch with its layout position in the description (e.g. "supplement bottle lower right").
+If packaging is visible, you MUST include role "packaging" — never merge bottle/box into "product" only.
 Do not invent elements that are not visible.
 
 Output JSON only:

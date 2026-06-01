@@ -47,7 +47,7 @@ type CreateManualBody = {
   description: string;
   targetAudience: string;
   colorPalette: string;
-  logoBase64?: string;
+  logoBase64List?: string[];
   imageBase64List: string[];
 };
 
@@ -66,8 +66,7 @@ type CreateUrlFromPreviewBody = {
   targetAudience?: string;
   colorPalette?: string;
   priceDisplay?: string;
-  summary: string;
-  markdown?: string | null;
+  logoBase64List?: string[];
   branding?: Record<string, unknown> | null;
   extractedPricing?: ProductScrapeCache['extractedPricing'];
   images: ProductImage[];
@@ -113,7 +112,7 @@ export async function POST(request: NextRequest) {
       }
 
       const imageUrls: ProductImage[] = [];
-      for (const img of b.images.slice(0, 12)) {
+      for (const img of b.images.slice(0, 10)) {
         try {
           const res = await fetch(img.url, { signal: AbortSignal.timeout(20000) });
           if (!res.ok) continue;
@@ -131,16 +130,37 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'No images to save' }, { status: 400 });
       }
 
+      const logoUrls: string[] = [];
+      if (Array.isArray(b.logoBase64List)) {
+        for (const base64 of b.logoBase64List.slice(0, 2)) {
+          if (!base64) continue;
+          try {
+            logoUrls.push(await uploadBase64ToImgBB(base64));
+          } catch {
+            // ignore
+          }
+        }
+      }
+
       const colors = b.colorPalette
         ?.split(/[,;\n]+/)
         .map((c) => c.trim())
         .filter(Boolean)
         .slice(0, 8);
 
+      const mergedImages: ProductImage[] = [
+        ...imageUrls,
+        ...logoUrls.map((url, i) => ({
+          url,
+          kind: 'logo' as const,
+          alt: `${b.name.trim()} logo ${i + 1}`,
+        })),
+      ];
+
       const scrapeCache: ProductScrapeCache = {
-        summary: b.summary,
+        summary: (b.description || b.name).trim(),
         branding: b.branding ?? null,
-        markdown: b.markdown ?? null,
+        markdown: null,
         scrapedAt: new Date().toISOString(),
         productUrl: b.productUrl.trim(),
         extractedPricing: b.extractedPricing,
@@ -154,12 +174,12 @@ export async function POST(request: NextRequest) {
           name: b.name.trim().slice(0, 200),
           source: 'url',
           product_url: b.productUrl.trim(),
-          description: (b.description || b.summary).trim().slice(0, 4000),
+          description: (b.description || b.name).trim().slice(0, 4000),
           target_audience: b.targetAudience?.trim().slice(0, 1000) || null,
           color_palette: colors?.length ? { colors } : null,
-          logo_url: null,
+          logo_url: logoUrls[0] ?? null,
           primary_image_url: primary,
-          images: imageUrls,
+          images: mergedImages,
           scrape_cache: scrapeCache,
         })
         .select('*')
@@ -182,7 +202,7 @@ export async function POST(request: NextRequest) {
 
       const scraped = await scrapeProductPage(productUrl.trim());
       const imageUrls: ProductImage[] = [];
-      for (const img of scraped.images.slice(0, 12)) {
+      for (const img of scraped.images.slice(0, 10)) {
         try {
           const res = await fetch(img.url, { signal: AbortSignal.timeout(20000) });
           if (!res.ok) continue;
@@ -209,7 +229,7 @@ export async function POST(request: NextRequest) {
       const scrapeCache: ProductScrapeCache = {
         summary: scraped.summary,
         branding: scraped.branding,
-        markdown: scraped.markdown,
+        markdown: null,
         scrapedAt: new Date().toISOString(),
         productUrl: productUrl.trim(),
         extractedPricing: scraped.extractedPricing,
@@ -259,7 +279,7 @@ export async function POST(request: NextRequest) {
         targetAudience,
         colorPalette,
         priceDisplay,
-        logoBase64,
+        logoBase64List,
         imageBase64List,
       } = body as CreateManualBody & { priceDisplay?: string };
 
@@ -269,8 +289,8 @@ export async function POST(request: NextRequest) {
       if (!Array.isArray(imageBase64List) || imageBase64List.length < 1) {
         return NextResponse.json({ error: 'At least one product image is required' }, { status: 400 });
       }
-      if (imageBase64List.length > 3) {
-        return NextResponse.json({ error: 'Maximum 3 product images' }, { status: 400 });
+      if (imageBase64List.length > 10) {
+        return NextResponse.json({ error: 'Maximum 10 product images' }, { status: 400 });
       }
 
       const images: ProductImage[] = [];
@@ -283,10 +303,14 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      let logoUrl: string | null = null;
-      if (logoBase64) {
-        logoUrl = await uploadBase64ToImgBB(logoBase64);
-        images.push({ url: logoUrl, kind: 'logo', alt: `${name.trim()} logo` });
+      const logoUrls: string[] = [];
+      if (Array.isArray(logoBase64List)) {
+        for (const base64 of logoBase64List.slice(0, 2)) {
+          if (!base64) continue;
+          const url = await uploadBase64ToImgBB(base64);
+          logoUrls.push(url);
+          images.push({ url, kind: 'logo', alt: `${name.trim()} logo` });
+        }
       }
 
       const classifiedImages = classifyProductImagesHeuristic(images);
@@ -317,7 +341,7 @@ export async function POST(request: NextRequest) {
           description: description?.trim().slice(0, 4000) || null,
           target_audience: targetAudience?.trim().slice(0, 1000) || null,
           color_palette: colors?.length ? { colors } : null,
-          logo_url: logoUrl,
+          logo_url: logoUrls[0] ?? null,
           primary_image_url: classifiedImages[0].url,
           images: classifiedImages,
           scrape_cache: manualCache,
