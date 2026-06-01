@@ -348,6 +348,9 @@ export async function POST(request: NextRequest) {
       description: '',
     };
     let referenceVerbatimPhrases: string[] = [];
+    let referenceTextLayoutBlock = '';
+    let referenceComparisonModule = '';
+    let hasReferenceComparisonModule = false;
     let step1Usage: Step2Usage | null = null;
     const productMatchingUsages: Step2Usage[] = [];
     try {
@@ -360,11 +363,29 @@ export async function POST(request: NextRequest) {
         console.log('Full analysis:', analysisText);
 
         // Extract typography from reference ad
-        const typographyMatch = analysisText.match(/\*\*TYPOGRAPHY \(REFERENCE AD\):\*\*\s*([\s\S]*?)(?=\*\*VISUAL STYLE|\*\*BRAND|\*\*COPYWRITING ANALYSIS:\*\*|\*\*REFERENCE AD PROMPT:\*\*|$)/i);
+        const typographyMatch = analysisText.match(/\*\*TYPOGRAPHY \(REFERENCE AD\):\*\*\s*([\s\S]*?)(?=\*\*TEXT LAYOUT|\*\*BEFORE \/ AFTER|\*\*VISUAL STYLE|\*\*BRAND|\*\*COPYWRITING ANALYSIS:\*\*|\*\*REFERENCE AD PROMPT:\*\*|$)/i);
         if (typographyMatch) {
           referenceTypography = typographyMatch[1].trim();
           console.log('\n=== REFERENCE AD TYPOGRAPHY EXTRACTED ===');
           console.log('Typography:', referenceTypography.substring(0, 300) + (referenceTypography.length > 300 ? '...' : ''));
+        }
+
+        const textLayoutMatch = analysisText.match(
+          /\*\*TEXT LAYOUT \(REFERENCE AD\):\*\*\s*([\s\S]*?)(?=\*\*BEFORE \/ AFTER|\*\*VISUAL STYLE|\*\*BRAND|\*\*COPYWRITING ANALYSIS:\*\*|\*\*REFERENCE AD PROMPT:\*\*|$)/i
+        );
+        if (textLayoutMatch) {
+          referenceTextLayoutBlock = textLayoutMatch[1].trim();
+          console.log('\n=== REFERENCE TEXT LAYOUT EXTRACTED ===', referenceTextLayoutBlock.substring(0, 200));
+        }
+
+        const comparisonMatch = analysisText.match(
+          /\*\*BEFORE \/ AFTER COMPARISON \(REFERENCE AD\):\*\*\s*([\s\S]*?)(?=\*\*VISUAL STYLE|\*\*BRAND|\*\*COPYWRITING ANALYSIS:\*\*|\*\*PROMO|\*\*TRUST BADGE|\*\*ICON \/ FEATURE|\*\*SOCIAL PROOF|\*\*PRODUCT POSE|\*\*REFERENCE AD PROMPT:\*\*|$)/i
+        );
+        if (comparisonMatch) {
+          referenceComparisonModule = comparisonMatch[1].trim();
+          hasReferenceComparisonModule =
+            referenceComparisonModule.length > 0 && /Present:\s*yes/i.test(referenceComparisonModule);
+          console.log('\n=== REFERENCE BEFORE/AFTER MODULE ===', hasReferenceComparisonModule);
         }
 
         // Extract visual style (graphic vs person/environment) — do not add gym/person if reference is graphic-only
@@ -646,6 +667,9 @@ export async function POST(request: NextRequest) {
           referenceHasPromoOfferLine,
           referenceTrustBadge,
           referenceVerbatimPhrases,
+          referenceTextLayoutBlock,
+          referenceComparisonModule,
+          hasReferenceComparisonModule,
         },
         productFilesForStep2
       );

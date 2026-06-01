@@ -8,6 +8,8 @@ import {
   detectSubheroCopyPattern,
   enrichCopywritingProfile,
   inferSecondaryWordLimitFromReferenceLines,
+  parseReferenceComparisonModule,
+  parseReferenceTextLayout,
   parseTypographyHierarchy,
 } from './parse-reference-analysis';
 import { subheroCopyPatternBlockForProfile } from './adaptation-rules';
@@ -90,6 +92,9 @@ export type BuildContextInput = {
   referenceHasPromoOfferLine?: boolean;
   referenceTrustBadge?: ReferenceTrustBadge;
   referenceVerbatimPhrases?: string[];
+  referenceTextLayoutBlock?: string;
+  referenceComparisonModule?: string;
+  hasReferenceComparisonModule?: boolean;
 };
 
 export function buildAdaptationContext(input: BuildContextInput): AdaptationContext {
@@ -118,7 +123,17 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     referenceHasPromoOfferLine = false,
     referenceTrustBadge = { present: false, placement: '', description: '' },
     referenceVerbatimPhrases = [],
+    referenceTextLayoutBlock = '',
+    referenceComparisonModule = '',
+    hasReferenceComparisonModule = false,
   } = input;
+
+  const referenceTextLayout = referenceTextLayoutBlock
+    ? parseReferenceTextLayout(referenceTextLayoutBlock)
+    : null;
+  const referenceComparisonParsed = referenceComparisonModule
+    ? parseReferenceComparisonModule(referenceComparisonModule)
+    : null;
 
   const pricingInstructions = buildPricingInstructions(allowedPrice);
 
@@ -211,6 +226,10 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     referencePrompt,
     referenceTypography,
     typographyHierarchy,
+    referenceTextLayout,
+    referenceComparisonModule,
+    referenceComparisonParsed,
+    hasReferenceComparisonModule,
     referenceProductPoseAndArrangement,
     referenceReviewModule,
     hasReferenceReviewModule,

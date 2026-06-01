@@ -2,6 +2,8 @@ import type {
   AdCopyStyle,
   CopywritingProfile,
   Line2CopyPattern,
+  ReferenceComparisonModule,
+  ReferenceTextLayout,
   ReferenceTrustBadge,
   ReferenceTypographyHierarchy,
   TypographyHierarchyLine,
@@ -151,6 +153,7 @@ const LINE2_PATTERN_VALUES: Line2CopyPattern[] = [
   'ingredient-spec',
   'transparency-craft',
   'wordplay',
+  'benefit-bullet-list',
   'other',
 ];
 
@@ -160,6 +163,7 @@ export function parseLine2CopyPattern(raw: string | undefined): Line2CopyPattern
   for (const p of LINE2_PATTERN_VALUES) {
     if (n.includes(p.replace(/-/g, '')) || n.includes(p)) return p;
   }
+  if (/benefit-bullet|bullet-list|comma-list|8-hrs/.test(n)) return 'benefit-bullet-list';
   if (/product-helps|helps-you|benefit-bridge|benefit bridge/.test(n)) return 'product-helps-you';
   if (/authority|credential|dermatologist|doctor/.test(n)) return 'authority-credential';
   if (/ingredient|spec/.test(n)) return 'ingredient-spec';
@@ -197,6 +201,17 @@ export function detectSubheroCopyPattern(
   const text = (line2Text ?? '').trim();
   const fn = (functionOfLine2 ?? '').toLowerCase();
   const device = (linguisticDevice ?? '').toLowerCase();
+
+  if (
+    /\d+\s*hrs?\s+of\b|,?\s*no\s+\w+\s+\w+,/i.test(text) ||
+    /benefit list|comma-separated benefits|bullet list/i.test(fn)
+  ) {
+    return {
+      pattern: 'benefit-bullet-list',
+      template: '[duration/amount] of [benefit], no [pain point], [outcome]',
+      adCopyStyle: 'dtc-benefit-led',
+    };
+  }
 
   if (
     /\bhelps you\b|\bhelp(s)?\s+(you|your)\b|\bso you can\b|\blets you\b/i.test(text) ||
@@ -256,6 +271,8 @@ function templateForPattern(pattern: Line2CopyPattern): string | null {
   switch (pattern) {
     case 'product-helps-you':
       return '[Product name] helps you [primary benefit] & [secondary benefit]';
+    case 'benefit-bullet-list':
+      return '[duration] of [benefit], no [pain], [outcome]';
     case 'authority-credential':
       return '[Authority] recommended [claim]';
     case 'ingredient-spec':
@@ -301,6 +318,75 @@ export function enrichCopywritingProfile(
     line2SentenceTemplate:
       profile.line2SentenceTemplate ?? detected.template ?? profile.line2SentenceTemplate,
   };
+}
+
+export function parseReferenceTextLayout(block: string): ReferenceTextLayout | null {
+  if (!block?.trim()) return null;
+  const alignMatch = block.match(/Text alignment:\s*([\s\S]+?)(?=\n-\s|\n\*\*|$)/i);
+  const stackMatch = block.match(/Stack direction:\s*([\s\S]+?)(?=\n-\s|\n\*\*|$)/i);
+  const eyebrowMatch = block.match(/Eyebrow line present:\s*([\s\S]+?)(?=\n-\s|\n\*\*|$)/i);
+  const eyebrowStyle = block.match(/Eyebrow style:\s*([\s\S]+?)(?=\n-\s|\n\*\*|$)/i);
+  const heroStyle = block.match(/Hero headline style:\s*([\s\S]+?)(?=\n-\s|\n\*\*|$)/i);
+  const subStyle = block.match(/Subhero style:\s*([\s\S]+?)(?=\n-\s|\n\*\*|$)/i);
+  const notesMatch = block.match(/Layout notes:\s*([\s\S]+?)(?=\n-\s|\n\*\*|$)/i);
+
+  const alignRaw = (alignMatch?.[1] ?? 'center').toLowerCase();
+  let alignment: ReferenceTextLayout['alignment'] = 'center';
+  if (/left/.test(alignRaw)) alignment = 'left';
+  else if (/right/.test(alignRaw)) alignment = 'right';
+  else if (/mixed/.test(alignRaw)) alignment = 'mixed';
+
+  const stackRaw = (stackMatch?.[1] ?? 'vertical').toLowerCase();
+  const stackDirection: ReferenceTextLayout['stackDirection'] = /horizontal/.test(stackRaw)
+    ? 'horizontal'
+    : /mixed/.test(stackRaw)
+      ? 'mixed'
+      : 'vertical';
+
+  const hasEyebrow = /yes/i.test(eyebrowMatch?.[1] ?? '');
+
+  return {
+    alignment,
+    stackDirection,
+    hasEyebrow,
+    eyebrowStyle: eyebrowStyle?.[1]?.trim() ?? null,
+    heroStyle: heroStyle?.[1]?.trim() ?? null,
+    subheroStyle: subStyle?.[1]?.trim() ?? null,
+    layoutNotes: notesMatch?.[1]?.trim() ?? '',
+  };
+}
+
+export function parseReferenceComparisonModule(block: string): ReferenceComparisonModule {
+  const present = /Present:\s*yes/i.test(block);
+  if (!present) {
+    return {
+      present: false,
+      layoutType: '',
+      subjectFraming: '',
+      labelStyle: '',
+      transitionStyle: '',
+      placement: '',
+      notes: '',
+    };
+  }
+  const pick = (re: RegExp) => block.match(re)?.[1]?.trim() ?? '';
+  return {
+    present: true,
+    layoutType: pick(/Layout type:\s*([\s\S]+?)(?=\n-\s|\n\*\*|$)/i),
+    subjectFraming: pick(/Subject framing:\s*([\s\S]+?)(?=\n-\s|\n\*\*|$)/i),
+    labelStyle: pick(/Label style:\s*([\s\S]+?)(?=\n-\s|\n\*\*|$)/i),
+    transitionStyle: pick(/Panel transition:\s*([\s\S]+?)(?=\n-\s|\n\*\*|$)/i),
+    placement: pick(/Placement in ad:\s*([\s\S]+?)(?=\n-\s|\n\*\*|$)/i),
+    notes: pick(/Comparison notes:\s*([\s\S]+?)(?=\n-\s|\n\*\*|$)/i),
+  };
+}
+
+export function hasReferenceComparisonFromAnalysis(analysisText: string): boolean {
+  const block = analysisText.match(
+    /\*\*BEFORE \/ AFTER COMPARISON \(REFERENCE AD\):\*\*\s*([\s\S]*?)(?=\*\*COPYWRITING|\*\*PROMO|\*\*TRUST BADGE|\*\*ICON \/ FEATURE|\*\*SOCIAL PROOF|\*\*PRODUCT POSE|\*\*REFERENCE AD PROMPT:\*\*|$)/i
+  );
+  if (!block) return false;
+  return /Present:\s*yes/i.test(block[1]);
 }
 
 export function inferSecondaryWordLimitFromReferenceLines(

@@ -6,14 +6,16 @@ import type { AdaptationContext, CopyAdaptationResult, VisualAdaptationResult } 
 import { logoPlacementRulesBlock } from './logo-rules';
 import {
   backgroundColorAdaptationBlock,
+  beforeAfterComparisonBlock,
   illustrativeVisualBlock,
   noStockPhotoUnlessReferenceBlock,
   packagingMirroringBlock,
   referenceCopyMirroringBlock,
   subheroCopyPatternBlock,
+  textLayoutBlock,
   typographyHierarchyBlock,
 } from './adaptation-rules';
-import type { CopywritingProfile } from './types';
+import type { CopywritingProfile, ReferenceTextLayout } from './types';
 
 export function featureRowInstructionsBlock(ctx: AdaptationContext): string {
   if (!ctx.hasReferenceFeatureRow || !ctx.referenceFeatureRow) return '';
@@ -28,7 +30,8 @@ Use the adapted icon labels from the copy agent. Do NOT omit the icon row. Do NO
 
 export function formatApprovedCopyBlock(
   copy: CopyAdaptationResult,
-  profile?: CopywritingProfile | null
+  profile?: CopywritingProfile | null,
+  textLayout?: ReferenceTextLayout | null
 ): string {
   const lines =
     copy.textLines && copy.textLines.length > 0
@@ -46,9 +49,10 @@ export function formatApprovedCopyBlock(
       : '';
 
   const subheroRender =
-    profile?.line2Pattern === 'product-helps-you'
-      ? '\n**Subhero typography in image:** light/regular sans-serif only, ~28–38% of headline cap height (≈⅓ size), max 2 lines — must look clearly smaller than headline.'
-      : '\n**Subhero typography in image:** light/regular weight, ~28–38% of headline cap height — never same size as headline.';
+    '\n**Subhero typography in image:** light/regular sans-serif only, ~28–38% of headline cap height (≈⅓ size), max 2 lines — must look clearly smaller than headline.';
+  const layoutRender = textLayout
+    ? `\n**Text block layout:** ${textLayout.alignment}-aligned ${textLayout.stackDirection} stack (mirror reference).`
+    : '';
 
   return `**Approved copy — use EXACTLY this visible text in the ad:**
 ${lines}
@@ -56,6 +60,7 @@ ${subheroRender}
 ${copy.brandName ? `- Brand name: "${copy.brandName}"` : ''}
 ${copy.brandSubtagline ? `- Brand sub-tagline: "${copy.brandSubtagline}"` : ''}
 ${copy.specLine ? `- Spec/credentials line: "${copy.specLine}"` : ''}
+${layoutRender}
 ${copy.reviewText ? `- Review/testimonial: "${copy.reviewText}"` : ''}
 ${copy.reviewNumericClaims ? `- Review numbers (scrape only): "${copy.reviewNumericClaims}"` : ''}
 ${icons}`;
@@ -148,6 +153,25 @@ Format your response EXACTLY as:
 - Effects: [shadows, outlines, gradients on text, letter-spacing if visible]
 (Describe everything needed to replicate the exact same typography AND size hierarchy in another ad.)
 
+**TEXT LAYOUT (REFERENCE AD):**
+- Text alignment: [center | left | right | mixed — how the top copy block is aligned]
+- Stack direction: [vertical | horizontal | mixed — e.g. centered vertical stack: eyebrow → hero → subhero]
+- Eyebrow line present: [yes/no — small caps product/category line above hero, e.g. "CHAMELEON LIP OIL"]
+- Eyebrow style: [e.g. tiny all-caps sans, letter-spaced, ~10% of hero size]
+- Hero headline style: [e.g. large high-contrast serif, 2 lines max, dominant]
+- Subhero style: [e.g. light sans ~30% of hero height, single block under hero — NOT same size as hero]
+- Layout notes: [one sentence: e.g. "Premium centered stack; subhero is much smaller than hero"]
+
+**BEFORE / AFTER COMPARISON (REFERENCE AD):**
+- Present: [yes/no]
+- Layout type: [side-by-side equal panels | top-bottom | slider | single split — describe]
+- Subject framing: [e.g. lip macro close-up | half face | full face | hair close-up | product only]
+- Label style: [e.g. small italic serif "Before"/"After" in bottom corners]
+- Panel transition: [soft gutter between panels | hard edge | blended — NOT weird face bisect]
+- Placement in ad: [e.g. middle band between headline and product shot]
+- Comparison notes: [lighting, realism, what makes it look natural vs uncanny]
+(If no before/after module, write "Present: no".)
+
 **VISUAL STYLE (REFERENCE AD):**
 - Has real photographic person/model: [yes/no]
 - Has illustration/diagram/animation: [yes/no]
@@ -169,7 +193,7 @@ If "graphic-product-only" or "illustration-led": do NOT add real photographic pe
 
 **COPYWRITING ANALYSIS:**
 - Text Structure: [e.g. "Brand name + sub-tagline + headline (6 words) + spec line (8 words) + 4 icon labels" — ALL lines, word count per line]
-- All text lines (top to bottom): [numbered list: role — exact text]
+- All text lines (top to bottom): [numbered list: role — exact text] (roles: eyebrow, brand-name, headline, subhero, spec-line, before-label, after-label, etc.)
 - Headline/Tagline Word Count: [exact number of words in the first/short line, e.g. 3]
 - Main Copy Word Count: [exact number of words in the main slogan/second line, e.g. 5]
 - Word Count: [total or main line word count]
@@ -179,7 +203,7 @@ If "graphic-product-only" or "illustration-led": do NOT add real photographic pe
 - **Function of Line 2 (CRITICAL):** What does the second line do? (e.g. benefit bridge "product helps you X", wordplay, punchline, transparency/craft, authority credential, spec list). Describe so adaptation replicates the SAME function — NOT a generic scrape dump.
 - **Linguistic device of second line:** [wordplay / sarcasm / metaphor / joke / punchline / double meaning / straight benefit / benefit-bridge / authority / other]
 - **Ad copy style:** [dtc-benefit-led | authority-led | spec-led | promo-led | other] — DTC = pain-point headline + emotional outcome subhero (common in Meta static ads)
-- **Line 2 pattern:** [product-helps-you | authority-credential | ingredient-spec | transparency-craft | wordplay | other] — use product-helps-you when line 2 is "[Product] helps you [outcome]"
+- **Line 2 pattern:** [product-helps-you | benefit-bullet-list | authority-credential | ingredient-spec | transparency-craft | wordplay | other] — benefit-bullet-list when line 2 is "8 hrs of X, no Y, Z" style
 - **Line 2 sentence template:** [abstract pattern, e.g. "[Product name] helps you [benefit] & [benefit]" — no competitor brand names]
 - **DO NOT COPY when adapting (product-specific data):** List any discount percentages (e.g. "64% OFF"), review numbers (e.g. "4.8/5 From 27,000+"), or other numerical claims in the reference. These must come ONLY from the scraped product page — never copy from reference.
 - **Promo / offer line in layout:** Does the reference have a SEPARATE line for sales/discounts (e.g. "30% OFF", "FLASH SALE", "FREE SHIPPING") distinct from the main headline? (yes/no). If no, adaptation must NOT add promo lines even if the product page has discounts.
@@ -455,7 +479,7 @@ You MUST replicate the same typography style, font appearance, **relative sizes 
   const typographyHierarchySection = typographyHierarchyBlock(ctx);
 
   const approvedCopyBlock = options.approvedCopy
-    ? `\n${formatApprovedCopyBlock(options.approvedCopy, ctx.copywritingProfile)}\n`
+    ? `\n${formatApprovedCopyBlock(options.approvedCopy, ctx.copywritingProfile, ctx.referenceTextLayout)}\n`
     : '';
 
   const visualBlock = options.visual
@@ -482,6 +506,8 @@ ${isUrlScraped && scrapedSummary ? '3. Scraped product page information (summary
 ${referencePrompt}
 ${typographyBlock}
 ${typographyHierarchySection}
+${textLayoutBlock(ctx)}
+${beforeAfterComparisonBlock(ctx)}
 ${poseBlock}
 ${reviewModuleInstructions ? `\n${reviewModuleInstructions}` : ''}
 ${featureRowInstructionsBlock(ctx)}
@@ -500,6 +526,8 @@ Adapt the reference prompt above to create a NEW prompt for the product in the p
 ${peopleModelsCriticalBlock(ctx)}${productUseCaseAdaptationBlock(ctx)}${oneHeroBlock(ctx)}${packagingMirroringBlock(ctx)}${graphicOnlyBlock(ctx)}
 
 ${illustrativeVisualBlock(ctx)}
+
+${beforeAfterComparisonBlock(ctx)}
 
 ${noStockPhotoUnlessReferenceBlock(ctx)}
 
@@ -527,7 +555,9 @@ ${replaceAdaptProductBlock(ctx)}
 
 6. **Create Copywriting (SAME TONE + CLEAR, PERFECT COPY — CRITICAL):**
 ${referenceCopyMirroringBlock(ctx)}
+${textLayoutBlock(ctx)}
 ${subheroCopyPatternBlock(ctx)}
+${beforeAfterComparisonBlock(ctx)}
 ${copywritingInstructions}
 **The reference ad has SHORT text.** Match its tone and style exactly, but every phrase MUST be clear, understandable, and effective copywriting — no confusing or vague wordplay (e.g. avoid "GUMMIES YOU CAN BUILD WITH A POP" which is unclear; use clear lines like "TASTES LIKE BERRY", "BOOST YOUR STRENGTH", "5G CREATINE ZERO SUGAR"). Same brevity: short tagline (${ctx.headlineWords} words or fewer) and short main line (${ctx.mainCopyWords} words or fewer). Grammatically correct and natural. The copy must be immediately understandable and conversion-ready while keeping the reference's tone, rhetorical figure, and style. Do NOT describe one long headline. Describe all short lines that match the reference text architecture (brand, headline, spec line, icon labels). **REMEMBER: ALL promotional text (FREE GIFTS, BIG DISCOUNTS, discount %, review numbers, etc.) must come STRICTLY from scraped data. If not in scraped data, omit. Never invent or copy from the reference.**
 ${ctx.trustBadgeInstructions ? `\n${ctx.trustBadgeInstructions}\n` : ''}
@@ -558,7 +588,11 @@ ${ctx.copywritingInstructions}
 
 /** Visual agent — secciones 2 y 4 de finalPromptGeneration */
 export function buildVisualAgentInstructions(ctx: AdaptationContext): string {
-  return `${illustrativeVisualBlock(ctx)}
+  return `${textLayoutBlock(ctx)}
+
+${beforeAfterComparisonBlock(ctx)}
+
+${illustrativeVisualBlock(ctx)}
 
 ${noStockPhotoUnlessReferenceBlock(ctx)}
 

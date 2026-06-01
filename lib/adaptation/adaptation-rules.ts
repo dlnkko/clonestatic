@@ -56,6 +56,21 @@ export function subheroCopyPatternBlockForProfile(
   const refLine2 = profile?.referenceLine2Example;
   const template = profile?.line2SentenceTemplate;
 
+  if (pattern === 'benefit-bullet-list') {
+    return `**SUBHERO COPY — BENEFIT LIST (CRITICAL — comma / rhythm list):**
+Reference subhero uses a **short parallel list** (e.g. "8 hrs of hydration, no sticky finish, a personalized pink") — NOT a helps-you sentence and NOT authority copy.
+
+Reference pattern: "${refLine2 ?? 'see reference'}"
+Template: ${template ?? '[duration/amount] of [benefit], no [pain point], [outcome]'}
+
+**YOUR subhero MUST:**
+- Keep the **same grammar**: number/duration + benefit, "no" + problem removed, final outcome phrase
+- Adapt facts from scrape to the user's product category (silk: glide/creases/hair; sleep: hours/rest; etc.)
+- Stay **one line or two short lines max** — same rhythm as reference
+
+**FORBIDDEN:** "Dermatologist recommended…" lead, long spec paragraph, or sizing that visually matches the hero headline.`;
+  }
+
   if (pattern === 'product-helps-you') {
     return `**SUBHERO COPY — PRODUCT HELPS YOU (CRITICAL — every DTC-style ad):**
 The reference subhero is a **benefit bridge**, NOT a credentials dump.
@@ -172,6 +187,68 @@ Keep product + graphics only. No people, no faces, no lifestyle models.`;
 }
 
 /**
+ * Mirrors reference top-text layout (stacked center, eyebrow → hero → subhero).
+ */
+export function textLayoutBlock(ctx: AdaptationContext): string {
+  const layout = ctx.referenceTextLayout;
+  const lines = ctx.referenceTextLines;
+  const lineList =
+    lines.length > 0
+      ? lines.map((l) => `  - [${l.role}]: mirror placement & tier`).join('\n')
+      : '  - eyebrow (if any) → hero headline → subhero → modules below';
+
+  const align = layout?.alignment ?? 'center';
+  const stack = layout?.stackDirection ?? 'vertical';
+  const eyebrow = layout?.hasEyebrow
+    ? `Eyebrow: ${layout.eyebrowStyle ?? 'smallest caps, wide tracking, above hero'}`
+    : 'No eyebrow line in reference — do not add one unless approved copy includes brandName as eyebrow.';
+
+  return `**TEXT LAYOUT & ALIGNMENT (CRITICAL — match reference structure):**
+- **Alignment:** All top copy **${align}-aligned** (same as reference — if reference is centered stack, every line centered; do NOT left-align a centered reference).
+- **Stack:** **${stack}** text flow — preserve top-to-bottom order: ${lineList}
+- ${eyebrow}
+- **Hero headline:** ${layout?.heroStyle ?? 'largest serif/display — only dominant text line'}
+- **Subhero:** ${layout?.subheroStyle ?? 'much smaller sans-serif directly under hero — must NOT match hero width/weight'}
+${layout?.layoutNotes ? `- Reference notes: ${layout.layoutNotes}` : ''}
+
+**FORBIDDEN layout mistakes:**
+- Subhero rendered as wide as hero or same visual weight (breaks premium DTC look)
+- Reordering lines (e.g. putting credentials above emotional hook when reference had eyebrow → hook → benefits)
+- Adding extra text blocks not in reference`;
+}
+
+/**
+ * Before/after comparison — natural side-by-side, not weird split-face.
+ */
+export function beforeAfterComparisonBlock(ctx: AdaptationContext): string {
+  if (!ctx.hasReferenceComparisonModule) return '';
+
+  const mod = ctx.referenceComparisonParsed;
+  const blueprint = ctx.referenceComparisonModule?.slice(0, 2000) ?? '';
+
+  return `**BEFORE / AFTER COMPARISON (CRITICAL — natural, not uncanny):**
+The reference includes a comparison visual. Recreate the **same module type** with the user's product benefits — but it must look **professional**, never "weird."
+
+Reference blueprint:
+${blueprint || '(see reference analysis)'}
+
+**MANDATORY rules (every comparison ad):**
+- **Layout:** ${mod?.layoutType || 'Two equal side-by-side panels (left Before, right After)'} — clean vertical gutter or soft blend between panels. **NEVER** a harsh single-photo vertical slice bisecting one face down the middle (common failure — looks uncanny).
+- **Subject framing:** ${mod?.subjectFraming || 'Match reference crop ONLY'} — if reference shows **lip close-up**, use lip close-up; if **hair strand**, use hair; if **product texture**, use product. **Do NOT** zoom out to full face/portrait when reference was macro/feature crop.
+- **Labels:** ${mod?.labelStyle || 'Small italic serif "Before" / "After" in bottom corner of each panel'} — subtle, smaller than subhero text.
+- **Transition:** ${mod?.transitionStyle || 'Soft panel edge or natural side-by-side — no laser split, no mismatched lighting halves on one face'}
+- **Placement:** ${mod?.placement || 'Middle band between headline block and product shot'}
+- Same model/skin tone on both panels if same person; believable before problem + after improvement for the **user's** product category
+- Consistent lighting and color grade across both panels
+
+**FORBIDDEN:**
+- Full-face vertical split with different hair/skin on each half
+- Oversized Before/After labels competing with headline
+- Random stock portrait that does not match reference framing
+- Comparison module omitted when reference had one`;
+}
+
+/**
  * Enforces visual size ladder for all ad types — headline dominant, subheadline subordinate.
  */
 export function typographyHierarchyBlock(ctx: AdaptationContext): string {
@@ -192,8 +269,12 @@ export function typographyHierarchyBlock(ctx: AdaptationContext): string {
     ? `\nReference hierarchy notes: ${h.hierarchySummary}`
     : '';
 
+  const layoutHint = ctx.referenceTextLayout
+    ? `\n**Layout:** ${ctx.referenceTextLayout.stackDirection} stack, ${ctx.referenceTextLayout.alignment}-aligned — preserve this geometry for all approved copy lines.`
+    : '';
+
   return `**TYPOGRAPHY HIERARCHY (CRITICAL — every ad, every layout):**
-The generated image MUST respect a clear visual text ladder — same relative sizes as the reference, NOT equal-sized headline and subheadline.
+The generated image MUST respect a clear visual text ladder — same relative sizes as the reference, NOT equal-sized headline and subheadline.${layoutHint}
 
 **Mandatory size relationship (image generation):**
 - **Headline / primary hook:** ${headlineTier}. This is the ONLY line that should read as "big" in the top text block.

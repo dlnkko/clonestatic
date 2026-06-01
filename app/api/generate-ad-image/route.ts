@@ -6,7 +6,6 @@ import { runAdImageGenerationJob } from '@/lib/creations/generate-job';
 import { useCreditForGeneration } from '@/lib/creations/use-credit';
 import { uploadBase64ToImgBB } from '@/lib/imgbb';
 import type { AdVisualMode } from '@/lib/ad-visual-mode';
-import { generateAdImageWithKie } from '@/lib/kie';
 
 export const maxDuration = 300;
 
@@ -27,11 +26,6 @@ const ALLOWED_RATIOS = [
   '21:9',
   'auto',
 ] as const;
-
-function appendAspectRatioHint(prompt: string, aspectRatio: string): string {
-  if (aspectRatio === 'auto') return prompt;
-  return `${prompt}\n\nTarget aspect ratio for the final image: ${aspectRatio}.`;
-}
 
 function ownerEmail(): string {
   const fromEnv = process.env.OWNER_EMAIL?.trim()?.toLowerCase();
@@ -139,58 +133,75 @@ export async function POST(request: NextRequest) {
       referenceImageUrl = await uploadBase64ToImgBB(referenceImageBase64);
     }
 
-    if (creationId) {
+    // Always run Kie on the server after responding — works when mobile locks / tab backgrounds.
+    let jobCreationId = creationId;
+
+    if (jobCreationId) {
       const { data: row } = await admin
         .from('creations')
         .select('id, status')
-        .eq('id', creationId)
+        .eq('id', jobCreationId)
         .eq('user_id', user.id)
         .maybeSingle();
 
       if (!row) {
         return NextResponse.json({ error: 'Invalid creationId' }, { status: 400 });
       }
-
-      after(async () => {
-        await runAdImageGenerationJob({
+    } else {
+      const { data: created, error: insertErr } = await admin
+        .from('creations')
+        .insert({
+          user_id: user.id,
+          image_url: null,
+          aspect_ratio: aspectRatio,
           prompt,
-          productImageUrls,
-          referenceImageUrl,
-          aspectRatio,
-          adVisualMode,
-          creationId,
-          userId: user.id,
-          admin,
-        });
-      });
+          status: 'generating',
+        })
+        .select('id')
+        .single();
 
-      return NextResponse.json(
-        {
-          status: 'processing',
-          creationId,
-          message: 'Image generation started in the background.',
-        },
-        { status: 202 }
-      );
+      if (insertErr || !created?.id) {
+        console.error('generate-ad-image: could not create creation row', insertErr);
+        return NextResponse.json(
+          { error: 'Could not start background job. Try again.' },
+          { status: 500 }
+        );
+      }
+      jobCreationId = created.id as string;
     }
 
-    const fullPrompt = appendAspectRatioHint(prompt, aspectRatio);
-    const { imageUrl, taskId, model } = await generateAdImageWithKie({
-      prompt: fullPrompt,
-      productImageUrls: productImageUrls.slice(0, 8),
+    if (!jobCreationId) {
+      return NextResponse.json({ error: 'Could not start background job.' }, { status: 500 });
+    }
+
+    const backgroundParams = {
+      prompt,
+      productImageUrls,
       referenceImageUrl,
       aspectRatio,
       adVisualMode,
+      creationId: jobCreationId,
+      userId: user.id,
+      admin,
+    };
+
+    after(async () => {
+      try {
+        await runAdImageGenerationJob(backgroundParams);
+      } catch (err) {
+        console.error('generate-ad-image after() job failed:', err);
+      }
     });
 
-    return NextResponse.json({
-      status: 'completed',
-      imageUrl,
-      resultUrls: [imageUrl],
-      taskId,
-      model,
-      adVisualMode,
-    });
+    return NextResponse.json(
+      {
+        status: 'processing',
+        creationId: jobCreationId,
+        message:
+          'Image generation runs on the server. You can lock your phone or switch apps — check History when ready.',
+      },
+      { status: 202 }
+    );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to generate image';
     return NextResponse.json({ error: message }, { status: 500 });

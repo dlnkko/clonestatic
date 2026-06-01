@@ -15,6 +15,28 @@ export type TypographyHierarchyLine = {
   weight?: string;
 };
 
+/** Top text block layout from reference (stacked, alignment, tiers). */
+export type ReferenceTextLayout = {
+  alignment: 'center' | 'left' | 'right' | 'mixed';
+  stackDirection: 'vertical' | 'horizontal' | 'mixed';
+  hasEyebrow: boolean;
+  eyebrowStyle: string | null;
+  heroStyle: string | null;
+  subheroStyle: string | null;
+  layoutNotes: string;
+};
+
+/** Before/after comparison module in reference ad. */
+export type ReferenceComparisonModule = {
+  present: boolean;
+  layoutType: string;
+  subjectFraming: string;
+  labelStyle: string;
+  transitionStyle: string;
+  placement: string;
+  notes: string;
+};
+
 /** Relative text sizes from reference ad (headline vs subheadline vs footer). */
 export type ReferenceTypographyHierarchy = {
   headlineTier: string;
@@ -31,6 +53,7 @@ export type Line2CopyPattern =
   | 'ingredient-spec'
   | 'transparency-craft'
   | 'wordplay'
+  | 'benefit-bullet-list'
   | 'other';
 
 export type AdCopyStyle =
@@ -105,6 +128,10 @@ export type AdaptationContext = {
   referencePrompt: string;
   referenceTypography: string;
   typographyHierarchy: ReferenceTypographyHierarchy | null;
+  referenceTextLayout: ReferenceTextLayout | null;
+  referenceComparisonModule: string;
+  referenceComparisonParsed: ReferenceComparisonModule | null;
+  hasReferenceComparisonModule: boolean;
   referenceProductPoseAndArrangement: string;
   referenceReviewModule: string;
   hasReferenceReviewModule: boolean;

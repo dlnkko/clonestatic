@@ -19,10 +19,44 @@ import {
   readCreationsCache,
   writeCreationsCache,
 } from '@/lib/creations/client-cache';
+import {
+  clearPendingImageJob,
+  readPendingImageJob,
+  setPendingImageJob,
+} from '@/lib/creations/pending-generation';
 import { isTransientFetchError } from '@/lib/display-image-url';
 import { ProxiedImage } from '../components/ProxiedImage';
 
 /** Parse response as JSON; if body is not JSON (e.g. "Request Entity Too Large"), return null and set friendly error. */
+async function createGeneratingCreation(
+  aspectRatio: string,
+  prompt: string,
+  retries = 3
+): Promise<string | null> {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const createRes = await fetch('/api/creations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          status: 'generating',
+          aspect_ratio: aspectRatio,
+          prompt,
+        }),
+      });
+      const createData = await createRes.json();
+      if (createRes.ok && createData?.id) return createData.id as string;
+    } catch {
+      // retry
+    }
+    if (attempt < retries - 1) {
+      await new Promise((r) => setTimeout(r, 350 * (attempt + 1)));
+    }
+  }
+  return null;
+}
+
 async function parseJsonResponse<T = unknown>(res: Response): Promise<{ data: T | null; errorMessage: string | null }> {
   const text = await res.text();
   try {
@@ -512,23 +546,8 @@ function StaticAdAppPage() {
 
       setIsGeneratingImage(true);
       let creationId: string | null = null;
-      if (hasSupabase) {
-        try {
-          const createRes = await fetch('/api/creations', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-              status: 'generating',
-              aspect_ratio: getResolvedAspectRatio(),
-              prompt: data.prompt,
-            }),
-          });
-          const createData = await createRes.json();
-          if (createRes.ok && createData?.id) creationId = createData.id;
-        } catch {
-          // continue without creationId; we'll save on success
-        }
+      if (hasSupabase && authUserId) {
+        creationId = await createGeneratingCreation(getResolvedAspectRatio(), data.prompt!);
       }
 
       try {
@@ -549,23 +568,27 @@ function StaticAdAppPage() {
           setPendingPreviewCreationId(creationId);
         }
 
+        const imageBody: Record<string, unknown> = {
+          prompt: data.prompt,
+          adVisualMode,
+          aspectRatio: aspect,
+        };
+        if (creationId) imageBody.creationId = creationId;
+        if (referenceImageUrl) imageBody.referenceImageUrl = referenceImageUrl;
+        else imageBody.referenceImageBase64 = staticAdBase64;
+        if (productImageUrls.length > 1) imageBody.productImageUrls = productImageUrls;
+        else if (productImageUrl) imageBody.productImageUrl = productImageUrl;
+        else if (productBase64) imageBody.productImageBase64 = productBase64;
+
+        const useKeepalive =
+          !imageBody.referenceImageBase64 && !imageBody.productImageBase64;
+
         const imgRes = await fetch('/api/generate-ad-image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt: data.prompt,
-            adVisualMode,
-            ...(referenceImageUrl ? { referenceImageUrl } : { referenceImageBase64: staticAdBase64 }),
-            ...(productImageUrls.length > 1
-              ? { productImageUrls }
-              : productImageUrl
-                ? { productImageUrl }
-                : productBase64
-                  ? { productImageBase64: productBase64 }
-                  : {}),
-            aspectRatio: aspect,
-            ...(creationId ? { creationId } : {}),
-          }),
+          credentials: 'include',
+          keepalive: useKeepalive,
+          body: JSON.stringify(imageBody),
         });
         const { data: imgData, errorMessage: imgErrMsg } = await parseJsonResponse<{
           imageUrl?: string;
@@ -575,9 +598,14 @@ function StaticAdAppPage() {
         }>(imgRes);
 
         if (imgRes.status === 202 || imgData?.status === 'processing') {
+          const serverCreationId = imgData?.creationId ?? creationId;
+          if (serverCreationId) {
+            setPendingImageJob(serverCreationId);
+            setPendingPreviewCreationId(serverCreationId);
+          }
           setError(null);
           setBackgroundGenNotice(
-            'Running in the background (~90 sec). Switch tabs anytime—your ad will appear in History.'
+            'Generating on our servers (~90 sec). You can lock your phone or switch apps — your ad will appear in History.'
           );
           void loadCreations({ silent: true });
           void fetchSubscription();
@@ -590,6 +618,7 @@ function StaticAdAppPage() {
         }
         if (imgRes.ok && imgData?.imageUrl) {
           setGeneratedImageUrl(imgData.imageUrl);
+          clearPendingImageJob(creationId ?? undefined);
           setPendingPreviewCreationId(null);
           setBackgroundGenNotice(null);
           if (creationId) {
@@ -612,13 +641,15 @@ function StaticAdAppPage() {
         }
       } catch (imgErr: unknown) {
         if (creationId) {
+          setPendingImageJob(creationId);
+          setPendingPreviewCreationId(creationId);
           setError(null);
           setBackgroundGenNotice(
-            'Still processing in the background. Check History in a few minutes if you lost connection.'
+            'Request sent — generation continues on our servers. Lock your phone and check History in ~90 sec.'
           );
           void loadCreations({ silent: true });
         } else if (isTransientFetchError(imgErr)) {
-          setError('Connection lost. Check History in case your ad already finished.');
+          setError('Connection lost. If image generation started, check History in a minute.');
         } else {
           setError(imgErr instanceof Error ? imgErr.message : 'Failed to generate image.');
         }
@@ -864,24 +895,29 @@ function StaticAdAppPage() {
     setCreations(list);
     writeCreationsCache(userId, list);
     prefetchCreationImages(list);
-    if (pendingPreviewCreationId) {
-      const done = list.find(
-        (c) => c.id === pendingPreviewCreationId && c.status === 'completed' && c.image_url
-      );
+
+    const pendingJob = readPendingImageJob();
+    const watchIds = new Set(
+      [pendingPreviewCreationId, pendingJob?.creationId].filter(Boolean) as string[]
+    );
+
+    for (const id of watchIds) {
+      const done = list.find((c) => c.id === id && c.status === 'completed' && c.image_url);
       if (done?.image_url) {
         setGeneratedImageUrl(done.image_url);
+        clearPendingImageJob(id);
         setPendingPreviewCreationId(null);
         setBackgroundGenNotice(null);
         setError(null);
         return;
       }
-      const failed = list.find(
-        (c) => c.id === pendingPreviewCreationId && c.status === 'failed'
-      );
+      const failed = list.find((c) => c.id === id && c.status === 'failed');
       if (failed) {
+        clearPendingImageJob(id);
         setPendingPreviewCreationId(null);
         setBackgroundGenNotice(null);
         setError('Generation failed. Please try again.');
+        return;
       }
     }
   }, [pendingPreviewCreationId]);
@@ -920,6 +956,17 @@ function StaticAdAppPage() {
   useEffect(() => {
     if (!hasSupabase || !authUserId) return;
     loadCreations();
+  }, [hasSupabase, authUserId, loadCreations]);
+
+  useEffect(() => {
+    if (!hasSupabase || !authUserId) return;
+    const pending = readPendingImageJob();
+    if (!pending?.creationId) return;
+    setPendingPreviewCreationId(pending.creationId);
+    setBackgroundGenNotice(
+      'Your ad is still generating on our servers. Lock your phone if you want — check History when ready.'
+    );
+    void loadCreations({ silent: true });
   }, [hasSupabase, authUserId, loadCreations]);
 
   useEffect(() => {
@@ -1713,7 +1760,7 @@ function StaticAdAppPage() {
                     <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-slate-200 bg-slate-50"><svg className="h-7 w-7 dash-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg></div>
                     <p className="text-sm font-medium text-slate-700">Analyzing & adapting image…</p>
                     <p className="mt-3 max-w-[280px] text-xs text-slate-500">
-                      Runs in the background (~90 sec). Switch tabs anytime—your ad will appear in History.
+                      Runs on our servers (~90 sec). You can lock your phone — your ad will appear in History.
                     </p>
                   </div>
                 ) : generatedImageUrl ? (

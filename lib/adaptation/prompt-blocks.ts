@@ -1,11 +1,13 @@
 import { contextSummaryForAgent } from './context';
 import {
   backgroundColorAdaptationBlock,
+  beforeAfterComparisonBlock,
   illustrativeVisualBlock,
   noStockPhotoUnlessReferenceBlock,
   packagingMirroringBlock,
   referenceCopyMirroringBlock,
   subheroCopyPatternBlock,
+  textLayoutBlock,
   typographyHierarchyBlock,
 } from './adaptation-rules';
 import {
@@ -58,6 +60,8 @@ Clone the REFERENCE ad's text architecture for the USER's product — same numbe
 ${referenceCopyMirroringBlock(ctx)}
 
 ${subheroCopyPatternBlock(ctx)}
+
+${textLayoutBlock(ctx)}
 
 ${copyStructureRulesBlock(ctx)}
 
@@ -124,6 +128,10 @@ ${buildVisualAgentInstructions(ctx)}
 
 ${typographyHierarchyBlock(ctx)}
 
+${textLayoutBlock(ctx)}
+
+${beforeAfterComparisonBlock(ctx)}
+
 RULES (JSON output):
 - visualMediumNotes: state whether final ad is illustration/diagram/3d-render OR real photo — must match reference, never default to stock lifestyle photo when reference is graphic
 - poseAndArrangementParagraph: for flat/product-row refs use REFERENCE pose; for illustration refs describe equivalent diagram/illustration with user's product; for lifestyle/model-in-use refs describe USER product in **authentic use**; if referenceShowsPackaging, describe both the unit/stack hero AND the packaging position (box/bottle) using the packaging image
@@ -151,7 +159,8 @@ Output JSON only:
   "compositionRules": string,
   "brandingNotes": string,
   "iconRowNotes": string,
-  "trustBadgeNotes": string | null
+  "trustBadgeNotes": string | null,
+  "comparisonModuleNotes": string | null
 }`;
 }
 
@@ -198,7 +207,9 @@ ${structureCheck}
 16. TYPOGRAPHY HIERARCHY: Prompt must specify headline DOMINANT and subhero clearly SMALLER (~28–38% cap height, light/regular weight). FAIL if equal sizes, bold subhero, or ~50%+ headline size.
 ${ctx.typographyHierarchy?.sizeRatioHeadlineToSub ? `    Reference ratio hint: ${ctx.typographyHierarchy.sizeRatioHeadlineToSub}` : ''}
 17. SUBHERO COPY PATTERN (${ctx.line2Pattern}): ${ctx.line2Pattern === 'product-helps-you' ? 'mainLine MUST follow "helps you" benefit bridge — FAIL if starts with Dermatologist/Clinically/Doctor recommended' : 'mainLine must match reference line 2 function — FAIL if unrelated authority/spec dump from scrape'}
-18. Approved mainLine must match pattern: "${copy.mainLine}" — reject if QA sees authority-led subhero when line2Pattern is product-helps-you
+18. Approved mainLine must match pattern: "${copy.mainLine}" — reject if authority-led subhero when line2Pattern is product-helps-you or benefit-bullet-list
+${ctx.hasReferenceComparisonModule ? `19. BEFORE/AFTER: Prompt must describe natural side-by-side panels — FAIL if "vertical split face", harsh bisect, full portrait when reference was macro crop, or oversized Before/After labels` : ''}
+${ctx.referenceTextLayout ? `20. TEXT LAYOUT: Top copy must be ${ctx.referenceTextLayout.alignment}-aligned ${ctx.referenceTextLayout.stackDirection} stack — FAIL if subhero same visual size as hero` : ''}
 
 referenceHasPromoOfferLine: ${ctx.referenceHasPromoOfferLine}
 referenceVerbatimPhrases: ${JSON.stringify(ctx.referenceVerbatimPhrases)}
