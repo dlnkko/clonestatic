@@ -19,10 +19,19 @@ function CheckoutRedirectContent() {
       const data = await res.json();
       if (cancelled) return;
       if (!res.ok) {
+        if (res.status === 401 && plan) {
+          window.location.href = `/login?next=checkout&plan=${encodeURIComponent(plan)}`;
+          return;
+        }
         setError(data.error || 'Something went wrong');
         return;
       }
       if (data.url) {
+        try {
+          sessionStorage.setItem('pending_whop_checkout', '1');
+        } catch {
+          /* ignore */
+        }
         window.location.href = data.url;
       } else {
         setError('Invalid plan');

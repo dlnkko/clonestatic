@@ -125,6 +125,20 @@ export function registerWhopPlanId(planId: string, key: PaidPlanKey) {
 }
 
 /** Load optional Pro tier (scale key) plan IDs from env at runtime (server). */
+/** Whop yearly plan IDs (annual billing). */
+const WHOP_YEARLY_PLAN_IDS = new Set([
+  'plan_o5L5Qt9SceSYe',
+  'plan_PPgQmxqA06tS1',
+  'plan_gnK3r9F8Qx3pX',
+]);
+
+export function isYearlyWhopPlanId(planId: string | undefined): boolean {
+  if (!planId) return false;
+  if (WHOP_YEARLY_PLAN_IDS.has(planId)) return true;
+  const yearlyEnv = process.env.NEXT_PUBLIC_WHOP_PLAN_SCALE_YEARLY;
+  return Boolean(yearlyEnv && planId === yearlyEnv);
+}
+
 export function resolveWhopPlanKey(planId: string | undefined): PaidPlanKey {
   if (!planId) return 'standard';
   if (WHOP_PLAN_ID_MAP[planId]) return WHOP_PLAN_ID_MAP[planId];

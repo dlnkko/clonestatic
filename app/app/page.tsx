@@ -987,6 +987,67 @@ function StaticAdAppPage() {
   }, [hasSupabase, fetchSubscription]);
 
   useEffect(() => {
+    if (!hasSupabase) return;
+    let cancelled = false;
+
+    const syncPaidSubscriptionIfNeeded = async () => {
+      let pendingCheckout = false;
+      try {
+        pendingCheckout = sessionStorage.getItem('pending_whop_checkout') === '1';
+      } catch {
+        /* ignore */
+      }
+
+      const subRes = await fetch('/api/subscription', { credentials: 'include' });
+      const subData = subRes.ok ? await subRes.json() : null;
+      const hasPaidPlan =
+        subRes.ok &&
+        subData?.ok &&
+        subData.plan !== 'free_trial' &&
+        subData.plan !== 'owner' &&
+        ['standard', 'pro', 'scale'].includes(String(subData.plan));
+
+      if (hasPaidPlan && !pendingCheckout) return;
+      if (!pendingCheckout && subRes.status !== 404 && subData?.plan === 'free_trial') {
+        return;
+      }
+
+      for (let attempt = 0; attempt < 10 && !cancelled; attempt += 1) {
+        if (attempt > 0) {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
+        try {
+          await fetch('/api/subscription/sync', { method: 'POST', credentials: 'include' });
+        } catch {
+          /* retry */
+        }
+        const checkRes = await fetch('/api/subscription', { credentials: 'include' });
+        if (!checkRes.ok) continue;
+        const checkData = await checkRes.json();
+        if (
+          checkData?.ok &&
+          checkData.plan !== 'free_trial' &&
+          checkData.plan !== 'owner' &&
+          Number(checkData.credits_remaining) > 0
+        ) {
+          try {
+            sessionStorage.removeItem('pending_whop_checkout');
+          } catch {
+            /* ignore */
+          }
+          await fetchSubscription();
+          return;
+        }
+      }
+    };
+
+    void syncPaidSubscriptionIfNeeded();
+    return () => {
+      cancelled = true;
+    };
+  }, [hasSupabase, fetchSubscription]);
+
+  useEffect(() => {
     if (hasSupabase) loadProducts();
   }, [hasSupabase, loadProducts]);
 

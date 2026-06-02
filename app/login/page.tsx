@@ -16,13 +16,13 @@ function LoginContent() {
     if (typeof window === 'undefined') return;
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user && next === 'checkout' && plan) {
+      if (!user) return;
+      if (next === 'checkout' && plan) {
         window.location.href = `/checkout-redirect?plan=${encodeURIComponent(plan)}`;
         return;
       }
-      if (user && next && next !== 'checkout') {
-        window.location.href = next.startsWith('/') ? next : '/';
-      }
+      const dest = next && next.startsWith('/') ? next : '/app';
+      window.location.href = dest;
     });
   }, [next, plan]);
 
@@ -32,9 +32,10 @@ function LoginContent() {
       const supabase = createClient();
       const origin = window.location.origin;
       const redirectTo = `${origin}/auth/callback`;
-      if (next || plan) {
-        document.cookie = `auth_next=${encodeURIComponent(next || '/')}; path=/; max-age=300; samesite=lax`;
-        if (plan) document.cookie = `auth_plan=${encodeURIComponent(plan)}; path=/; max-age=300; samesite=lax`;
+      const destNext = next || '/app';
+      document.cookie = `auth_next=${encodeURIComponent(destNext)}; path=/; max-age=300; samesite=lax`;
+      if (plan) {
+        document.cookie = `auth_plan=${encodeURIComponent(plan)}; path=/; max-age=300; samesite=lax`;
       }
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',

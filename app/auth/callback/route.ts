@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   if (!plan && cookieStore.get(AUTH_PLAN)?.value) {
     plan = decodeURIComponent(cookieStore.get(AUTH_PLAN)!.value);
   }
-  if (!next) next = '/';
+  if (!next) next = '/app';
 
   if (code) {
     const supabase = await createClient();
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       ? new URL(`/checkout-redirect?plan=${encodeURIComponent(plan)}`, origin)
       : next.startsWith('/')
         ? new URL(next, origin)
-        : new URL('/', origin);
+        : new URL('/app', origin);
 
   const res = NextResponse.redirect(redirectUrl);
   res.cookies.set(AUTH_NEXT, '', { path: '/', maxAge: 0 });

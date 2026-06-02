@@ -27,10 +27,17 @@ export async function GET(request: NextRequest) {
   }
 
   const plan = request.nextUrl.searchParams.get('plan')?.toLowerCase();
-  const url = plan ? PLAN_URLS[plan] : null;
-  if (!url) {
+  const baseUrl = plan ? PLAN_URLS[plan] : null;
+  if (!baseUrl) {
     return NextResponse.json({ error: 'Invalid or unavailable plan' }, { status: 400 });
   }
 
-  return NextResponse.json({ url });
+  const email = user.email?.trim().toLowerCase();
+  const checkout = new URL(baseUrl);
+  if (email?.includes('@')) {
+    checkout.searchParams.set('email', email);
+    checkout.searchParams.set('email.disabled', '1');
+  }
+
+  return NextResponse.json({ url: checkout.toString() });
 }
