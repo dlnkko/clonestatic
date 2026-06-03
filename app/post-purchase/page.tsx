@@ -19,10 +19,19 @@ export default function PostPurchasePage() {
       } = await supabase.auth.getUser();
 
       if (user) {
-        try {
-          await fetch('/api/subscription/sync', { method: 'POST', credentials: 'include' });
-        } catch {
-          /* sync is best-effort */
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+          try {
+            const res = await fetch('/api/subscription/sync', {
+              method: 'POST',
+              credentials: 'include',
+            });
+            if (res.ok) break;
+          } catch {
+            /* retry */
+          }
+          if (attempt < 4) {
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          }
         }
         window.location.replace('/app');
         return;

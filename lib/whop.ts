@@ -20,6 +20,18 @@ export async function resolveWhopCompanyId(): Promise<string | null> {
   } catch (err) {
     console.error('Whop companies.list failed:', err);
   }
+
+  const routeSlug = process.env.WHOP_COMPANY_ROUTE?.trim() || 'admirror';
+  try {
+    const company = await client.companies.retrieve(routeSlug);
+    if (company.id?.startsWith('biz_')) {
+      cachedCompanyId = company.id;
+      return company.id;
+    }
+  } catch (err) {
+    console.error('Whop companies.retrieve failed:', err);
+  }
+
   return null;
 }
 
@@ -58,6 +70,29 @@ export async function syncWhopSubscriptionForEmail(
   const normalizedEmail = email.trim().toLowerCase();
 
   try {
+    for await (const membership of client.memberships.list({
+      company_id: companyId,
+      statuses: ['active', 'trialing', 'completed'],
+      first: 100,
+    })) {
+      const memEmail = membership.user?.email?.trim().toLowerCase();
+      if (memEmail !== normalizedEmail) continue;
+
+      const planId = membership.plan?.id;
+      if (!planId) continue;
+
+      const { row, error } = await upsertFromWhopData({
+        email: normalizedEmail,
+        planId,
+        membershipId: membership.id ?? null,
+        memberId: membership.user?.id ?? null,
+        renewalPeriodEnd: membership.renewal_period_end ?? null,
+        cancelAtPeriodEnd: membership.cancel_at_period_end === true,
+      });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, plan: row.plan, credits: row.credits_remaining };
+    }
+
     for await (const member of client.members.list({
       company_id: companyId,
       query: normalizedEmail,

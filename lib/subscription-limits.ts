@@ -58,17 +58,34 @@ export async function getUserSubscriptionContext(
     .eq('email', normalizedEmail)
     .maybeSingle();
 
-  if (sub && isPaidPlan(sub.plan)) {
-    const maxProducts = maxProductsForPlan(sub.plan);
+  let activeSub = sub;
+
+  if (!activeSub || !isPaidPlan(activeSub.plan)) {
+    const { syncWhopSubscriptionForEmail } = await import('@/lib/whop');
+    const syncResult = await syncWhopSubscriptionForEmail(normalizedEmail);
+    if (syncResult.ok) {
+      const refreshed = await admin
+        .from('subscriptions')
+        .select('plan, credits_remaining, period_end, whop_membership_id, cancel_at_period_end')
+        .eq('email', normalizedEmail)
+        .maybeSingle();
+      if (refreshed.data && isPaidPlan(refreshed.data.plan)) {
+        activeSub = refreshed.data;
+      }
+    }
+  }
+
+  if (activeSub && isPaidPlan(activeSub.plan)) {
+    const maxProducts = maxProductsForPlan(activeSub.plan);
     return {
-      plan: sub.plan,
-      creditsRemaining: Math.max(0, sub.credits_remaining ?? 0),
+      plan: activeSub.plan,
+      creditsRemaining: Math.max(0, activeSub.credits_remaining ?? 0),
       maxProducts,
       productCount,
       canAddProduct: productCount < maxProducts,
-      whopMembershipId: sub.whop_membership_id ?? null,
-      cancelAtPeriodEnd: sub.cancel_at_period_end === true,
-      periodEnd: sub.period_end ?? null,
+      whopMembershipId: activeSub.whop_membership_id ?? null,
+      cancelAtPeriodEnd: activeSub.cancel_at_period_end === true,
+      periodEnd: activeSub.period_end ?? null,
     };
   }
 

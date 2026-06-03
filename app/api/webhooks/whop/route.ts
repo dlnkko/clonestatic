@@ -65,16 +65,20 @@ export async function POST(request: NextRequest) {
   }
 
   const isPayment =
-    /payment\.succeeded|membership\.went_valid|membership\.activated|membership\.created|subscription\.(created|activated)/i.test(
+    /payment\.(succeeded|completed)|membership\.(went_valid|activated|created|valid)|subscription\.(created|activated)|invoice\.paid/i.test(
       event
     );
-  if (!isPayment) {
+
+  if (!parsed?.email) {
+    if (isPayment) {
+      console.error('Whop webhook: no email in payload', JSON.stringify(body).slice(0, 1200));
+      return NextResponse.json({ error: 'No email in payload' }, { status: 400 });
+    }
     return NextResponse.json({ received: true, skipped: true, event });
   }
 
-  if (!parsed?.email) {
-    console.error('Whop webhook: no email in payload', JSON.stringify(body).slice(0, 1200));
-    return NextResponse.json({ error: 'No email in payload' }, { status: 400 });
+  if (!isPayment && !parsed.planId) {
+    return NextResponse.json({ received: true, skipped: true, event });
   }
 
   try {

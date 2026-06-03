@@ -1007,10 +1007,13 @@ function StaticAdAppPage() {
         subData.plan !== 'owner' &&
         ['standard', 'pro', 'scale'].includes(String(subData.plan));
 
-      if (hasPaidPlan && !pendingCheckout) return;
-      if (!pendingCheckout && subRes.status !== 404 && subData?.plan === 'free_trial') {
-        return;
-      }
+      const paidCredits = Number(subData?.credits_remaining ?? 0);
+      const needsSync =
+        pendingCheckout ||
+        !hasPaidPlan ||
+        (hasPaidPlan && (!Number.isFinite(paidCredits) || paidCredits <= 0));
+
+      if (!needsSync) return;
 
       for (let attempt = 0; attempt < 10 && !cancelled; attempt += 1) {
         if (attempt > 0) {

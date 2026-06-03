@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getClientIpHash, getFreeTrialRemaining } from '@/lib/free-trial';
 import { getUserSubscriptionContext, resolveOwnerEmail } from '@/lib/subscription-limits';
 import { maxProductsForPlan, PAID_PLAN_BY_KEY, isPaidPlan } from '@/lib/plans';
+import { syncWhopSubscriptionForEmail } from '@/lib/whop';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,11 +44,28 @@ export async function GET(request: NextRequest) {
     const admin = createAdminClient();
     const ipHash = getClientIpHash(request);
 
-    const { data, error } = await admin
+    let { data, error } = await admin
       .from('subscriptions')
       .select('plan, credits_remaining, period_end, cancel_at_period_end, whop_membership_id')
       .eq('email', email)
       .maybeSingle();
+
+    if (error || !data || !isPaidPlan(data.plan)) {
+      const syncResult = await syncWhopSubscriptionForEmail(email);
+      if (syncResult.ok) {
+        const refreshed = await admin
+          .from('subscriptions')
+          .select('plan, credits_remaining, period_end, cancel_at_period_end, whop_membership_id')
+          .eq('email', email)
+          .maybeSingle();
+        if (refreshed.data && isPaidPlan(refreshed.data.plan)) {
+          data = refreshed.data;
+          error = refreshed.error;
+        }
+      } else if (syncResult.error !== 'WHOP_API_KEY not configured') {
+        console.warn('GET /api/subscription Whop sync:', syncResult.error, 'email=', email);
+      }
+    }
 
     const { count: productCount } = await admin
       .from('products')

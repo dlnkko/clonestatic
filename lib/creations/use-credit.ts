@@ -14,14 +14,28 @@ export async function useCreditForGeneration(
 ): Promise<UseCreditResult> {
   if (isOwner) return { ok: true };
 
-  const { data: row, error: fetchError } = await admin
+  let { data: row, error: fetchError } = await admin
     .from('subscriptions')
-    .select('credits_remaining')
+    .select('credits_remaining, plan')
     .eq('email', email)
-    .single();
+    .maybeSingle();
 
-  const hasSubscription = !fetchError && row;
-  const current = hasSubscription ? Math.max(0, row.credits_remaining ?? 0) : 0;
+  if (!row || fetchError) {
+    const { syncWhopSubscriptionForEmail } = await import('@/lib/whop');
+    const syncResult = await syncWhopSubscriptionForEmail(email);
+    if (syncResult.ok) {
+      const refreshed = await admin
+        .from('subscriptions')
+        .select('credits_remaining, plan')
+        .eq('email', email)
+        .maybeSingle();
+      row = refreshed.data;
+      fetchError = refreshed.error;
+    }
+  }
+
+  const hasSubscription = Boolean(row) && !fetchError;
+  const current = row ? Math.max(0, row.credits_remaining ?? 0) : 0;
 
   if (hasSubscription && current >= 1) {
     const { error: updateError } = await admin

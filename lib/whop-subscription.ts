@@ -148,6 +148,21 @@ export async function upsertWhopSubscription(
   input: WhopSubscriptionInput
 ) {
   const row = subscriptionRowFromWhop(input);
+
+  const { data: existing } = await supabase
+    .from('subscriptions')
+    .select('plan, credits_remaining')
+    .eq('email', input.email)
+    .maybeSingle();
+
+  if (existing) {
+    const planChanged = existing.plan !== row.plan;
+    const hadNoCredits = Math.max(0, existing.credits_remaining ?? 0) === 0;
+    if (!planChanged && !hadNoCredits) {
+      row.credits_remaining = Math.max(0, existing.credits_remaining ?? 0);
+    }
+  }
+
   const { error } = await supabase.from('subscriptions').upsert(row, { onConflict: 'email' });
   return { row, error };
 }
