@@ -92,7 +92,22 @@ export const WHOP_PLAN_ID_MAP: Record<string, PaidPlanKey> = {
   plan_PPgQmxqA06tS1: 'pro',
   plan_5MIJfbYUpkoBx: 'scale',
   plan_gnK3r9F8Qx3pX: 'scale',
+  // Legacy plans (previous Whop product)
+  plan_1qy7pizl7xAkx: 'standard',
+  plan_KRjrbQ6Z0D2A5: 'standard',
+  plan_xb9A75BEfcTGk: 'pro',
+  plan_CNk2XegENVQGM: 'pro',
 };
+
+const PAID_PLAN_RANK: Record<PaidPlanKey, number> = {
+  standard: 1,
+  pro: 2,
+  scale: 3,
+};
+
+export function paidPlanRank(plan: PaidPlanKey): number {
+  return PAID_PLAN_RANK[plan] ?? 0;
+}
 
 export const WHOP_CHECKOUT_URLS = {
   standard_monthly: 'https://whop.com/checkout/plan_tNyLmHA6Ecbve',
@@ -130,6 +145,8 @@ const WHOP_YEARLY_PLAN_IDS = new Set([
   'plan_o5L5Qt9SceSYe',
   'plan_PPgQmxqA06tS1',
   'plan_gnK3r9F8Qx3pX',
+  'plan_KRjrbQ6Z0D2A5',
+  'plan_CNk2XegENVQGM',
 ]);
 
 export function isYearlyWhopPlanId(planId: string | undefined): boolean {

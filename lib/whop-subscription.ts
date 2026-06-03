@@ -1,7 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   creditsForPlan,
+  isPaidPlan,
   isYearlyWhopPlanId,
+  paidPlanRank,
   resolveWhopPlanKey,
   type PaidPlanKey,
 } from '@/lib/plans';
@@ -155,10 +157,11 @@ export async function upsertWhopSubscription(
     .eq('email', input.email)
     .maybeSingle();
 
-  if (existing) {
+  if (existing && isPaidPlan(existing.plan)) {
     const planChanged = existing.plan !== row.plan;
+    const upgraded = paidPlanRank(row.plan) > paidPlanRank(existing.plan);
     const hadNoCredits = Math.max(0, existing.credits_remaining ?? 0) === 0;
-    if (!planChanged && !hadNoCredits) {
+    if (!planChanged && !hadNoCredits && !upgraded) {
       row.credits_remaining = Math.max(0, existing.credits_remaining ?? 0);
     }
   }
