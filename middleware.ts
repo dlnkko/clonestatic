@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
+import { getAppOrigin, isAppHost } from '@/lib/supabase/auth-config';
 
 /**
  * Supabase OAuth sometimes redirects to Site URL (/) with ?code= instead of /auth/callback.
@@ -27,9 +28,31 @@ function redirectOAuthCodeToCallback(request: NextRequest): NextResponse | null 
   return NextResponse.redirect(url);
 }
 
+/** One canonical host so PKCE cookies match the OAuth callback URL. */
+function redirectToCanonicalHost(request: NextRequest): NextResponse | null {
+  if (process.env.NODE_ENV === 'development') return null;
+
+  const canonical = new URL(getAppOrigin());
+  const host = (request.headers.get('x-forwarded-host') ?? request.nextUrl.host).toLowerCase();
+
+  if (!isAppHost(host) || host.split(':')[0] === canonical.host) return null;
+
+  const url = request.nextUrl.clone();
+  url.protocol = canonical.protocol;
+  url.host = canonical.host;
+  return NextResponse.redirect(url, 308);
+}
+
 export async function middleware(request: NextRequest) {
+  const canonicalRedirect = redirectToCanonicalHost(request);
+  if (canonicalRedirect) return canonicalRedirect;
+
   const oauthRedirect = redirectOAuthCodeToCallback(request);
   if (oauthRedirect) return oauthRedirect;
+
+  if (request.nextUrl.pathname.startsWith('/auth/callback')) {
+    return NextResponse.next();
+  }
 
   return updateSession(request);
 }

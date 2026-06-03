@@ -5,6 +5,13 @@ import { createClient } from '@/lib/supabase/client';
 import { useSearchParams } from 'next/navigation';
 import { AdmirrorLogo } from '@/app/components/AdmirrorLogo';
 
+function getOAuthRedirectOrigin(): string {
+  const fromEnv = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (fromEnv) return fromEnv.replace(/\/$/, '');
+  if (typeof window !== 'undefined') return window.location.origin;
+  return 'https://www.admirror.app';
+}
+
 function setAuthFlowCookies(next: string, plan: string) {
   const secure = typeof window !== 'undefined' && window.location.protocol === 'https:';
   const base = `path=/; max-age=600; samesite=lax${secure ? '; secure' : ''}`;
@@ -63,7 +70,7 @@ function LoginContent() {
     setLoading(true);
     try {
       const supabase = createClient();
-      const origin = window.location.origin;
+      const origin = getOAuthRedirectOrigin();
       const destNext = next || '/app';
 
       setAuthFlowCookies(destNext, plan);
