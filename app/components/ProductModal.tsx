@@ -7,6 +7,7 @@ import { ImageUploadSlots } from '@/app/components/products/ImageUploadSlots';
 import {
   formatProductPrice,
   normalizeProductCurrency,
+  parsePriceNumeric,
   PRODUCT_CURRENCIES,
 } from '@/lib/products/currencies';
 
@@ -128,8 +129,12 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
   const applyScrapedPrice = (p: ScrapePreview) => {
     const detectedCurrency = normalizeProductCurrency(p.extractedPricing?.currency);
     setPriceCurrency(detectedCurrency);
-    const display = p.priceDisplay || p.extractedPricing?.salePrice || p.extractedPricing?.regularPrice || '';
-    setPriceAmount(display.replace(/[^\d.,]/g, '').replace(/,/g, '.').trim());
+    const ep = p.extractedPricing;
+    const sale = ep?.salePrice;
+    const regular = ep?.regularPrice;
+    const hasDiscount =
+      sale && regular && sale !== regular ? sale : p.priceDisplay || sale || regular || '';
+    setPriceAmount(parsePriceNumeric(hasDiscount));
   };
 
   const handleScrapePreview = async () => {

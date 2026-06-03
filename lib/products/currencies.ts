@@ -53,7 +53,22 @@ export function formatProductPrice(
   }
 }
 
-/** Guess currency from product page URL TLD when price text is ambiguous. */
+/** Parse numeric amount from a formatted price string (e.g. "$59.99" → "59.99"). */
+export function parsePriceNumeric(display: string | null | undefined): string {
+  if (!display?.trim()) return '';
+  let s = display.trim().replace(/[^\d.,]/g, '');
+  if (s.includes(',') && s.includes('.')) {
+    if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
+      s = s.replace(/\./g, '').replace(',', '.');
+    } else {
+      s = s.replace(/,/g, '');
+    }
+  } else if (s.includes(',')) {
+    const parts = s.split(',');
+    s = parts.length === 2 && parts[1].length <= 2 ? s.replace(',', '.') : s.replace(/,/g, '');
+  }
+  return s;
+}
 export function currencyHintFromUrl(productUrl: string | undefined): string | null {
   if (!productUrl?.trim()) return null;
   try {

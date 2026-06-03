@@ -432,6 +432,110 @@ function StaticAdAppPage() {
     try {
       const staticAdBase64 = await compressImageForApi(staticAdImage);
       const productBase64 = productImage ? await compressImageForApi(productImage) : null;
+      const aspect = getResolvedAspectRatio();
+
+      if (hasSupabase && authUserId) {
+        setBackgroundGenNotice('Uploading images…');
+
+        const referenceUploadRes = await fetch('/api/upload-product-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ productImageBase64: staticAdBase64 }),
+        });
+        const { data: refData, errorMessage: refErr } = await parseJsonResponse<{ url?: string }>(
+          referenceUploadRes
+        );
+        if (refErr || !referenceUploadRes.ok || !refData?.url) {
+          throw new Error(refErr || 'Failed to upload reference ad.');
+        }
+
+        let productImageUrl: string | null = null;
+        if (productBase64) {
+          const uploadRes = await fetch('/api/upload-product-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ productImageBase64: productBase64 }),
+          });
+          const { data: uploadData, errorMessage: upErr } = await parseJsonResponse<{ url?: string }>(
+            uploadRes
+          );
+          if (upErr || !uploadRes.ok || !uploadData?.url) {
+            throw new Error(upErr || 'Failed to upload product image.');
+          }
+          productImageUrl = uploadData.url;
+        }
+
+        const useSavedProduct = !!selectedProductId;
+        const copyUrl =
+          !useSavedProduct && copywriting.trim() && isValidUrl(copywriting.trim())
+            ? copywriting.trim()
+            : null;
+
+        const asyncBody: Record<string, unknown> = {
+          referenceImageUrl: refData.url,
+          aspectRatio: aspect,
+          guidelines: guidelines.trim() || null,
+          copyLanguage,
+        };
+        if (selectedProductId) asyncBody.productId = selectedProductId;
+        else if (productImageUrl) asyncBody.productImageUrl = productImageUrl;
+        if (copyUrl) asyncBody.copywritingUrl = copyUrl;
+        else if (!useSavedProduct && copywriting.trim()) asyncBody.copywriting = copywriting.trim();
+
+        const asyncRes = await fetch('/api/generate-ad-async', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(asyncBody),
+        });
+        const { data: asyncData, errorMessage: asyncErr } = await parseJsonResponse<{
+          status?: string;
+          creationId?: string;
+          error?: string;
+        }>(asyncRes);
+
+        if (asyncRes.status === 401) {
+          window.location.href = '/login?next=/app';
+          return;
+        }
+        if (asyncRes.status === 402 || asyncRes.status === 404) {
+          setError(null);
+          setShowPricingModal(true);
+          return;
+        }
+        if (
+          !asyncRes.ok ||
+          (asyncRes.status !== 202 && asyncData?.status !== 'processing') ||
+          !asyncData?.creationId
+        ) {
+          throw new Error(asyncErr || asyncData?.error || 'Could not start generation.');
+        }
+
+        const creationId = asyncData.creationId;
+        const optimistic: CreationItem = {
+          id: creationId,
+          image_url: null,
+          aspect_ratio: aspect,
+          created_at: new Date().toISOString(),
+          status: 'generating',
+        };
+        setCreations((prev) => {
+          const next = [optimistic, ...prev.filter((c) => c.id !== creationId)];
+          writeCreationsCache(authUserId, next);
+          return next;
+        });
+        setPendingImageJob(creationId);
+        setPendingPreviewCreationId(creationId);
+        setError(null);
+        setBackgroundGenNotice(
+          'Generating on our servers (~2 min). You can lock your phone — your ad will appear here and in History.'
+        );
+        void loadCreations({ silent: true });
+        void fetchSubscription();
+        return;
+      }
 
       const useSavedProduct = !!selectedProductId;
       const isUrl = !useSavedProduct && copywriting.trim() && isValidUrl(copywriting.trim());
@@ -657,13 +761,22 @@ function StaticAdAppPage() {
         setIsGeneratingImage(false);
       }
     } catch (err: any) {
-      if (isTransientFetchError(err)) {
-        setError('Connection lost. Keep this tab open and try again.');
+      const pending = readPendingImageJob();
+      if (pending?.creationId) {
+        setPendingPreviewCreationId(pending.creationId);
+        setError(null);
+        setBackgroundGenNotice(
+          'Generation continues on our servers. Lock your phone if you want — check History in ~2 min.'
+        );
+        void loadCreations({ silent: true });
+      } else if (isTransientFetchError(err)) {
+        setError('Connection interrupted. If you already tapped Generate, check History in ~2 min.');
       } else {
         setError(err.message || 'Something went wrong. Please try again.');
       }
     } finally {
       setIsGenerating(false);
+      setIsGeneratingImage(false);
     }
   };
 
@@ -1121,6 +1234,9 @@ function StaticAdAppPage() {
     if (!hasSupabase || !authUserId) return;
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
+        if (readPendingImageJob()) {
+          setError(null);
+        }
         void loadCreations({ silent: true });
       }
     };

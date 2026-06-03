@@ -40,6 +40,7 @@ import type { ProductImage, ProductRecord } from '@/lib/products/types';
 import { createClient } from '@/lib/supabase/server';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { classifyAdVisualMode } from '@/lib/ad-visual-mode';
+import { fetchImageAsDataUrl } from '@/lib/images/fetch-as-data-url';
 
 export const maxDuration = 300;
 
@@ -106,7 +107,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       staticAdImage,
+      referenceImageUrl,
       productImage,
+      productImageUrl,
       copywriting,
       isUrlScraped: isUrlScrapedParam,
       guidelines,
@@ -178,10 +181,41 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    let staticAdImageResolved =
+      typeof staticAdImage === 'string' && staticAdImage.startsWith('data:') ? staticAdImage : null;
+    if (!staticAdImageResolved && typeof referenceImageUrl === 'string' && referenceImageUrl.startsWith('http')) {
+      try {
+        staticAdImageResolved = await fetchImageAsDataUrl(referenceImageUrl);
+      } catch (e) {
+        return NextResponse.json(
+          { error: 'Could not load reference ad image from URL' },
+          { status: 400 }
+        );
+      }
+    }
+
+    let productImageResolved =
+      typeof productImage === 'string' && productImage.startsWith('data:') ? productImage : null;
+    if (
+      !savedProduct &&
+      !productImageResolved &&
+      typeof productImageUrl === 'string' &&
+      productImageUrl.startsWith('http')
+    ) {
+      try {
+        productImageResolved = await fetchImageAsDataUrl(productImageUrl);
+      } catch (e) {
+        return NextResponse.json(
+          { error: 'Could not load product image from URL' },
+          { status: 400 }
+        );
+      }
+    }
+
     console.log('=== GENERATE STATIC AD PROMPT REQUEST ===');
     console.log('Input received:');
-    console.log('- Has static ad image:', !!staticAdImage);
-    console.log('- Has product image:', !!productImage);
+    console.log('- Has static ad image:', !!staticAdImageResolved);
+    console.log('- Has product image:', !!productImageResolved);
     console.log('- Product id:', productId);
     console.log('- Has copywriting:', !!copywritingResolved);
     console.log('- Is URL scraped:', isUrlScraped);
@@ -196,10 +230,10 @@ export async function POST(request: NextRequest) {
       console.log('- Copywriting length:', copywritingResolved.length);
     }
 
-    if (!staticAdImage) {
+    if (!staticAdImageResolved) {
       return NextResponse.json({ error: 'Reference static ad image is required' }, { status: 400 });
     }
-    if (!savedProduct && !productImage) {
+    if (!savedProduct && !productImageResolved) {
       return NextResponse.json(
         { error: 'Select a saved product or upload a product image' },
         { status: 400 }
@@ -207,8 +241,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Convert base64 to Buffer
-    const staticAdBuffer = Buffer.from(staticAdImage.split(',')[1], 'base64');
-    const staticAdMime = staticAdImage.split(';')[0].split(':')[1] || 'image/png';
+    const staticAdBuffer = Buffer.from(staticAdImageResolved.split(',')[1], 'base64');
+    const staticAdMime = staticAdImageResolved.split(';')[0].split(':')[1] || 'image/png';
 
     console.log('Uploading images to Gemini Files...');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -229,9 +263,9 @@ export async function POST(request: NextRequest) {
         console.log(
           `Product catalog: ${catalogImages.length} URLs in DB — NOT uploaded yet. Agent will pick which to send to Gemini after Step 1.`
         );
-      } else if (productImage) {
-        const productBuffer = Buffer.from(productImage.split(',')[1], 'base64');
-        const productMime = productImage.split(';')[0].split(':')[1] || 'image/png';
+      } else if (productImageResolved) {
+        const productBuffer = Buffer.from(productImageResolved.split(',')[1], 'base64');
+        const productMime = productImageResolved.split(';')[0].split(':')[1] || 'image/png';
         const productUint8Array = new Uint8Array(productBuffer);
         const productBlob = new Blob([productUint8Array], { type: productMime });
         const productFile = await ai.files.upload({

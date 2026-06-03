@@ -1,5 +1,5 @@
 import getFirecrawlInstance from '@/lib/firecrawl';
-import { extractPricingFromText } from './extract-pricing';
+import { extractProductPricing } from './extract-pricing';
 import type { ExtractedPricing, ProductImage } from './types';
 
 const IMAGE_EXT = /\.(jpe?g|png|webp|gif|avif)(\?|$)/i;
@@ -65,7 +65,7 @@ export async function scrapeProductPage(url: string): Promise<ProductPageScrapeR
     scrape?: (u: string, o: object) => Promise<unknown>;
     scrapeUrl?: (u: string, o: object) => Promise<unknown>;
   };
-  const formats = { formats: ['summary', 'branding', 'markdown', 'links'] };
+  const formats = { formats: ['summary', 'branding', 'markdown', 'links', 'html'] };
   let doc: Record<string, unknown>;
   try {
     if (fc.scrape) {
@@ -98,6 +98,7 @@ export async function scrapeProductPage(url: string): Promise<ProductPageScrapeR
 
   const branding = (data.branding as Record<string, unknown>) || null;
   const markdown = (data.markdown as string) || null;
+  const html = (data.html as string) || (data.rawHtml as string) || null;
   const metadata = (data.metadata as Record<string, unknown>) || null;
 
   const markdownForPrompt = markdown
@@ -131,8 +132,13 @@ export async function scrapeProductPage(url: string): Promise<ProductPageScrapeR
     alt: `Product page image ${i + 1}`,
   }));
 
-  const pricingText = [summary, markdownForPrompt ?? markdown].filter(Boolean).join('\n');
-  const extractedPricing = extractPricingFromText(pricingText, { productUrl: url });
+  const extractedPricing = extractProductPricing({
+    summary,
+    markdown: markdownForPrompt ?? markdown,
+    html,
+    metadata,
+    productUrl: url,
+  });
 
   return {
     summary,
