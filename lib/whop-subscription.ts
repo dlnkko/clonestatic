@@ -1,9 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   creditsForPlan,
-  isPaidPlan,
   isYearlyWhopPlanId,
-  paidPlanRank,
   resolveWhopPlanKey,
   type PaidPlanKey,
 } from '@/lib/plans';
@@ -145,23 +143,30 @@ export function subscriptionRowFromWhop(input: WhopSubscriptionInput) {
   };
 }
 
+export type UpsertWhopSubscriptionOptions = {
+  /**
+   * true = payment / new checkout / manual sync → grant full monthly credits for the plan.
+   * false = metadata-only webhook (e.g. cancel flag) → keep current credit balance.
+   */
+  grantFreshCredits?: boolean;
+};
+
 export async function upsertWhopSubscription(
   supabase: SupabaseClient,
-  input: WhopSubscriptionInput
+  input: WhopSubscriptionInput,
+  options: UpsertWhopSubscriptionOptions = {}
 ) {
+  const grantFreshCredits = options.grantFreshCredits !== false;
   const row = subscriptionRowFromWhop(input);
 
-  const { data: existing } = await supabase
-    .from('subscriptions')
-    .select('plan, credits_remaining')
-    .eq('email', input.email)
-    .maybeSingle();
+  if (!grantFreshCredits) {
+    const { data: existing } = await supabase
+      .from('subscriptions')
+      .select('credits_remaining')
+      .eq('email', input.email)
+      .maybeSingle();
 
-  if (existing && isPaidPlan(existing.plan)) {
-    const planChanged = existing.plan !== row.plan;
-    const upgraded = paidPlanRank(row.plan) > paidPlanRank(existing.plan);
-    const hadNoCredits = Math.max(0, existing.credits_remaining ?? 0) === 0;
-    if (!planChanged && !hadNoCredits && !upgraded) {
+    if (existing) {
       row.credits_remaining = Math.max(0, existing.credits_remaining ?? 0);
     }
   }

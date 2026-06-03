@@ -138,7 +138,7 @@ async function upsertFromWhopData(input: WhopSubscriptionInput) {
   const { createAdminClient } = await import('@/lib/supabase/admin');
   const { upsertWhopSubscription } = await import('@/lib/whop-subscription');
   const supabase = createAdminClient();
-  return upsertWhopSubscription(supabase, input);
+  return upsertWhopSubscription(supabase, input, { grantFreshCredits: true });
 }
 
 async function gatherMembershipCandidates(

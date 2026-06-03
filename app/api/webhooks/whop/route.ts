@@ -83,7 +83,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const supabase = createAdminClient();
-    const { row, error } = await upsertWhopSubscription(supabase, parsed);
+    const { row, error } = await upsertWhopSubscription(supabase, parsed, {
+      grantFreshCredits: isPayment,
+    });
     if (error) {
       console.error('Whop webhook Supabase upsert error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
