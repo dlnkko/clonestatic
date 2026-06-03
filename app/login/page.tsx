@@ -5,6 +5,34 @@ import { createClient } from '@/lib/supabase/client';
 import { useSearchParams } from 'next/navigation';
 import { AdmirrorLogo } from '@/app/components/AdmirrorLogo';
 
+function setAuthFlowCookies(next: string, plan: string) {
+  const secure = typeof window !== 'undefined' && window.location.protocol === 'https:';
+  const base = `path=/; max-age=600; samesite=lax${secure ? '; secure' : ''}`;
+  document.cookie = `auth_next=${encodeURIComponent(next)}; ${base}`;
+  if (plan) {
+    document.cookie = `auth_plan=${encodeURIComponent(plan)}; ${base}`;
+  }
+}
+
+async function activateWhopSubscriptionIfNeeded(): Promise<void> {
+  let pending = false;
+  try {
+    pending =
+      sessionStorage.getItem('pending_whop_checkout') === '1' ||
+      new URLSearchParams(window.location.search).get('from') === 'whop';
+  } catch {
+    /* ignore */
+  }
+  if (!pending) return;
+
+  try {
+    await fetch('/api/subscription/sync', { method: 'POST', credentials: 'include' });
+    sessionStorage.removeItem('pending_whop_checkout');
+  } catch {
+    /* retry on dashboard */
+  }
+}
+
 function LoginContent() {
   const searchParams = useSearchParams();
   const next = searchParams.get('next') ?? '';
@@ -14,15 +42,20 @@ function LoginContent() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return;
+
+      await activateWhopSubscriptionIfNeeded();
+
       if (next === 'checkout' && plan) {
-        window.location.href = `/checkout-redirect?plan=${encodeURIComponent(plan)}`;
+        window.location.replace(`/checkout-redirect?plan=${encodeURIComponent(plan)}`);
         return;
       }
+
       const dest = next && next.startsWith('/') ? next : '/app';
-      window.location.href = dest;
+      window.location.replace(dest);
     });
   }, [next, plan]);
 
@@ -31,17 +64,21 @@ function LoginContent() {
     try {
       const supabase = createClient();
       const origin = window.location.origin;
-      const redirectTo = `${origin}/auth/callback`;
       const destNext = next || '/app';
-      document.cookie = `auth_next=${encodeURIComponent(destNext)}; path=/; max-age=300; samesite=lax`;
-      if (plan) {
-        document.cookie = `auth_plan=${encodeURIComponent(plan)}; path=/; max-age=300; samesite=lax`;
-      }
-      const { error } = await supabase.auth.signInWithOAuth({
+
+      setAuthFlowCookies(destNext, plan);
+
+      const callbackParams = new URLSearchParams();
+      callbackParams.set('next', destNext);
+      if (plan) callbackParams.set('plan', plan);
+
+      const redirectTo = `${origin}/auth/callback?${callbackParams.toString()}`;
+
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo },
       });
-      if (error) throw error;
+      if (oauthError) throw oauthError;
     } catch (e) {
       console.error(e);
       setLoading(false);
@@ -61,8 +98,8 @@ function LoginContent() {
         </h1>
         <p className="mt-2 text-sm text-white/70">
           {isCheckout
-            ? 'Use your Google account. After signing in you’ll be taken to Whop to complete payment.'
-            : 'Use your Google account to access the app.'}
+            ? 'Use your Google account. After signing in you’ll go straight to Whop checkout.'
+            : 'Use your Google account to access the dashboard.'}
         </p>
         {error && (
           <p className="mt-4 rounded-lg bg-red-500/20 px-3 py-2 text-sm text-red-200">
