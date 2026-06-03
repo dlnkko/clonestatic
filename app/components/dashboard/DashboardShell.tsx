@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/cn';
 import { AdmirrorLogo } from '@/app/components/AdmirrorLogo';
+import { CancelSubscriptionModal } from '@/app/components/dashboard/CancelSubscriptionModal';
 import { LOCALE_LABELS, useI18n, type Locale } from '@/lib/i18n/LocaleProvider';
 
 export type DashboardTab =
@@ -104,32 +105,30 @@ export function DashboardShell({
   const initial = user?.name?.charAt(0).toUpperCase() ?? user?.email?.charAt(0).toUpperCase() ?? '?';
   const [cancelling, setCancelling] = useState(false);
   const [cancelMessage, setCancelMessage] = useState<string | null>(null);
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
-  const handleCancelSubscription = async () => {
-    if (cancelAtPeriodEnd || cancelling) return;
-    const confirmed = window.confirm(
-      'Cancel your subscription at the end of the current billing period? You keep access and credits until then.'
-    );
-    if (!confirmed) return;
-
+  const handleConfirmCancel = async (reason: string) => {
     setCancelling(true);
+    setCancelError(null);
     setCancelMessage(null);
     try {
       const res = await fetch('/api/subscription/cancel', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'at_period_end' }),
+        body: JSON.stringify({ mode: 'at_period_end', reason }),
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        setCancelMessage(data.error ?? 'Could not cancel subscription');
+        setCancelError(data.error ?? 'Could not cancel subscription');
         return;
       }
       setCancelMessage(data.message ?? 'Cancellation scheduled.');
+      setCancelModalOpen(false);
       onSubscriptionRefresh();
     } catch {
-      setCancelMessage('Network error. Try again or contact support.');
+      setCancelError('Network error. Try again or contact support.');
     } finally {
       setCancelling(false);
     }
@@ -215,51 +214,58 @@ export function DashboardShell({
           </button>
 
           {(creditsRemaining !== null || planName) && (
-            <div className="dash-credits">
-              {planName && (
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--brand-indigo)]">
-                  {planName}
-                </span>
-              )}
-              {creditsRemaining !== null && (
-                <>
-                  <span className="mt-1 block text-[11px] font-medium uppercase tracking-wider text-[var(--dash-muted)]">
-                    Credits
+            <div className="dash-credits-compact">
+              <div className="dash-credits-compact-row">
+                {planName && <span className="dash-credits-plan">{planName}</span>}
+                {creditsRemaining !== null && (
+                  <span className="dash-credits-value">
+                    <span className="dash-credits-num">{creditsRemaining}</span>
+                    <span className="dash-credits-label">{t('nav', 'credits')}</span>
                   </span>
-                  <span className="mt-0.5 block text-2xl font-semibold tabular-nums tracking-tight text-[var(--dash-fg)]">
-                    {creditsRemaining}
-                  </span>
-                </>
-              )}
+                )}
+              </div>
               {productCount !== null && maxProducts !== null && (
-                <span className="mt-2 block text-xs text-[var(--dash-muted)]">
+                <p className="dash-credits-meta">
                   Products {productCount}/{maxProducts}
-                </span>
+                </p>
               )}
             </div>
           )}
 
           {canCancelSubscription && (
-            <div className="mt-2">
+            <div>
               {cancelAtPeriodEnd ? (
-                <p className="rounded-lg border border-amber-200/80 bg-amber-50/80 px-3 py-2 text-xs text-amber-900">
+                <p className="rounded-md border border-amber-200/80 bg-amber-50/80 px-2.5 py-1.5 text-[11px] leading-snug text-amber-900">
                   Cancels at end of billing period
                 </p>
               ) : (
                 <button
                   type="button"
-                  onClick={handleCancelSubscription}
+                  onClick={() => {
+                    setCancelError(null);
+                    setCancelModalOpen(true);
+                  }}
                   disabled={cancelling}
-                  className="dash-btn dash-btn-ghost w-full text-xs text-[var(--dash-muted)]"
+                  className="dash-cancel-link"
                 >
-                  {cancelling ? 'Cancelling…' : 'Cancel subscription'}
+                  Cancel subscription
                 </button>
               )}
               {cancelMessage && (
-                <p className="mt-1.5 text-[11px] leading-snug text-[var(--dash-muted)]">{cancelMessage}</p>
+                <p className="mt-1 text-[10px] leading-snug text-[var(--dash-muted)]">{cancelMessage}</p>
               )}
             </div>
           )}
+
+          <CancelSubscriptionModal
+            open={cancelModalOpen}
+            onClose={() => {
+              if (!cancelling) setCancelModalOpen(false);
+            }}
+            onConfirm={handleConfirmCancel}
+            submitting={cancelling}
+            error={cancelError}
+          />
 
           <div className="dash-user">
             <div className="dash-user-avatar">{initial}</div>

@@ -16,7 +16,7 @@ type Messages = {
 
 const en: Messages = {
   nav: {
-    clone: 'Clone',
+    clone: 'Mirror',
     products: 'Products',
     adLibrary: 'Ad Library',
     history: 'History',
@@ -28,7 +28,7 @@ const en: Messages = {
   onboarding: {
     title: 'Welcome to admirror',
     subtitle:
-      'Upload your first product so we can match packaging, copy, and branding when you clone winning static ads.',
+      'Upload your first product so we can match packaging, copy, and branding when you mirror winning static ads.',
     optional: 'Optional — you can skip and add a product later from the Products tab.',
     uploadProduct: 'Upload your first product',
     skip: 'Skip for now',
@@ -55,7 +55,7 @@ const en: Messages = {
     adsBrand: 'Ads · brand',
     noAds: 'No ads match this filter yet.',
     loadMore: 'Load more',
-    clone: 'Clone',
+    clone: 'Mirror',
     impressions: 'impressions',
     categoryLabel: 'Category',
   },

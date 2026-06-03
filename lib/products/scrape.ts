@@ -132,7 +132,7 @@ export async function scrapeProductPage(url: string): Promise<ProductPageScrapeR
   }));
 
   const pricingText = [summary, markdownForPrompt ?? markdown].filter(Boolean).join('\n');
-  const extractedPricing = extractPricingFromText(pricingText);
+  const extractedPricing = extractPricingFromText(pricingText, { productUrl: url });
 
   return {
     summary,

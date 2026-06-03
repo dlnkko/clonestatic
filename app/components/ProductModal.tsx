@@ -2,6 +2,13 @@
 
 import { useState } from 'react';
 import type { ExtractedPricing, ProductImage, ProductRecord } from '@/lib/products/types';
+import { BrandColorPicker } from '@/app/components/products/BrandColorPicker';
+import { ImageUploadSlots } from '@/app/components/products/ImageUploadSlots';
+import {
+  formatProductPrice,
+  normalizeProductCurrency,
+  PRODUCT_CURRENCIES,
+} from '@/lib/products/currencies';
 
 type Mode = 'url' | 'manual';
 type UrlStep = 'input' | 'review';
@@ -45,24 +52,15 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
 
   if (!open) return null;
 
-  const currencyCodes: string[] =
-    typeof Intl !== 'undefined' && 'supportedValuesOf' in Intl
-      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ((Intl as any).supportedValuesOf('currency') as string[])
-      : ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'MXN', 'BRL', 'JPY', 'KRW', 'CNY', 'INR'];
-
-  const normalizeHex = (value: string): string | null => {
-    const v = value.trim();
-    if (!v) return null;
-    const raw = v.startsWith('#') ? v : `#${v}`;
-    if (!/^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(raw)) return null;
-    return raw.toUpperCase();
-  };
-
   const parsePalette = (value: string): string[] => {
     const tokens = value
       .split(/[\s,;|]+/)
-      .map((t) => normalizeHex(t))
+      .map((t) => {
+        const v = t.trim();
+        if (!v) return null;
+        const raw = v.startsWith('#') ? v : `#${v}`;
+        return /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(raw) ? raw.toUpperCase() : null;
+      })
       .filter(Boolean) as string[];
     const uniq: string[] = [];
     for (const c of tokens) {
@@ -70,20 +68,6 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
       if (uniq.length >= 8) break;
     }
     return uniq;
-  };
-
-  const formatPrice = (amt: string, currency: string): string => {
-    const n = Number(amt);
-    if (!Number.isFinite(n) || n <= 0) return '';
-    try {
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency,
-        maximumFractionDigits: 2,
-      }).format(n);
-    } catch {
-      return `${n} ${currency}`;
-    }
   };
 
   const readFileAsDataUrl = (file: File) =>
@@ -94,19 +78,32 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
       r.readAsDataURL(file);
     });
 
-  const handleLogos = (files: FileList | null) => {
-    const list = files ? Array.from(files).slice(0, 2) : [];
-    setLogoFiles(list);
-    logoPreviews.forEach((u) => URL.revokeObjectURL(u));
-    setLogoPreviews(list.map((f) => URL.createObjectURL(f)));
+  const appendLogos = (incoming: File[]) => {
+    const room = 2 - logoFiles.length;
+    if (room <= 0) return;
+    const next = incoming.slice(0, room);
+    setLogoFiles((prev) => [...prev, ...next]);
+    setLogoPreviews((prev) => [...prev, ...next.map((f) => URL.createObjectURL(f))]);
   };
 
-  const handleImages = (files: FileList | null) => {
-    if (!files) return;
-    const list = Array.from(files).slice(0, 10);
-    setImageFiles(list);
-    imagePreviews.forEach((u) => URL.revokeObjectURL(u));
-    setImagePreviews(list.map((f) => URL.createObjectURL(f)));
+  const removeLogo = (index: number) => {
+    URL.revokeObjectURL(logoPreviews[index]);
+    setLogoFiles((prev) => prev.filter((_, i) => i !== index));
+    setLogoPreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const appendImages = (incoming: File[]) => {
+    const room = 10 - imageFiles.length;
+    if (room <= 0) return;
+    const next = incoming.slice(0, room);
+    setImageFiles((prev) => [...prev, ...next]);
+    setImagePreviews((prev) => [...prev, ...next.map((f) => URL.createObjectURL(f))]);
+  };
+
+  const removeImage = (index: number) => {
+    URL.revokeObjectURL(imagePreviews[index]);
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const resetForm = () => {
@@ -126,6 +123,13 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     setImageFiles([]);
     imagePreviews.forEach((u) => URL.revokeObjectURL(u));
     setImagePreviews([]);
+  };
+
+  const applyScrapedPrice = (p: ScrapePreview) => {
+    const detectedCurrency = normalizeProductCurrency(p.extractedPricing?.currency);
+    setPriceCurrency(detectedCurrency);
+    const display = p.priceDisplay || p.extractedPricing?.salePrice || p.extractedPricing?.regularPrice || '';
+    setPriceAmount(display.replace(/[^\d.,]/g, '').replace(/,/g, '.').trim());
   };
 
   const handleScrapePreview = async () => {
@@ -150,14 +154,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
       setDescription(p.description);
       setTargetAudience(p.targetAudience);
       setPaletteColors(parsePalette(p.colorPalette));
-      const detectedCurrency = p.extractedPricing?.currency?.toUpperCase?.() || 'USD';
-      setPriceCurrency(currencyCodes.includes(detectedCurrency) ? detectedCurrency : 'USD');
-      setPriceAmount(
-        (p.priceDisplay || '')
-          .replace(/[^\d.,]/g, '')
-          .replace(',', '.')
-          .trim()
-      );
+      applyScrapedPrice(p);
       setUrlStep('review');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Scrape failed');
@@ -173,7 +170,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     try {
       const logoBase64List =
         logoFiles.length > 0 ? await Promise.all(logoFiles.map(readFileAsDataUrl)) : undefined;
-      const priceDisplay = formatPrice(priceAmount, priceCurrency);
+      const priceDisplay = formatProductPrice(priceAmount, priceCurrency);
       const res = await fetch('/api/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -218,7 +215,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
       const imageBase64List = await Promise.all(imageFiles.map(readFileAsDataUrl));
       const logoBase64List =
         logoFiles.length > 0 ? await Promise.all(logoFiles.map(readFileAsDataUrl)) : undefined;
-      const priceDisplay = formatPrice(priceAmount, priceCurrency) || undefined;
+      const priceDisplay = formatProductPrice(priceAmount, priceCurrency) || undefined;
 
       const res = await fetch('/api/products', {
         method: 'POST',
@@ -247,78 +244,6 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     }
   };
 
-  const palettePicker = (
-    <div>
-      <div className="flex items-center justify-between gap-3">
-        <label className="block text-xs font-medium text-slate-600">Brand colors</label>
-        <button
-          type="button"
-          onClick={() => setPaletteColors([])}
-          className="text-[11px] font-medium text-slate-500 hover:text-slate-800"
-        >
-          Clear
-        </button>
-      </div>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        {paletteColors.map((c) => (
-          <button
-            key={c}
-            type="button"
-            onClick={() => setPaletteColors((prev) => prev.filter((x) => x !== c))}
-            className="group flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:border-slate-300"
-            title="Remove color"
-          >
-            <span className="h-4 w-4 rounded-full ring-1 ring-slate-200" style={{ background: c }} />
-            <span>{c}</span>
-            <span className="text-slate-400 group-hover:text-slate-600">✕</span>
-          </button>
-        ))}
-        {paletteColors.length === 0 && (
-          <span className="text-xs text-slate-500">Add 1–8 brand colors (hex).</span>
-        )}
-      </div>
-      <div className="mt-2 flex items-center gap-2">
-        <input
-          type="color"
-          aria-label="Pick color"
-          onChange={(e) => {
-            const c = normalizeHex(e.target.value);
-            if (!c) return;
-            setPaletteColors((prev) => (prev.includes(c) || prev.length >= 8 ? prev : [...prev, c]));
-          }}
-          className="h-9 w-10 rounded-lg border border-slate-200 bg-white p-1"
-        />
-        <input
-          type="text"
-          placeholder="#1F2937"
-          className="dash-input flex-1"
-          onKeyDown={(e) => {
-            if (e.key !== 'Enter') return;
-            const v = (e.target as HTMLInputElement).value;
-            const c = normalizeHex(v);
-            if (!c) return;
-            setPaletteColors((prev) => (prev.includes(c) || prev.length >= 8 ? prev : [...prev, c]));
-            (e.target as HTMLInputElement).value = '';
-          }}
-        />
-        <button
-          type="button"
-          onClick={() => {
-            const input = document.activeElement?.tagName === 'INPUT' ? (document.activeElement as HTMLInputElement) : null;
-            const v = input?.value ?? '';
-            const c = normalizeHex(v);
-            if (!c) return;
-            setPaletteColors((prev) => (prev.includes(c) || prev.length >= 8 ? prev : [...prev, c]));
-            if (input) input.value = '';
-          }}
-          className="dash-btn dash-btn-secondary"
-        >
-          Add
-        </button>
-      </div>
-    </div>
-  );
-
   const priceFields = (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
       <div className="sm:col-span-2">
@@ -333,37 +258,62 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
       </div>
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-600">Currency</label>
-        <input
-          list="currency-codes"
+        <select
           value={priceCurrency}
-          onChange={(e) => setPriceCurrency(e.target.value.toUpperCase())}
-          className="dash-input"
-          placeholder="USD"
-        />
-        <datalist id="currency-codes">
-          {currencyCodes.map((c) => (
-            <option key={c} value={c} />
+          onChange={(e) => setPriceCurrency(e.target.value)}
+          className="dash-select w-full text-sm"
+        >
+          {PRODUCT_CURRENCIES.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.symbol} {c.code} — {c.label}
+            </option>
           ))}
-        </datalist>
+        </select>
       </div>
-      <p className="sm:col-span-3 text-[11px] text-slate-500">
-        This price is optional and never copied from reference ads. Leave empty to hide all prices in generated ads.
-        {priceAmount && (
+      <p className="sm:col-span-3 text-[11px] leading-relaxed text-slate-500">
+        Optional. Never copied from reference ads — leave empty to hide prices in generated ads.
+        {priceAmount ? (
           <>
             {' '}
-            Preview: <span className="font-medium text-slate-700">{formatPrice(priceAmount, priceCurrency) || '—'}</span>
+            Preview:{' '}
+            <span className="font-medium text-slate-700">
+              {formatProductPrice(priceAmount, priceCurrency) || '—'}
+            </span>
           </>
-        )}
+        ) : null}
       </p>
     </div>
   );
 
+  const logoUpload = (
+    <ImageUploadSlots
+      label="Logo images (optional, up to 2)"
+      hint="PNG or SVG with transparent background works best."
+      max={2}
+      previews={logoPreviews}
+      onChange={appendLogos}
+      onRemove={removeLogo}
+      objectFit="contain"
+    />
+  );
+
+  const productImageUpload = (
+    <ImageUploadSlots
+      label="Product images (1–10)"
+      hint="Upload packaging, product shots, lifestyle photos, and trust badges."
+      max={10}
+      previews={imagePreviews}
+      onChange={appendImages}
+      onRemove={removeImage}
+    />
+  );
+
   const reviewFields = (
-    <div className="space-y-4 max-h-[55vh] overflow-y-auto pr-1">
-      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-        Review and tweak the essentials. We don’t show or store page markdown.
+    <div className="product-modal-scroll space-y-5 max-h-[58vh] overflow-y-auto pr-1">
+      <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-4 py-3 text-xs leading-relaxed text-indigo-900">
+        Review scraped data before saving. Page markdown is not stored.
       </div>
-      <div className="space-y-3">
+      <div className="product-modal-section space-y-4">
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-600">Product name</label>
           <input value={name} onChange={(e) => setName(e.target.value)} className="dash-input" />
@@ -371,55 +321,69 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
         {priceFields}
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-600">Description</label>
-          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="dash-input" />
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} className="dash-input" />
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-600">Target audience</label>
           <input value={targetAudience} onChange={(e) => setTargetAudience(e.target.value)} className="dash-input" />
         </div>
-        {palettePicker}
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600">Logo images (optional, up to 2)</label>
-          <input type="file" accept="image/*" multiple onChange={(e) => handleLogos(e.target.files)} className="text-sm" />
-          {logoPreviews.length > 0 && (
-            <div className="mt-2 flex gap-2">
-              {logoPreviews.map((src, i) => (
-                <img key={i} src={src} alt="" className="h-16 w-16 rounded-lg object-contain ring-1 ring-slate-200 bg-white" />
-              ))}
-            </div>
-          )}
-        </div>
+        <BrandColorPicker colors={paletteColors} onChange={setPaletteColors} />
+        {logoUpload}
       </div>
       {preview && preview.images.length > 0 && (
-        <div>
+        <div className="product-modal-section">
           <p className="mb-2 text-xs font-medium text-slate-600">Images found on page</p>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
             {preview.images.slice(0, 10).map((img, i) => (
-              <img key={i} src={img.url} alt="" className="h-14 w-14 rounded-lg object-cover ring-1 ring-slate-200" />
+              <img key={i} src={img.url} alt="" className="aspect-square rounded-lg object-cover ring-1 ring-slate-200" />
             ))}
           </div>
-          <p className="mt-2 text-[10px] text-slate-500">Up to 10 images will be stored.</p>
+          <p className="mt-2 text-[10px] text-slate-500">Up to 10 images will be stored from the page.</p>
         </div>
       )}
+    </div>
+  );
+
+  const manualFields = (
+    <div className="product-modal-section space-y-5">
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-600">Product name</label>
+        <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="dash-input" />
+      </div>
+      {priceFields}
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-600">What is this product?</label>
+        <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="dash-input" />
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-600">Target audience</label>
+        <input type="text" value={targetAudience} onChange={(e) => setTargetAudience(e.target.value)} className="dash-input" />
+      </div>
+      <BrandColorPicker colors={paletteColors} onChange={setPaletteColors} />
+      {logoUpload}
+      {productImageUpload}
     </div>
   );
 
   return (
     <div className="dash-modal-root">
       <div className="dash-modal-backdrop" aria-hidden onClick={() => { resetForm(); onClose(); }} />
-      <div className="dash-modal dash-animate-scale max-h-[90vh] overflow-y-auto">
+      <div className="dash-modal dash-modal-wide dash-animate-scale max-h-[92vh] overflow-hidden flex flex-col">
         <div className="dash-modal-header">
-          <h2 className="text-lg font-semibold tracking-tight text-[var(--dash-fg)]">Add product</h2>
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight text-[var(--dash-fg)]">Add product</h2>
+            <p className="mt-0.5 text-xs text-[var(--dash-muted)]">Save branding, pricing, and images for mirroring ads.</p>
+          </div>
           <button type="button" onClick={() => { resetForm(); onClose(); }} className="dash-icon-btn" aria-label="Close">✕</button>
         </div>
-        <div className="dash-modal-body">
+        <div className="dash-modal-body flex-1 overflow-y-auto">
 
         {mode === 'url' && urlStep === 'review' ? (
           <>
-            <h3 className="text-sm font-medium text-slate-800 mb-2">Review scraped data</h3>
+            <h3 className="mb-3 text-sm font-semibold text-slate-800">Review scraped data</h3>
             {reviewFields}
             {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-            <div className="mt-4 flex gap-2">
+            <div className="mt-5 flex gap-2">
               <button type="button" onClick={() => setUrlStep('input')} className="dash-btn dash-btn-secondary">Back</button>
               <button type="button" onClick={handleSaveFromPreview} disabled={loading} className="dash-btn dash-btn-primary flex-1">
                 {loading ? 'Saving…' : 'Save product'}
@@ -428,61 +392,23 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
           </>
         ) : (
           <>
-            <div className="dash-segmented mb-4 w-full">
+            <div className="dash-segmented mb-5 w-full">
               <button type="button" onClick={() => { setMode('url'); setUrlStep('input'); }} className={`dash-segmented-item flex-1 ${mode === 'url' ? 'dash-segmented-item-active' : ''}`}>From URL</button>
               <button type="button" onClick={() => setMode('manual')} className={`dash-segmented-item flex-1 ${mode === 'manual' ? 'dash-segmented-item-active' : ''}`}>Manual</button>
             </div>
 
             {mode === 'url' ? (
-              <div className="space-y-3">
-                <p className="text-xs text-slate-500">Paste product page URL. We scrape copy, branding, price, and images — you review before saving.</p>
+              <div className="product-modal-section space-y-3">
+                <p className="text-xs leading-relaxed text-slate-500">
+                  Paste a product page URL. We scrape copy, branding, price, currency, and images — you review before saving.
+                </p>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-slate-600">Product page URL</label>
                   <input type="url" value={productUrl} onChange={(e) => setProductUrl(e.target.value)} placeholder="https://..." className="dash-input" />
                 </div>
               </div>
             ) : (
-              <div className="space-y-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600">Product name</label>
-                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="dash-input" />
-                </div>
-                {priceFields}
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600">What is this product?</label>
-                  <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className="dash-input" />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600">Target audience</label>
-                  <input type="text" value={targetAudience} onChange={(e) => setTargetAudience(e.target.value)} className="dash-input" />
-                </div>
-                {palettePicker}
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600">Logo images (optional, up to 2)</label>
-                  <input type="file" accept="image/*" multiple onChange={(e) => handleLogos(e.target.files)} className="text-sm" />
-                  {logoPreviews.length > 0 && (
-                    <div className="mt-2 flex gap-2">
-                      {logoPreviews.map((src, i) => (
-                        <img key={i} src={src} alt="" className="h-16 w-16 rounded-lg object-contain ring-1 ring-slate-200 bg-white" />
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600">Product images (1–10)</label>
-                  <input type="file" accept="image/*" multiple onChange={(e) => handleImages(e.target.files)} className="text-sm" />
-                  {imagePreviews.length > 0 && (
-                    <div className="mt-2 flex gap-2">
-                      {imagePreviews.map((src, i) => (
-                        <img key={i} src={src} alt="" className="h-16 w-16 rounded-lg object-cover" />
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <p className="text-[11px] text-slate-500">
-                  Tip: upload packaging, product shots, lifestyle, and trust badges. We’ll auto-classify what’s most useful for cloning.
-                </p>
-              </div>
+              manualFields
             )}
 
             {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
@@ -491,7 +417,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
               type="button"
               onClick={mode === 'url' ? handleScrapePreview : handleSubmitManual}
               disabled={loading}
-              className="dash-btn dash-btn-primary mt-4 w-full"
+              className="dash-btn dash-btn-primary mt-5 w-full"
             >
               {loading ? (mode === 'url' ? 'Scraping…' : 'Saving…') : mode === 'url' ? 'Scrape & review' : 'Save product'}
             </button>

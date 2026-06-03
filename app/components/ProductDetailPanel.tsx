@@ -1,8 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ProductRecord, ProductScrapeCache } from '@/lib/products/types';
 import { useI18n } from '@/lib/i18n/LocaleProvider';
+import { BrandColorPicker } from '@/app/components/products/BrandColorPicker';
+import {
+  formatProductPrice,
+  normalizeProductCurrency,
+  PRODUCT_CURRENCIES,
+} from '@/lib/products/currencies';
 
 type Props = {
   product: ProductRecord | null;
@@ -10,20 +16,6 @@ type Props = {
   onSaved: (product: ProductRecord) => void;
   onDeleted?: (id: string) => void;
 };
-
-function parseHexColors(input: string): string[] {
-  const matches = input.match(/#(?:[0-9a-fA-F]{3}){1,2}\b/g);
-  if (!matches) return [];
-  return [...new Set(matches.map((h) => h.toLowerCase()))].slice(0, 12);
-}
-
-function normalizeHex(hex: string): string {
-  const h = hex.replace('#', '');
-  if (h.length === 3) {
-    return `#${h[0]}${h[0]}${h[1]}${h[1]}${h[2]}${h[2]}`.toLowerCase();
-  }
-  return `#${h.slice(0, 6)}`.toLowerCase();
-}
 
 export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Props) {
   const { t } = useI18n();
@@ -36,34 +28,14 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const currencyCodes: string[] =
-    typeof Intl !== 'undefined' && 'supportedValuesOf' in Intl
-      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ((Intl as any).supportedValuesOf('currency') as string[])
-      : ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'MXN', 'BRL', 'JPY', 'KRW', 'CNY', 'INR'];
-
-  const formatPrice = (amt: string, currency: string): string => {
-    const n = Number(amt);
-    if (!Number.isFinite(n) || n <= 0) return '';
-    try {
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency,
-        maximumFractionDigits: 2,
-      }).format(n);
-    } catch {
-      return `${n} ${currency}`;
-    }
-  };
-
   useEffect(() => {
     if (!product) return;
     setName(product.name);
     setDescription(product.description ?? '');
     setTargetAudience(product.target_audience ?? '');
     setPaletteColors((product.color_palette?.colors ?? []).map((c) => c.toUpperCase()).slice(0, 8));
-    const detectedCurrency = product.scrape_cache?.extractedPricing?.currency?.toUpperCase?.() || 'USD';
-    setPriceCurrency(currencyCodes.includes(detectedCurrency) ? detectedCurrency : 'USD');
+    const detectedCurrency = normalizeProductCurrency(product.scrape_cache?.extractedPricing?.currency);
+    setPriceCurrency(detectedCurrency);
     const raw =
       product.scrape_cache?.priceDisplay ??
       product.scrape_cache?.extractedPricing?.salePrice ??
@@ -73,20 +45,13 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
     setError(null);
   }, [product]);
 
-  const swatches = useMemo(() => {
-    const fromProduct = product?.color_palette?.colors ?? [];
-    const fromInput = paletteColors;
-    const merged = [...fromProduct, ...fromInput].map(normalizeHex);
-    return [...new Set(merged)].slice(0, 12);
-  }, [product, paletteColors]);
-
   if (!product) return null;
 
   const handleSave = async () => {
     setSaving(true);
     setError(null);
     try {
-      const priceDisplay = formatPrice(priceAmount, priceCurrency) || null;
+      const priceDisplay = formatProductPrice(priceAmount, priceCurrency) || null;
       const scrape_cache: ProductScrapeCache | null = product.scrape_cache
         ? {
             ...product.scrape_cache,
@@ -189,77 +154,7 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
               />
             </div>
 
-            <div>
-              <label className="dash-label mb-2">{t('products', 'palette')}</label>
-              {swatches.length > 0 ? (
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {swatches.map((hex) => (
-                    <span
-                      key={hex}
-                      title={hex}
-                      className="h-10 w-10 rounded-xl ring-1 ring-black/10 shadow-sm"
-                      style={{ backgroundColor: hex }}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <p className="mb-2 text-xs text-slate-400">#574CD5, #FF4500, …</p>
-              )}
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                {paletteColors.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setPaletteColors((prev) => prev.filter((x) => x !== c))}
-                    className="group flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:border-slate-300"
-                    title="Remove color"
-                  >
-                    <span className="h-4 w-4 rounded-full ring-1 ring-slate-200" style={{ background: c }} />
-                    <span>{c}</span>
-                    <span className="text-slate-400 group-hover:text-slate-600">✕</span>
-                  </button>
-                ))}
-              </div>
-              <div className="mt-2 flex items-center gap-2">
-                <input
-                  type="color"
-                  aria-label="Pick color"
-                  onChange={(e) => {
-                    const c = e.target.value.toUpperCase();
-                    if (!c) return;
-                    setPaletteColors((prev) => (prev.includes(c) || prev.length >= 8 ? prev : [...prev, c]));
-                  }}
-                  className="h-9 w-10 rounded-lg border border-slate-200 bg-white p-1"
-                />
-                <input
-                  type="text"
-                  placeholder="#1F2937"
-                  className="dash-input flex-1"
-                  onKeyDown={(e) => {
-                    if (e.key !== 'Enter') return;
-                    const v = (e.target as HTMLInputElement).value;
-                    const matches = parseHexColors(v);
-                    if (!matches.length) return;
-                    setPaletteColors((prev) => {
-                      const next = [...prev];
-                      for (const h of matches) {
-                        const c = h.toUpperCase();
-                        if (!next.includes(c) && next.length < 8) next.push(c);
-                      }
-                      return next;
-                    });
-                    (e.target as HTMLInputElement).value = '';
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setPaletteColors((prev) => prev.slice(0, Math.max(0, prev.length - 1)))}
-                  className="dash-btn dash-btn-secondary"
-                >
-                  Undo
-                </button>
-              </div>
-            </div>
+            <BrandColorPicker colors={paletteColors} onChange={setPaletteColors} />
 
             <div>
               <label className="dash-label mb-1.5">{t('products', 'price')}</label>
@@ -274,18 +169,17 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
                   />
                 </div>
                 <div>
-                  <input
-                    list="currency-codes-edit"
+                  <select
                     value={priceCurrency}
-                    onChange={(e) => setPriceCurrency(e.target.value.toUpperCase())}
-                    className="dash-input"
-                    placeholder="USD"
-                  />
-                  <datalist id="currency-codes-edit">
-                    {currencyCodes.map((c) => (
-                      <option key={c} value={c} />
+                    onChange={(e) => setPriceCurrency(e.target.value)}
+                    className="dash-select w-full text-sm"
+                  >
+                    {PRODUCT_CURRENCIES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.symbol} {c.code}
+                      </option>
                     ))}
-                  </datalist>
+                  </select>
                 </div>
                 <p className="sm:col-span-3 text-[11px] text-slate-500">
                   {t('products', 'priceHint')}{' '}
@@ -293,7 +187,7 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
                     <>
                       Preview:{' '}
                       <span className="font-medium text-slate-700">
-                        {formatPrice(priceAmount, priceCurrency) || '—'}
+                        {formatProductPrice(priceAmount, priceCurrency) || '—'}
                       </span>
                     </>
                   ) : null}
@@ -306,6 +200,9 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
                   product.scrape_cache.extractedPricing.salePrice !==
                     product.scrape_cache.extractedPricing.regularPrice
                     ? ` (${product.scrape_cache.extractedPricing.salePrice})`
+                    : ''}
+                  {product.scrape_cache.extractedPricing.currency
+                    ? ` · ${product.scrape_cache.extractedPricing.currency}`
                     : ''}
                 </p>
               )}

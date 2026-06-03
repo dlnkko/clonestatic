@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { extractPricingFromText } from '@/lib/products/extract-pricing';
 import { scrapeProductPage } from '@/lib/products/scrape';
 import { checkRateLimit } from '@/lib/rate-limit';
 
@@ -29,9 +28,7 @@ export async function POST(request: NextRequest) {
     }
 
     const scraped = await scrapeProductPage(productUrl.trim());
-    // Keep preview lean: no page markdown/body dump in UI.
-    const pricingText = [scraped.summary].filter(Boolean).join('\n');
-    const extractedPricing = extractPricingFromText(pricingText);
+    const extractedPricing = scraped.extractedPricing;
 
     const productName =
       (scraped.metadata?.title as string) ||

@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Owner account cannot cancel via API' }, { status: 400 });
   }
 
-  let body: { mode?: string } = {};
+  let body: { mode?: string; reason?: string } = {};
   try {
     body = await request.json();
   } catch {
@@ -30,6 +30,13 @@ export async function POST(request: NextRequest) {
   }
 
   const mode = body.mode === 'immediate' ? 'immediate' : 'at_period_end';
+  const reason = typeof body.reason === 'string' ? body.reason.trim().slice(0, 1000) : '';
+  if (reason.length < 5) {
+    return NextResponse.json(
+      { ok: false, error: 'Please tell us why you are cancelling (at least 5 characters).' },
+      { status: 400 }
+    );
+  }
 
   try {
     const admin = createAdminClient();
@@ -76,10 +83,13 @@ export async function POST(request: NextRequest) {
         .from('subscriptions')
         .update({
           cancel_at_period_end: true,
+          cancel_reason: reason,
           updated_at: new Date().toISOString(),
         })
         .eq('email', email);
     }
+
+    console.info('Subscription cancel requested:', { email, mode, reasonLength: reason.length });
 
     return NextResponse.json({
       ok: true,

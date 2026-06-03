@@ -1668,14 +1668,30 @@ function StaticAdAppPage() {
         <>
           {/* Clone section header */}
           <header className="dash-animate-in mb-8 max-w-2xl">
-            <h1 className="dash-title">Clone any static ad with your product</h1>
+            <h1 className="dash-title">Mirror any static ad with your product</h1>
             <div className="dash-title-accent" aria-hidden />
             <p className="dash-subtitle mt-3">Upload a reference ad and pick a saved product (or upload a one-off image).</p>
             {hasSupabase && products.length === 0 && !productsLoading && (
-              <div className="dash-alert dash-alert-info mt-4">
-                <strong>Start here:</strong> add a product in{' '}
-                <button type="button" className="font-semibold text-indigo-600 underline" onClick={() => setActiveTab('products')}>Products</button>
-                {' '}so we can match packaging, product shots, and branding when cloning ads.
+              <div className="dash-onboarding-tip mt-5">
+                <div className="dash-onboarding-tip-icon" aria-hidden>
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+                  </svg>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-indigo-950">Start here</p>
+                  <p className="mt-1 text-sm leading-relaxed text-indigo-900/85">
+                    Add a product in{' '}
+                    <button
+                      type="button"
+                      className="font-semibold text-indigo-600 underline decoration-indigo-300 underline-offset-2 hover:text-indigo-800"
+                      onClick={() => setActiveTab('products')}
+                    >
+                      Products
+                    </button>
+                    {' '}first — we use your packaging, shots, and brand colors when mirroring ads.
+                  </p>
+                </div>
               </div>
             )}
           </header>
