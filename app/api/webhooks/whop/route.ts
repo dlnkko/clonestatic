@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { enrichWhopPayloadFromApi } from '@/lib/whop';
-import {
-  normalizeWhopEvent,
-  upsertWhopSubscription,
-} from '@/lib/whop-subscription';
-import { verifyAndParseWhopWebhook } from '@/lib/whop-webhook-verify';
+import { normalizeWhopEvent, upsertWhopSubscription } from '@/lib/whop-subscription';
+import { unwrapWhopWebhook } from '@/lib/whop-sdk';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -17,12 +14,14 @@ export async function POST(request: NextRequest) {
   }
 
   const rawBody = await request.text();
-  const verified = verifyAndParseWhopWebhook(rawBody, request.headers);
-  if (!verified.ok) {
+
+  let body: Record<string, unknown>;
+  try {
+    body = unwrapWhopWebhook(rawBody, request.headers);
+  } catch {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
   }
 
-  const body = verified.body;
   const event = normalizeWhopEvent(body);
   const parsed = await enrichWhopPayloadFromApi(body);
   const email = parsed?.email ?? null;
