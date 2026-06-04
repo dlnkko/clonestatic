@@ -122,6 +122,8 @@ export async function POST(request: NextRequest) {
       copyLanguage,
       productId: productIdParam,
       internalUserId,
+      productCatalogImages: productCatalogImagesParam,
+      productDisplayName,
     } = body;
     const guidelinesTrimmed = typeof guidelines === 'string' ? guidelines.trim() : '';
     const resolvedCopyLang = resolveCopyLanguage(copyLanguage);
@@ -130,13 +132,19 @@ export async function POST(request: NextRequest) {
         ? productIdParam.trim()
         : null;
 
-    if (
-      typeof internalUserId === 'string' &&
-      internalUserId.trim() &&
-      !internalJob
-    ) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
+    const preloadedCatalogImages: ProductImage[] = Array.isArray(productCatalogImagesParam)
+      ? productCatalogImagesParam.filter(
+          (item): item is ProductImage =>
+            !!item &&
+            typeof item === 'object' &&
+            typeof (item as ProductImage).url === 'string' &&
+            (item as ProductImage).url.startsWith('http')
+        )
+      : [];
+    const preloadedProductName =
+      typeof productDisplayName === 'string' && productDisplayName.trim()
+        ? productDisplayName.trim()
+        : null;
 
     let savedProduct: ProductRecord | null = null;
     if (productId) {
@@ -273,7 +281,9 @@ export async function POST(request: NextRequest) {
     if (!staticAdImageResolved) {
       return NextResponse.json({ error: 'Reference static ad image is required' }, { status: 400 });
     }
-    if (!savedProduct && !productImageResolved) {
+    const hasCatalogImages =
+      (savedProduct?.images?.length ?? 0) > 0 || preloadedCatalogImages.length > 0;
+    if (!savedProduct && !productImageResolved && !hasCatalogImages) {
       return NextResponse.json(
         { error: 'Select a saved product or upload a product image' },
         { status: 400 }
@@ -288,7 +298,10 @@ export async function POST(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let staticAdFile: any;
     let productFiles: { uri: string; mimeType?: string }[] = [];
-    let catalogImages: ProductImage[] = savedProduct?.images ?? [];
+    let catalogImages: ProductImage[] =
+      savedProduct?.images ?? preloadedCatalogImages;
+    const resolvedProductName =
+      savedProduct?.name ?? preloadedProductName ?? 'Product';
 
     try {
       const staticAdUint8Array = new Uint8Array(staticAdBuffer);
@@ -639,7 +652,7 @@ export async function POST(request: NextRequest) {
           ai,
           identified.elements,
           catalogImages,
-          savedProduct?.name || 'Product'
+          resolvedProductName
         );
         if (matched.usage) productMatchingUsages.push(matched.usage);
 

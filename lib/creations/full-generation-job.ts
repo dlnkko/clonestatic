@@ -1,7 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AdVisualMode } from '@/lib/ad-visual-mode';
-import { internalJobHeaders } from '@/lib/internal-job';
+import { internalJobHeaders, internalJobSecret } from '@/lib/internal-job';
 import { runAdImageGenerationJob } from '@/lib/creations/generate-job';
+import { productCopywritingPayload, rowToProduct } from '@/lib/products/db';
+import type { ProductImage } from '@/lib/products/types';
 import { getAppOrigin } from '@/lib/supabase/auth-config';
 
 export type FullAdGenerationParams = {
@@ -87,6 +89,11 @@ async function generatePrompt(
   | { error: string }
 > {
   try {
+    const payload = { ...body };
+    if (internalJobSecret()) {
+      payload.internalUserId = userId;
+    }
+
     const res = await fetch(`${getAppOrigin()}/api/generate-static-ad-prompt`, {
       method: 'POST',
       headers: {
@@ -94,7 +101,7 @@ async function generatePrompt(
         Cookie: cookieHeader,
         ...internalJobHeaders(),
       },
-      body: JSON.stringify({ ...body, internalUserId: userId }),
+      body: JSON.stringify(payload),
     });
     const data = (await res.json()) as {
       prompt?: string;
@@ -137,6 +144,8 @@ export async function runFullAdGenerationJob(params: FullAdGenerationParams): Pr
   try {
     let copywritingResolved = copywriting ?? null;
     let isUrlScraped = false;
+    let productCatalogImages: ProductImage[] | undefined;
+    let productDisplayName: string | undefined;
 
     if (copywritingUrl?.trim()) {
       const scraped = await scrapeCopywritingUrl(cookieHeader, copywritingUrl);
@@ -147,6 +156,23 @@ export async function runFullAdGenerationJob(params: FullAdGenerationParams): Pr
       isUrlScraped = true;
     }
 
+    if (productId) {
+      const { data: row, error: prodErr } = await admin
+        .from('products')
+        .select('*')
+        .eq('id', productId)
+        .eq('user_id', userId)
+        .single();
+      if (prodErr || !row) {
+        throw new Error('Product not found');
+      }
+      const savedProduct = rowToProduct(row as Record<string, unknown>);
+      copywritingResolved = productCopywritingPayload(savedProduct);
+      isUrlScraped = savedProduct.source === 'url' && !!savedProduct.scrape_cache;
+      productCatalogImages = savedProduct.images;
+      productDisplayName = savedProduct.name;
+    }
+
     const promptBody: Record<string, unknown> = {
       referenceImageUrl,
       copywriting: copywritingResolved,
@@ -154,8 +180,9 @@ export async function runFullAdGenerationJob(params: FullAdGenerationParams): Pr
       guidelines: guidelines ?? null,
       copyLanguage,
     };
-    if (productId) {
-      promptBody.productId = productId;
+    if (productCatalogImages?.length) {
+      promptBody.productCatalogImages = productCatalogImages;
+      promptBody.productDisplayName = productDisplayName ?? 'Product';
     } else if (productImageUrl) {
       promptBody.productImageUrl = productImageUrl;
     }
