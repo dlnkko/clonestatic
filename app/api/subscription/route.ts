@@ -65,10 +65,10 @@ export async function GET(request: NextRequest) {
     let { data, error } = await loadSubscriptionRow(admin, email);
 
     if (error || !data || !isPaidPlan(data.plan)) {
-      const syncAttempts = pendingCheckout ? 5 : 2;
+      const syncAttempts = pendingCheckout ? 3 : 1;
       const syncResult = await syncWhopSubscriptionForEmailWithRetries(email, {
         maxAttempts: syncAttempts,
-        delayMs: 2000,
+        delayMs: 1500,
       });
 
       if (syncResult.ok) {

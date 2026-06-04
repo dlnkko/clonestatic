@@ -1,12 +1,22 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { syncWhopSubscriptionForEmailWithRetries } from '@/lib/whop';
+import {
+  activateWhopSubscriptionFromPaymentId,
+  syncWhopSubscriptionForEmail,
+} from '@/lib/whop';
 import { clearPendingWhopCheckoutCookie } from '@/lib/pending-checkout';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
+
+function readPaymentId(body: unknown): string | null {
+  if (!body || typeof body !== 'object') return null;
+  const paymentId = (body as Record<string, unknown>).payment_id;
+  return typeof paymentId === 'string' && paymentId.startsWith('pay_') ? paymentId : null;
+}
 
 /** Fallback: activate subscription from Whop API when webhook is slow or failed. */
-export async function POST() {
+export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -17,13 +27,21 @@ export async function POST() {
   }
 
   const email = user.email.trim().toLowerCase();
-  const result = await syncWhopSubscriptionForEmailWithRetries(email, {
-    maxAttempts: 5,
-    delayMs: 2000,
-  });
+
+  let paymentId: string | null = null;
+  try {
+    const body = await request.json();
+    paymentId = readPaymentId(body);
+  } catch {
+    /* no body — email-only sync */
+  }
+
+  const result = paymentId
+    ? await activateWhopSubscriptionFromPaymentId(paymentId, email)
+    : await syncWhopSubscriptionForEmail(email);
 
   if (!result.ok) {
-    console.error('POST /api/subscription/sync:', result.error, 'email=', email);
+    console.error('POST /api/subscription/sync:', result.error, 'email=', email, 'payment=', paymentId);
     return NextResponse.json({ ok: false, error: result.error }, { status: 404 });
   }
 

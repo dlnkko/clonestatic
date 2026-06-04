@@ -158,6 +158,68 @@ async function upsertFromWhopData(input: WhopSubscriptionInput) {
   return upsertWhopSubscription(supabase, input, { grantFreshCredits: true });
 }
 
+function inputFromWhopPayment(
+  sessionEmail: string,
+  payment: {
+    plan?: { id?: string | null } | null;
+    membership?: { id?: string | null } | null;
+    user?: { id?: string | null; email?: string | null } | null;
+    status?: unknown;
+  },
+  options?: { skipStatusCheck?: boolean }
+): WhopSubscriptionInput | null {
+  if (!options?.skipStatusCheck && !isSuccessfulPaymentStatus(payment.status)) return null;
+
+  const planId = payment.plan?.id;
+  if (!planId) return null;
+
+  const payEmail = payment.user?.email?.trim().toLowerCase();
+  const normalizedSession = sessionEmail.trim().toLowerCase();
+  if (payEmail && payEmail !== normalizedSession) {
+    console.warn('Whop payment email mismatch:', payEmail, 'session=', normalizedSession);
+  }
+
+  return {
+    email: normalizedSession,
+    planId,
+    membershipId: payment.membership?.id ?? null,
+    memberId: payment.user?.id ?? null,
+    renewalPeriodEnd: null,
+    cancelAtPeriodEnd: false,
+  };
+}
+
+/** Activate subscription directly from a Whop payment id (post-checkout redirect). */
+export async function activateWhopSubscriptionFromPaymentId(
+  paymentId: string,
+  sessionEmail: string
+): Promise<WhopSyncResult> {
+  const client = getWhopClientOrNull();
+  if (!client) {
+    return { ok: false, error: 'WHOP_API_KEY not configured' };
+  }
+
+  const normalizedId = paymentId.trim();
+  if (!normalizedId.startsWith('pay_')) {
+    return { ok: false, error: 'Invalid payment id' };
+  }
+
+  try {
+    const payment = await client.payments.retrieve(normalizedId);
+    const input = inputFromWhopPayment(sessionEmail, payment, { skipStatusCheck: true });
+    if (!input) {
+      return { ok: false, error: 'Payment not successful or missing plan' };
+    }
+
+    const { row, error } = await upsertFromWhopData(input);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, plan: row.plan, credits: row.credits_remaining };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Whop payment retrieve failed';
+    return { ok: false, error: message };
+  }
+}
+
 async function listMembershipsForEmail(
   normalizedEmail: string,
   companyId: string,

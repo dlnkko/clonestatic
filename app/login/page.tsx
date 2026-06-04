@@ -21,12 +21,23 @@ function setAuthFlowCookies(next: string, plan: string) {
   }
 }
 
-async function activateWhopSubscriptionIfNeeded(): Promise<boolean> {
+async function activateWhopSubscriptionIfNeeded(nextPath: string): Promise<boolean> {
   let pending = false;
+  let paymentId: string | null = null;
   try {
     pending =
       sessionStorage.getItem('pending_whop_checkout') === '1' ||
       new URLSearchParams(window.location.search).get('from') === 'whop';
+    paymentId = sessionStorage.getItem('whop_payment_id');
+    if (!paymentId && nextPath.includes('payment_id=')) {
+      try {
+        const nextUrl = new URL(nextPath, window.location.origin);
+        paymentId =
+          nextUrl.searchParams.get('payment_id') ?? nextUrl.searchParams.get('receipt_id');
+      } catch {
+        /* ignore */
+      }
+    }
   } catch {
     /* ignore */
   }
@@ -38,15 +49,18 @@ async function activateWhopSubscriptionIfNeeded(): Promise<boolean> {
     /* ignore */
   }
 
-  for (let attempt = 0; attempt < 8; attempt += 1) {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
     try {
       const syncRes = await fetch('/api/subscription/sync', {
         method: 'POST',
         credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(paymentId?.startsWith('pay_') ? { payment_id: paymentId } : {}),
       });
       if (syncRes.ok) {
         try {
           sessionStorage.removeItem('pending_whop_checkout');
+          sessionStorage.removeItem('whop_payment_id');
         } catch {
           /* ignore */
         }
@@ -64,6 +78,7 @@ async function activateWhopSubscriptionIfNeeded(): Promise<boolean> {
         ) {
           try {
             sessionStorage.removeItem('pending_whop_checkout');
+            sessionStorage.removeItem('whop_payment_id');
           } catch {
             /* ignore */
           }
@@ -73,8 +88,8 @@ async function activateWhopSubscriptionIfNeeded(): Promise<boolean> {
     } catch {
       /* retry */
     }
-    if (attempt < 7) {
-      await new Promise((resolve) => setTimeout(resolve, 2500));
+    if (attempt < 3) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
     }
   }
 
@@ -95,7 +110,7 @@ function LoginContent() {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return;
 
-      await activateWhopSubscriptionIfNeeded();
+      await activateWhopSubscriptionIfNeeded(next || '/app');
 
       if (next === 'checkout' && plan) {
         window.location.replace(`/checkout-redirect?plan=${encodeURIComponent(plan)}`);

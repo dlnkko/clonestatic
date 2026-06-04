@@ -1137,12 +1137,24 @@ function StaticAdAppPage() {
         /* ignore */
       }
 
-      for (let attempt = 0; attempt < 10 && !cancelled; attempt += 1) {
+      let paymentId: string | null = null;
+      try {
+        paymentId = sessionStorage.getItem('whop_payment_id');
+      } catch {
+        /* ignore */
+      }
+
+      for (let attempt = 0; attempt < 5 && !cancelled; attempt += 1) {
         if (attempt > 0) {
-          await new Promise((resolve) => setTimeout(resolve, 2000));
+          await new Promise((resolve) => setTimeout(resolve, 1500));
         }
         try {
-          await fetch('/api/subscription/sync', { method: 'POST', credentials: 'include' });
+          await fetch('/api/subscription/sync', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(paymentId?.startsWith('pay_') ? { payment_id: paymentId } : {}),
+          });
         } catch {
           /* retry */
         }
@@ -1157,6 +1169,7 @@ function StaticAdAppPage() {
         ) {
           try {
             sessionStorage.removeItem('pending_whop_checkout');
+            sessionStorage.removeItem('whop_payment_id');
           } catch {
             /* ignore */
           }
