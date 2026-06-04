@@ -1,4 +1,4 @@
-import { currencyHintFromUrl, formatProductPrice, normalizeProductCurrency, parsePriceNumeric } from './currencies';
+import { currencyHintFromUrl, formatProductPrice, normalizeProductCurrency, parsePriceNumeric, productCurrencyCodePattern } from './currencies';
 import { createTierId, formatTierUnitPrice } from './pricing-config';
 import type { ExtractedPricing, PricingTier } from './types';
 
@@ -6,15 +6,21 @@ export type { ExtractedPricing };
 
 type PriceHit = { value: number; raw: string; currency: string; source: string; score: number };
 
-const CURRENCY_CODE_RE = /\b(USD|EUR|GBP|CAD|ARS|COP|CLP|MXN|PEN|BRL|JPY)\b/gi;
+const CURRENCY_CODE_RE = new RegExp(String.raw`\b(${productCurrencyCodePattern()})\b`, 'gi');
 
-const PRICE_NUM = String.raw`(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)`;
+const PRICE_NUM = String.raw`(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?|\d+(?:[.,]\d{1,2})?)`;
 
 const UNIT_EACH_PATTERNS: RegExp[] = [
   new RegExp(String.raw`\$\s*${PRICE_NUM}\s*/\s*each`, 'gi'),
   new RegExp(String.raw`\$\s*${PRICE_NUM}\s*/\s*(?:bar|unit|piece|item|pc|ea)\b`, 'gi'),
-  new RegExp(String.raw`${PRICE_NUM}\s*(?:USD|EUR|GBP|CAD)?\s*/\s*each`, 'gi'),
-  new RegExp(String.raw`(?:each|per)\s*(?:[\$€£]|USD)?\s*${PRICE_NUM}`, 'gi'),
+  new RegExp(
+    String.raw`${PRICE_NUM}\s*(?:USD|EUR|GBP|CAD|CHF|NOK|SEK|PLN|CZK|TRY)?\s*/\s*each`,
+    'gi'
+  ),
+  new RegExp(
+    String.raw`(?:each|per)\s*(?:[\$€£₺]|USD|CHF|zł|Kč|kr)?\s*${PRICE_NUM}`,
+    'gi'
+  ),
 ];
 
 const SYMBOL_PATTERNS: { currency: string; re: RegExp }[] = [
@@ -23,13 +29,43 @@ const SYMBOL_PATTERNS: { currency: string; re: RegExp }[] = [
   { currency: 'EUR', re: new RegExp(String.raw`€\s*${PRICE_NUM}|${PRICE_NUM}\s*€`, 'g') },
   { currency: 'GBP', re: new RegExp(String.raw`£\s*${PRICE_NUM}|${PRICE_NUM}\s*£`, 'g') },
   { currency: 'CAD', re: new RegExp(String.raw`C\$\s*${PRICE_NUM}`, 'g') },
+  {
+    currency: 'CHF',
+    re: new RegExp(String.raw`(?:CHF|Fr\.?)\s*${PRICE_NUM}|${PRICE_NUM}\s*(?:CHF|Fr\.?)`, 'gi'),
+  },
+  {
+    currency: 'PLN',
+    re: new RegExp(
+      String.raw`${PRICE_NUM}\s*zł|zł\s*${PRICE_NUM}|${PRICE_NUM}\s*PLN|PLN\s*${PRICE_NUM}`,
+      'gi'
+    ),
+  },
+  {
+    currency: 'CZK',
+    re: new RegExp(
+      String.raw`${PRICE_NUM}\s*Kč|Kč\s*${PRICE_NUM}|${PRICE_NUM}\s*CZK|CZK\s*${PRICE_NUM}`,
+      'gi'
+    ),
+  },
+  {
+    currency: 'TRY',
+    re: new RegExp(
+      String.raw`₺\s*${PRICE_NUM}|${PRICE_NUM}\s*₺|${PRICE_NUM}\s*(?:TRY|TL)\b|(?:TRY|TL)\s*${PRICE_NUM}`,
+      'gi'
+    ),
+  },
+  { currency: 'NOK', re: new RegExp(String.raw`NOK\s*${PRICE_NUM}|${PRICE_NUM}\s*NOK`, 'gi') },
+  { currency: 'SEK', re: new RegExp(String.raw`SEK\s*${PRICE_NUM}|${PRICE_NUM}\s*SEK`, 'gi') },
   { currency: 'JPY', re: new RegExp(String.raw`¥\s*${PRICE_NUM}|${PRICE_NUM}\s*¥|${PRICE_NUM}\s*円`, 'g') },
   { currency: 'USD', re: new RegExp(String.raw`\$\s*${PRICE_NUM}`, 'g') },
   { currency: 'USD', re: new RegExp(String.raw`(?:USD|US\$)\s*${PRICE_NUM}`, 'gi') },
 ];
 
 const GENERIC_PATTERNS = [
-  new RegExp(String.raw`(?:price|precio|preço|valor)[:\s]*(?:[\$€£¥R]|S\/\.?)?\s*${PRICE_NUM}`, 'gi'),
+  new RegExp(
+    String.raw`(?:price|precio|preço|valor|cena|preis|fiyat)[:\s]*(?:[\$€£¥₺R]|S\/\.?|zł|Kč|kr|CHF|Fr\.?)?\s*${PRICE_NUM}`,
+    'gi'
+  ),
   /"price"\s*:\s*"?([\d.]+)"?/gi,
   /data-price=["']([\d.]+)["']/gi,
   /(?:compare_at|compareAt)_?price["']?\s*:\s*(\d+)/gi,
@@ -40,11 +76,11 @@ const GENERIC_PATTERNS = [
 const DISCOUNT_PATTERNS: { regular: RegExp; sale: RegExp }[] = [
   {
     regular: new RegExp(
-      String.raw`(?:compare\s*at|was|originally|list\s*price|msrp|antes|de)\s*(?:[\$€£]|S\/\.?|R\$)?\s*${PRICE_NUM}`,
+      String.raw`(?:compare\s*at|was|originally|list\s*price|msrp|antes|de|ve|byla\s*cena)\s*(?:[\$€£₺]|S\/\.?|R\$|zł|Kč|kr|CHF|Fr\.?)?\s*${PRICE_NUM}`,
       'gi'
     ),
     sale: new RegExp(
-      String.raw`(?:now|sale|today|ahora|por\s+solo|solo)\s*(?:[\$€£]|S\/\.?|R\$)?\s*${PRICE_NUM}`,
+      String.raw`(?:now|sale|today|ahora|por\s+solo|solo|nu|şimdi)\s*(?:[\$€£₺]|S\/\.?|R\$|zł|Kč|kr|CHF|Fr\.?)?\s*${PRICE_NUM}`,
       'gi'
     ),
   },
@@ -159,6 +195,16 @@ function pickBestSinglePrice(hits: PriceHit[]): PriceHit | null {
   return scored[0] ?? null;
 }
 
+function detectKrCurrency(text: string, urlHint: string | null): string | null {
+  const krAfter = new RegExp(String.raw`${PRICE_NUM}\s*kr\b`, 'i');
+  const krBefore = new RegExp(String.raw`\bkr\s*${PRICE_NUM}`, 'i');
+  if (!krAfter.test(text) && !krBefore.test(text)) return null;
+  if (urlHint === 'NOK' || urlHint === 'SEK') return urlHint;
+  if (/\bNOK\b/i.test(text)) return 'NOK';
+  if (/\bSEK\b/i.test(text)) return 'SEK';
+  return urlHint;
+}
+
 function detectCurrencyFromText(text: string, urlHint: string | null): string {
   const codes: string[] = [];
   CURRENCY_CODE_RE.lastIndex = 0;
@@ -174,6 +220,9 @@ function detectCurrencyFromText(text: string, urlHint: string | null): string {
     re.lastIndex = 0;
     if (re.test(text)) return currency;
   }
+
+  const krCurrency = detectKrCurrency(text, urlHint);
+  if (krCurrency) return normalizeProductCurrency(krCurrency);
 
   if (urlHint) return normalizeProductCurrency(urlHint);
   return 'USD';

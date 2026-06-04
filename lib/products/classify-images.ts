@@ -12,7 +12,7 @@ export type RefineProductImageKindsResult = {
 const TRUST_URL =
   /award|seal|badge|winner|certified|trust|medal|editor|beauty|authority|press|as-seen|guarantee|ribbon|honor/i;
 const LOGO_URL = /(?:^|\/)(?:logo|brand-mark|wordmark|site-logo|header-logo|brand_logo|brand-logo)(?:[./_-]|$)/i;
-const PACKAGING_URL = /pack|box|pouch|tub|bottle|carton|bundle/i;
+const PACKAGING_URL = /pack|box|pouch|tub|bottle|carton|bundle|bag|sachet|gummy|pouch/i;
 const LIFESTYLE_URL = /lifestyle|in-use|model|hand-hold|wearing/i;
 
 function heuristicKind(url: string, alt: string, index: number): ProductImageKind {

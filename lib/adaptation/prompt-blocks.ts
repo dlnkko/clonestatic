@@ -5,6 +5,7 @@ import {
   illustrativeVisualBlock,
   noStockPhotoUnlessReferenceBlock,
   packagingMirroringBlock,
+  productCatalogFidelityBlock,
   referenceCopyMirroringBlock,
   subheroCopyPatternBlock,
   textLayoutBlock,
@@ -114,6 +115,8 @@ export function visualAgentPrompt(ctx: AdaptationContext): string {
 Define how the USER's product appears in a CLONED ad — identical layout to reference, new product/brand.
 ${multiImageNote}
 
+${productCatalogFidelityBlock(ctx)}
+
 ${illustrativeVisualBlock(ctx)}
 
 ${noStockPhotoUnlessReferenceBlock(ctx)}
@@ -134,7 +137,7 @@ ${beforeAfterComparisonBlock(ctx)}
 
 RULES (JSON output):
 - visualMediumNotes: state whether final ad is illustration/diagram/3d-render OR real photo — must match reference, never default to stock lifestyle photo when reference is graphic
-- poseAndArrangementParagraph: for flat/product-row refs use REFERENCE pose; for illustration refs describe equivalent diagram/illustration with user's product; for lifestyle/model-in-use refs describe USER product in **authentic use**; if referenceShowsPackaging, describe both the unit/stack hero AND the packaging position (box/bottle) using the packaging image
+- poseAndArrangementParagraph: mirror reference LAYOUT zones only; user's product form comes from catalog photos — if reference had a bottle but user has gummy pouch, describe the pouch in that zone; NEVER describe a bottle/jar unless catalog shows one
 - peopleAndSceneRules: must state how model uses USER product believably; clone reference framing/mood, not competitor product form (e.g. pillowcase on bed, not as head wrap)
 - compositionRules / brandingNotes / iconRowNotes / trustBadgeNotes
 - compositionRules: visual hierarchy (headline → comparison/table → product row), spacing, shadows, full-bleed; product row with 2–4 units if reference shows multiple; award seal overlaps product per reference; **typography size ladder** — headline largest, subheadline clearly smaller, footer smallest
@@ -196,7 +199,8 @@ Rules:
 9. Approved copy verbatim: tagline "${copy.tagline}", mainLine "${copy.mainLine}"
 10. Line 2 same rhetorical function as reference (not unrelated spec dump)
 11. enforceOneMainElement → no packaging as second hero (only when referenceShowsPackaging is false)
-${ctx.referenceShowsPackaging ? '11b. PACKAGING: Reference had packaging in layout — prompt must show user box/bottle/pouch in same position; FAIL if packaging slot is another loose product view' : ''}
+${ctx.referenceShowsPackaging ? '11b. PACKAGING: Reference had packaging zone — prompt must show USER catalog packaging in same position; FAIL if reference competitor bottle/jar shape or wrong container type (e.g. bottle when catalog has pouch/gummies)' : ''}
+21. PRODUCT FIDELITY: Prompt must render user's product ONLY from catalog photos — FAIL if prompt describes reference competitor product, reskins reference bottle with user brand, or inventing packaging not in catalog
 12. Logo placement rules respected
 13. Copy language: ${ctx.copyLanguageCode} (${ctx.copyLanguageName})
 14. Pricing: ${ctx.allowedPrice ? `only "${ctx.allowedPrice}"` : 'no dollar amounts'}

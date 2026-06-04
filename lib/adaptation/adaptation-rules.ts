@@ -1,5 +1,6 @@
 import type { AdaptationContext, CopywritingProfile, Line2CopyPattern } from './types';
 import { detectSubheroCopyPattern } from './parse-reference-analysis';
+import { productCatalogFidelityBlock as productCatalogFidelityBlockImpl } from '@/lib/products/product-fidelity';
 
 /**
  * Rules for mirroring reference ad copy structure with user product data.
@@ -156,6 +157,10 @@ The reference ad uses **${vs?.visualMedium ?? 'illustration'}** — NOT a stock 
 - Image generation mode: **design/graphic** — describe as illustration, diagram, or stylized render explicitly in the prompt.`;
 }
 
+export function productCatalogFidelityBlock(ctx: AdaptationContext): string {
+  return productCatalogFidelityBlockImpl(ctx);
+}
+
 export function packagingMirroringBlock(ctx: AdaptationContext): string {
   if (!ctx.referenceShowsPackaging) return '';
 
@@ -164,13 +169,14 @@ export function packagingMirroringBlock(ctx: AdaptationContext): string {
     ? `Use the provided **packaging** product image (${packagingMatch.description}).`
     : 'Use a product catalog image that shows **retail packaging** (box, pouch, bottle, jar) — not a loose product flat lay.';
 
-  return `**PACKAGING IN LAYOUT (CRITICAL — mirror reference):**
-The reference ad shows the product **both** as the item/units AND as **retail packaging** (bottle, box, pouch, jar, tube) in a distinct layout position (e.g. lower-right hero, beside the stack, foreground packshot).
-- You MUST include the **user's retail packaging** in the **same role and position** as the reference — same scale, angle, and corner/zone placement.
+  return `**PACKAGING IN LAYOUT (CRITICAL — mirror reference POSITION only):**
+The reference ad may show retail packaging in a distinct layout position (e.g. lower-right hero, beside the stack).
+- Mirror the **same zone/scale/angle placement** as the reference — but render the **user's actual packaging from catalog photos** (pouch, bag, box, tub — whatever THEIR images show).
 - ${packagingNote}
-- **FORBIDDEN:** Replacing the reference's packaging slot with another loose product view (e.g. folded pillowcase instead of the product box, extra capsules instead of the bottle).
-- The loose/units hero uses the **product** image; the packaging slot uses the **packaging** image — two distinct visuals, same layout grammar as reference.
-- Packaging labels, logo, and colors must match the user's packaging photo exactly — do not invent a generic box.`;
+- **FORBIDDEN:** Copying the reference competitor's container type (e.g. reference supplement bottle → user gummy pouch: show the POUCH, never a bottle). Never "reskin" reference packaging with user brand.
+- **FORBIDDEN:** Replacing the packaging slot with another loose product view when catalog has packaging photos.
+- The loose/units hero uses the **product** catalog image; the packaging slot uses the **packaging** catalog image — two distinct visuals from user's store, same layout grammar as reference.
+- Packaging labels, logo, and colors must match the user's packaging photo exactly — do not invent a generic box or bottle.`;
 }
 
 export function noStockPhotoUnlessReferenceBlock(ctx: AdaptationContext): string {

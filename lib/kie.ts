@@ -1,4 +1,5 @@
 import type { AdVisualMode } from '@/lib/ad-visual-mode';
+import { appendKieProductFidelityPrompt } from '@/lib/products/product-fidelity';
 
 const KIE_API_BASE = 'https://api.kie.ai';
 
@@ -149,23 +150,24 @@ export async function generateAdImageWithKie(params: {
 }): Promise<{ imageUrl: string; taskId: string; model: string; adVisualMode: AdVisualMode }> {
   const { prompt, productImageUrls, referenceImageUrl, aspectRatio, adVisualMode } = params;
   const ratio = mapAspectRatio(aspectRatio, adVisualMode);
+  const catalogUrls = productImageUrls.filter((u) => u.startsWith('http')).slice(0, 8);
+  const fidelityPrompt = appendKieProductFidelityPrompt(prompt, catalogUrls.length > 0);
 
   let taskId: string;
   let model: string;
 
   if (adVisualMode === 'design') {
     model = 'nano-banana-pro';
+    // Product catalog first so the model anchors on user's real product; reference last for layout only.
     const imageInput = [
-      ...(referenceImageUrl ? [referenceImageUrl] : []),
-      ...productImageUrls,
-    ]
-      .filter((u) => u.startsWith('http'))
-      .slice(0, 8);
+      ...catalogUrls,
+      ...(referenceImageUrl?.startsWith('http') ? [referenceImageUrl] : []),
+    ].slice(0, 8);
 
     taskId = await createKieTask({
       model,
       input: {
-        prompt,
+        prompt: fidelityPrompt,
         image_input: imageInput,
         aspect_ratio: ratio,
         resolution: '2K',
@@ -174,16 +176,14 @@ export async function generateAdImageWithKie(params: {
     });
   } else {
     model = 'gpt-image-2-image-to-image';
-    const inputUrls = [...productImageUrls]
-      .filter((u) => u.startsWith('http'))
-      .slice(0, 16);
+    const inputUrls = catalogUrls.slice(0, 16);
 
     if (inputUrls.length === 0) {
       throw new Error('No valid product image URLs for realistic generation');
     }
 
     const input: Record<string, unknown> = {
-      prompt,
+      prompt: fidelityPrompt,
       input_urls: inputUrls,
       aspect_ratio: ratio,
       // Always force 2K for GPT Image 2 requests.

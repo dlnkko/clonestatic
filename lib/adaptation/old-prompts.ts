@@ -10,6 +10,7 @@ import {
   illustrativeVisualBlock,
   noStockPhotoUnlessReferenceBlock,
   packagingMirroringBlock,
+  productCatalogFidelityBlock,
   referenceCopyMirroringBlock,
   subheroCopyPatternBlock,
   textLayoutBlock,
@@ -381,10 +382,10 @@ function replaceAdaptProductBlock(ctx: AdaptationContext): string {
 
   return `${header}
    - Analyze the product image: type, category, purpose, colors, branding, shape, characteristics
-   ${ctx.referenceShowsPackaging ? `- **PACKAGING SLOT (MANDATORY):** Reference shows retail packaging (bottle/box/pouch) as its own visual — include the user's packaging in the same position. Do NOT fill that slot with loose product again.` : ''}
+   ${ctx.referenceShowsPackaging ? `- **PACKAGING SLOT (MANDATORY):** Reference had a packaging zone — place the user's catalog packaging photo in the same position. Use THEIR container (pouch/bag/box) — NEVER copy reference bottle/jar shape.` : ''}
    ${enforceOneMainElement ? `- **ONE MAIN ELEMENT ONLY:** The reference has one hero (e.g. one cookie). Show ONLY that one element for the new product — e.g. the gummy itself as the hero, NOT the product packaging or pouch. Do not describe or include packaging in the scene; the single focal subject is the product item (the gummy, the cookie, etc.) only.${hasPersonInReference ? ' **Still keep any people** from the reference — this rule is about item vs packaging, not removing models.' : ''}` : ''}
    - Replace product descriptions with the NEW product from the provided image
-   - **Product presentation (CRITICAL — match reference style, never change product design):** The USER'S product (packaging, labels, logo, shape) must stay exactly as in the product image — never alter its design. Replicate the reference ad's product PRESENTATION exactly: (1) **Pose:** same orientation as reference — if the reference shows the product lying down, scattered, or at specific angles, the new product MUST be described in the same pose (e.g. "earplugs lying down on a white surface at slight angles" → user's earplugs also lying down at similar angles; never "standing upright" if reference shows lying down); (2) **Position:** same inclination/tilt and direction (e.g. leaning down and to the right, or tilted left); (3) **Placement:** same "submerged/nestled" look — the product must appear partially buried or integrated into the pile of fruits/objects, with those elements wrapping around its base and sides and partially obscuring edges, not sitting on top of a flat layer; (4) shadows, lighting, reflections, texture as in the reference. So: same product design always; pose, position, angle, submerged placement, shadow, light, texture must match the reference ad as closely as possible.
+   - **Product presentation (CRITICAL — catalog photos are source of truth):** The USER'S product must look EXACTLY as in the provided catalog images — same container type (pouch vs bottle vs gummies), labels, logo, shape. Replicate reference **layout zones and pose** only — NEVER copy reference competitor product form (e.g. do NOT draw a pill bottle when catalog shows gummy pouch). (1) **Pose:** same orientation as reference for the user's actual product form; (2) **Position:** same inclination/tilt and direction; (3) **Placement:** same submerged/nestled relationship with background elements; (4) shadows, lighting, reflections as reference.
    ${peopleBlock}
    - If reference shows multiple products: show multiple instances of NEW product in SAME arrangement
    - Maintain same angles, lighting, shadows as reference but for NEW product (product design unchanged; presentation adapted)`;
@@ -416,8 +417,9 @@ ${ctx.hasReferenceFeatureRow ? '- **Icon/feature row:** Include the full icon ro
 - **Composition:** Balanced hierarchy — headline zone, comparison/table or hero product zone, product row with depth/shadows; seal overlaps product edge; no cramped text; full-bleed background.
 - **STRICT DATA:** Product facts from scrape/approved copy only. Never invent claims or copy competitor numbers from reference.
 ${hasReferenceReviewModule ? `- **Review module present:** Include the review/testimonial/social-proof module in the final image description, matching the reference's visual placement/style. Adapt the testimonial to the user's product. Do not invent numeric rating/review counts unless present in scraped data.` : ''}
-${ctx.referenceShowsPackaging ? '- **Packaging in layout:** Include user retail packaging (box/bottle/pouch) in the same position as reference — never substitute with a second loose product view.' : ''}
+${ctx.referenceShowsPackaging ? '- **Packaging in layout:** User catalog packaging in reference zone — NEVER reference competitor bottle shape or wrong container type.' : ''}
 ${enforceOneMainElement ? '- **One main element only:** The scene must have ONE hero (e.g. the gummy or product item only). Do NOT describe product packaging, pouch, or a second element in the image.' : ''}
+- **PRODUCT CATALOG FIDELITY:** Final image must show ONLY the user product from provided catalog photos — never the reference competitor product or a reskinned reference bottle.
 ${isGraphicOnly ? '- Keep the ad GRAPHIC: product + background/graphics only. No person, no gym, no sport environment (unless user requested it in Guidelines).' : hasPersonInReference ? "- **Keep people in the scene.** Same framing/composition as reference; user's product shown in **authentic use** (not literal competitor interaction when wrong). Optional avatar refresh." : "- Adapt contextual elements (person styling, actions/pose, setting) to match the NEW product's use case. Ensure the person is in coherent pose/action (e.g. exercising for fitness products)."}
 - Feature the NEW product from the provided image in contextually appropriate use
 ${scrapedBranding ? '- Integrate product brand colors and typography where appropriate' : ''}
@@ -523,7 +525,7 @@ ${ctx.pricingInstructions}
 **Your Task:**
 Adapt the reference prompt above to create a NEW prompt for the product in the provided image. The new prompt must:
 
-${peopleModelsCriticalBlock(ctx)}${productUseCaseAdaptationBlock(ctx)}${oneHeroBlock(ctx)}${packagingMirroringBlock(ctx)}${graphicOnlyBlock(ctx)}
+${peopleModelsCriticalBlock(ctx)}${productUseCaseAdaptationBlock(ctx)}${oneHeroBlock(ctx)}${productCatalogFidelityBlock(ctx)}${packagingMirroringBlock(ctx)}${graphicOnlyBlock(ctx)}
 
 ${illustrativeVisualBlock(ctx)}
 

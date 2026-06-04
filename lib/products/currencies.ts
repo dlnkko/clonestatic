@@ -9,6 +9,12 @@ export const PRODUCT_CURRENCIES: CurrencyOption[] = [
   { code: 'USD', symbol: '$', label: 'US Dollar' },
   { code: 'EUR', symbol: '€', label: 'Euro' },
   { code: 'GBP', symbol: '£', label: 'British Pound' },
+  { code: 'CHF', symbol: 'CHF', label: 'Swiss Franc' },
+  { code: 'NOK', symbol: 'kr', label: 'Norwegian Krone' },
+  { code: 'SEK', symbol: 'kr', label: 'Swedish Krona' },
+  { code: 'PLN', symbol: 'zł', label: 'Polish Zloty' },
+  { code: 'CZK', symbol: 'Kč', label: 'Czech Koruna' },
+  { code: 'TRY', symbol: '₺', label: 'Turkish Lira' },
   { code: 'CAD', symbol: 'C$', label: 'Canadian Dollar' },
   { code: 'ARS', symbol: '$', label: 'Argentine Peso' },
   { code: 'COP', symbol: '$', label: 'Colombian Peso' },
@@ -20,6 +26,13 @@ export const PRODUCT_CURRENCIES: CurrencyOption[] = [
 ];
 
 const CODE_SET = new Set(PRODUCT_CURRENCIES.map((c) => c.code));
+
+/** Regex alternation of all supported ISO codes (for scrape / text detection). */
+export function productCurrencyCodePattern(): string {
+  return PRODUCT_CURRENCIES.map((c) => c.code).join('|');
+}
+
+const ZERO_DECIMAL_CURRENCIES = new Set(['JPY', 'CLP', 'COP']);
 
 export function supportedProductCurrencyCodes(): string[] {
   return PRODUCT_CURRENCIES.map((c) => c.code);
@@ -46,7 +59,7 @@ export function formatProductPrice(
     return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: code,
-      maximumFractionDigits: code === 'JPY' || code === 'CLP' || code === 'COP' ? 0 : 2,
+      maximumFractionDigits: ZERO_DECIMAL_CURRENCIES.has(code) ? 0 : 2,
     }).format(n);
   } catch {
     return `${currencySymbol(code)}${n}`;
@@ -81,6 +94,12 @@ export function currencyHintFromUrl(productUrl: string | undefined): string | nu
     if (host.endsWith('.com.br') || host.endsWith('.br')) return 'BRL';
     if (host.endsWith('.ca')) return 'CAD';
     if (host.endsWith('.co.uk') || host.endsWith('.uk')) return 'GBP';
+    if (host.endsWith('.ch')) return 'CHF';
+    if (host.endsWith('.no')) return 'NOK';
+    if (host.endsWith('.se')) return 'SEK';
+    if (host.endsWith('.pl')) return 'PLN';
+    if (host.endsWith('.cz')) return 'CZK';
+    if (host.endsWith('.tr') || host.endsWith('.com.tr')) return 'TRY';
     if (host.endsWith('.jp')) return 'JPY';
     if (host.endsWith('.de') || host.endsWith('.fr') || host.endsWith('.es') || host.endsWith('.it'))
       return 'EUR';

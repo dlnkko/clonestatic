@@ -8,6 +8,7 @@ import type {
   ProductImage,
   ReferenceProductElement,
 } from './types';
+import { anchorMatchedDescriptions, catalogMatchDescription } from './product-fidelity';
 
 export type MatchProductImagesResult = {
   matches: MatchedProductImage[];
@@ -69,8 +70,9 @@ Available product images (by index):
 ${catalog.map((c) => `[${c.index}] kind=${c.kind} url=${c.url.slice(0, 120)}${c.alt ? ` alt=${c.alt}` : ''}`).join('\n')}
 
 For EACH reference element, pick the best matching image index. Rules:
-- packaging → MUST be box/pouch/tub/bottle/jar/carton with visible packaging graphics (prefer kind=packaging). NEVER assign a loose product flat lay, folded item, or duplicate hero stack to packaging.
-- product → loose item, units, gummies, capsules, powder, device, pillowcase stack (NOT the retail bottle/box unless reference has no separate packaging)
+- NEVER describe the reference competitor's product type in your output — you are picking USER catalog photos only
+- packaging → MUST pick an image showing retail packaging (pouch, bag, box, tub, bottle WITH user's label). Prefer kind=packaging. NEVER assign a loose gummy flat lay to packaging.
+- product → loose item, gummies, capsules, powder, device (NOT the reference competitor's bottle shape — pick user's actual product photo)
 - lifestyle → prefer kind=lifestyle (model, in-use, on bed, worn correctly) over flat packshots when reference shows a person using the product
 - logo → brand logo image if available
 - trust_badge → MUST pick an image with kind=trust_badge (award seal, press badge, certification). If several trust_badge images exist, pick the clearest award/press seal. NEVER skip trust_badge when reference needs it.
@@ -107,7 +109,11 @@ Output JSON only:
     matches.push({
       role: m.role as MatchedProductImage['role'],
       url: productImages[idx].url,
-      description: m.description || referenceElements[matches.length]?.description || '',
+      description: catalogMatchDescription(
+        m.role as MatchedProductImage['role'],
+        productImages[idx],
+        referenceElements[matches.length]?.description
+      ),
     });
     if (matches.length >= referenceElements.length) break;
   }
@@ -119,7 +125,11 @@ Output JSON only:
       matches.push({
         role: el.role,
         url: productImages[i].url,
-        description: el.description,
+        description: catalogMatchDescription(
+          el.role as MatchedProductImage['role'],
+          productImages[i],
+          el.description
+        ),
       });
       used.add(i);
     }
@@ -136,7 +146,7 @@ Output JSON only:
       matches.push({
         role: 'trust_badge',
         url: productImages[pick].url,
-        description: el.description,
+        description: catalogMatchDescription('trust_badge', productImages[pick], el.description),
       });
       used.add(pick);
     }
@@ -156,26 +166,41 @@ Output JSON only:
         matches[existingIdx] = {
           role: 'packaging',
           url: packagingUrl,
-          description: el.description,
+          description: catalogMatchDescription(
+            'packaging',
+            productImages[packagingIdx],
+            el.description
+          ),
         };
       } else if (matches.length < referenceElements.length) {
         matches.push({
           role: 'packaging',
           url: packagingUrl,
-          description: el.description,
+          description: catalogMatchDescription(
+            'packaging',
+            productImages[packagingIdx],
+            el.description
+          ),
         });
       }
     }
   }
 
   const usage = extractUsage(result);
-  return {
-    matches:
-      matches.length > 0
-        ? matches
-        : [{ role: 'product', url: productImages[0].url, description: 'Primary product' }],
-    usage,
-  };
+  const anchored = anchorMatchedDescriptions(
+    matches.length > 0
+      ? matches
+      : [
+          {
+            role: 'product',
+            url: productImages[0].url,
+            description: catalogMatchDescription('product', productImages[0]),
+          },
+        ],
+    productImages,
+    referenceElements
+  );
+  return { matches: anchored, usage };
 }
 
 async function waitForGeminiFileActive(
