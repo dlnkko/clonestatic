@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AdVisualMode } from '@/lib/ad-visual-mode';
+import { internalJobHeaders } from '@/lib/internal-job';
 import { runAdImageGenerationJob } from '@/lib/creations/generate-job';
+import { getAppOrigin } from '@/lib/supabase/auth-config';
 
 export type FullAdGenerationParams = {
   creationId: string;
@@ -19,11 +21,20 @@ export type FullAdGenerationParams = {
   aspectRatio: string;
 };
 
-function appOrigin(): string {
-  const fromEnv = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '');
-  if (fromEnv) return fromEnv;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return 'http://localhost:3000';
+async function markCreationFailed(
+  admin: SupabaseClient,
+  creationId: string,
+  userId: string,
+  message: string
+) {
+  await admin
+    .from('creations')
+    .update({
+      status: 'failed',
+      error_message: message.slice(0, 2000),
+    })
+    .eq('id', creationId)
+    .eq('user_id', userId);
 }
 
 async function scrapeCopywritingUrl(
@@ -31,11 +42,12 @@ async function scrapeCopywritingUrl(
   url: string
 ): Promise<{ copywriting: string; isUrlScraped: true } | { error: string }> {
   try {
-    const res = await fetch(`${appOrigin()}/api/scrape-url`, {
+    const res = await fetch(`${getAppOrigin()}/api/scrape-url`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Cookie: cookieHeader,
+        ...internalJobHeaders(),
       },
       body: JSON.stringify({ url: url.trim() }),
     });
@@ -64,6 +76,7 @@ async function scrapeCopywritingUrl(
 
 async function generatePrompt(
   cookieHeader: string,
+  userId: string,
   body: Record<string, unknown>
 ): Promise<
   | {
@@ -74,13 +87,14 @@ async function generatePrompt(
   | { error: string }
 > {
   try {
-    const res = await fetch(`${appOrigin()}/api/generate-static-ad-prompt`, {
+    const res = await fetch(`${getAppOrigin()}/api/generate-static-ad-prompt`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Cookie: cookieHeader,
+        ...internalJobHeaders(),
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ ...body, internalUserId: userId }),
     });
     const data = (await res.json()) as {
       prompt?: string;
@@ -90,7 +104,8 @@ async function generatePrompt(
       details?: string;
     };
     if (!res.ok || !data.prompt) {
-      return { error: data.error || data.details || 'Prompt generation failed' };
+      const detail = [data.error, data.details].filter(Boolean).join(' — ');
+      return { error: detail || `Prompt generation failed (HTTP ${res.status})` };
     }
     return {
       prompt: data.prompt,
@@ -145,14 +160,14 @@ export async function runFullAdGenerationJob(params: FullAdGenerationParams): Pr
       promptBody.productImageUrl = productImageUrl;
     }
 
-    const promptResult = await generatePrompt(cookieHeader, promptBody);
+    const promptResult = await generatePrompt(cookieHeader, userId, promptBody);
     if ('error' in promptResult) {
       throw new Error(promptResult.error);
     }
 
     await admin
       .from('creations')
-      .update({ prompt: promptResult.prompt })
+      .update({ prompt: promptResult.prompt, error_message: null })
       .eq('id', creationId)
       .eq('user_id', userId);
 
@@ -178,11 +193,8 @@ export async function runFullAdGenerationJob(params: FullAdGenerationParams): Pr
       admin,
     });
   } catch (err) {
-    console.error('runFullAdGenerationJob failed:', err);
-    await admin
-      .from('creations')
-      .update({ status: 'failed' })
-      .eq('id', creationId)
-      .eq('user_id', userId);
+    const message = err instanceof Error ? err.message : 'Generation failed';
+    console.error('runFullAdGenerationJob failed:', message, err);
+    await markCreationFailed(admin, creationId, userId, message);
   }
 }

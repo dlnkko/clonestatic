@@ -181,6 +181,7 @@ export type CreationItem = {
   aspect_ratio: string | null;
   created_at: string;
   status?: 'generating' | 'completed' | 'failed';
+  error_message?: string | null;
 };
 
 export type LibraryAdCard = {
@@ -1029,7 +1030,7 @@ function StaticAdAppPage() {
         clearPendingImageJob(id);
         setPendingPreviewCreationId(null);
         setBackgroundGenNotice(null);
-        setError('Generation failed. Please try again.');
+        setError(failed.error_message?.trim() || 'Generation failed. Please try again.');
         return;
       }
     }
@@ -1350,7 +1351,11 @@ function StaticAdAppPage() {
                       ) : isFailed ? (
                         <div className="flex aspect-[9/16] w-full flex-col items-center justify-center gap-2 bg-red-50 p-4 text-center">
                           <span className="text-xs font-medium text-red-700">Generation failed</span>
-                          <span className="text-[10px] text-red-600">Try again from Clone</span>
+                          {c.error_message ? (
+                            <span className="line-clamp-4 text-[10px] text-red-600">{c.error_message}</span>
+                          ) : (
+                            <span className="text-[10px] text-red-600">Try again from Clone</span>
+                          )}
                         </div>
                       ) : (
                         <a href={c.image_url!} target="_blank" rel="noopener noreferrer" className="block aspect-[9/16] w-full bg-slate-100">

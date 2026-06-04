@@ -38,6 +38,8 @@ import {
 } from '@/lib/products/match-images';
 import type { ProductImage, ProductRecord } from '@/lib/products/types';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { isInternalServerJob } from '@/lib/internal-job';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { classifyAdVisualMode } from '@/lib/ad-visual-mode';
 import { fetchImageAsDataUrl } from '@/lib/images/fetch-as-data-url';
@@ -78,9 +80,12 @@ function getGoogleGenAI() {
 
 export async function POST(request: NextRequest) {
   try {
-    // Check rate limit
-    const rateLimitResult = await checkRateLimit('generateStaticAd', request);
-    if (!rateLimitResult.success) {
+    const internalJob = isInternalServerJob(request);
+
+    // Check rate limit (background jobs use internal secret, not user session)
+    if (!internalJob) {
+      const rateLimitResult = await checkRateLimit('generateStaticAd', request);
+      if (!rateLimitResult.success) {
       return NextResponse.json(
         {
           error: 'Rate limit exceeded',
@@ -99,6 +104,7 @@ export async function POST(request: NextRequest) {
           },
         }
       );
+      }
     }
 
     // Initialize AI client at runtime
@@ -115,6 +121,7 @@ export async function POST(request: NextRequest) {
       guidelines,
       copyLanguage,
       productId: productIdParam,
+      internalUserId,
     } = body;
     const guidelinesTrimmed = typeof guidelines === 'string' ? guidelines.trim() : '';
     const resolvedCopyLang = resolveCopyLanguage(copyLanguage);
@@ -123,25 +130,57 @@ export async function POST(request: NextRequest) {
         ? productIdParam.trim()
         : null;
 
+    if (
+      typeof internalUserId === 'string' &&
+      internalUserId.trim() &&
+      !internalJob
+    ) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
     let savedProduct: ProductRecord | null = null;
     if (productId) {
-      const supabase = await createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        return NextResponse.json({ error: 'Sign in required to use saved products' }, { status: 401 });
+      const jobUserId =
+        internalJob && typeof internalUserId === 'string' && internalUserId.trim()
+          ? internalUserId.trim()
+          : null;
+
+      if (jobUserId) {
+        const admin = createAdminClient();
+        const { data: row, error: prodErr } = await admin
+          .from('products')
+          .select('*')
+          .eq('id', productId)
+          .eq('user_id', jobUserId)
+          .single();
+        if (prodErr || !row) {
+          return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+        }
+        savedProduct = rowToProduct(row as Record<string, unknown>);
+      } else if (internalJob) {
+        return NextResponse.json(
+          { error: 'internalUserId required for background product lookup' },
+          { status: 400 }
+        );
+      } else {
+        const supabase = await createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) {
+          return NextResponse.json({ error: 'Sign in required to use saved products' }, { status: 401 });
+        }
+        const { data: row, error: prodErr } = await supabase
+          .from('products')
+          .select('*')
+          .eq('id', productId)
+          .eq('user_id', user.id)
+          .single();
+        if (prodErr || !row) {
+          return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+        }
+        savedProduct = rowToProduct(row as Record<string, unknown>);
       }
-      const { data: row, error: prodErr } = await supabase
-        .from('products')
-        .select('*')
-        .eq('id', productId)
-        .eq('user_id', user.id)
-        .single();
-      if (prodErr || !row) {
-        return NextResponse.json({ error: 'Product not found' }, { status: 404 });
-      }
-      savedProduct = rowToProduct(row as Record<string, unknown>);
     }
 
     let isUrlScraped = Boolean(isUrlScrapedParam);

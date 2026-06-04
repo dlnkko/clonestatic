@@ -19,6 +19,22 @@ function appendAspectRatioHint(prompt: string, aspectRatio: string): string {
   return `${prompt}\n\nTarget aspect ratio for the final image: ${aspectRatio}.`;
 }
 
+async function markCreationFailed(
+  admin: SupabaseClient,
+  creationId: string,
+  userId: string,
+  message: string
+) {
+  await admin
+    .from('creations')
+    .update({
+      status: 'failed',
+      error_message: message.slice(0, 2000),
+    })
+    .eq('id', creationId)
+    .eq('user_id', userId);
+}
+
 export async function runAdImageGenerationJob(params: AdImageGenerationParams): Promise<void> {
   const {
     prompt,
@@ -43,15 +59,12 @@ export async function runAdImageGenerationJob(params: AdImageGenerationParams): 
 
     await admin
       .from('creations')
-      .update({ image_url: imageUrl, status: 'completed' })
+      .update({ image_url: imageUrl, status: 'completed', error_message: null })
       .eq('id', creationId)
       .eq('user_id', userId);
   } catch (err) {
-    console.error('runAdImageGenerationJob failed:', err);
-    await admin
-      .from('creations')
-      .update({ status: 'failed' })
-      .eq('id', creationId)
-      .eq('user_id', userId);
+    const message = err instanceof Error ? err.message : 'Image generation failed';
+    console.error('runAdImageGenerationJob failed:', message, err);
+    await markCreationFailed(admin, creationId, userId, message);
   }
 }

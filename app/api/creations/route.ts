@@ -34,7 +34,7 @@ export async function GET() {
     const cutoff = creationsRetentionCutoff();
     const { data, error } = await supabase
       .from('creations')
-      .select('id, image_url, aspect_ratio, created_at, status')
+      .select('id, image_url, aspect_ratio, created_at, status, error_message')
       .eq('user_id', user.id)
       .gte('created_at', cutoff)
       .order('created_at', { ascending: false })
