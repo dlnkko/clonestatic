@@ -205,6 +205,15 @@ function LoginContent() {
       <a href="/" className="mt-6 text-sm text-white/60 hover:text-white">
         ← Back to home
       </a>
+      <p className="mt-6 text-center text-xs text-white/40">
+        <a href="/terms" className="underline underline-offset-2 hover:text-white/60">
+          Terms of Service
+        </a>
+        {' · '}
+        <a href="/privacy" className="underline underline-offset-2 hover:text-white/60">
+          Privacy Policy
+        </a>
+      </p>
     </main>
   );
 }

@@ -468,6 +468,12 @@ export function LandingPage() {
                   {l.label}
                 </a>
               ))}
+              <a href="/privacy" className="transition-colors hover:text-white/80">
+                Privacy Policy
+              </a>
+              <a href="/terms" className="transition-colors hover:text-white/80">
+                Terms of Service
+              </a>
             </nav>
             <p className="text-sm text-white/40">© {new Date().getFullYear()} admirror</p>
           </div>

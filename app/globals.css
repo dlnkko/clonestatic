@@ -644,6 +644,52 @@ pre::-webkit-scrollbar-thumb:hover {
   z-index: 1;
 }
 
+.legal-prose {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.9375rem;
+  line-height: 1.75;
+}
+
+.legal-prose > * + * {
+  margin-top: 1rem;
+}
+
+.legal-prose h2 {
+  color: #fff;
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-top: 2.5rem;
+}
+
+.legal-prose h2:first-of-type {
+  margin-top: 0;
+}
+
+.legal-prose ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+}
+
+.legal-prose li + li {
+  margin-top: 0.35rem;
+}
+
+.legal-prose a {
+  color: #67e8f9;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.legal-prose a:hover {
+  color: #a5f3fc;
+}
+
+.legal-prose strong {
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 600;
+}
+
 /* Landing v3 — marquee, hero showcase, pain section */
 .landing-hero-grid {
   position: fixed;
