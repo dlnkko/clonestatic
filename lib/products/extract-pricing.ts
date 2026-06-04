@@ -3,11 +3,18 @@ import type { ExtractedPricing } from './types';
 
 export type { ExtractedPricing };
 
-type PriceHit = { value: number; raw: string; currency: string; source: string };
+type PriceHit = { value: number; raw: string; currency: string; source: string; score: number };
 
 const CURRENCY_CODE_RE = /\b(USD|EUR|GBP|CAD|ARS|COP|CLP|MXN|PEN|BRL|JPY)\b/gi;
 
 const PRICE_NUM = String.raw`(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)`;
+
+const UNIT_EACH_PATTERNS: RegExp[] = [
+  new RegExp(String.raw`\$\s*${PRICE_NUM}\s*/\s*each`, 'gi'),
+  new RegExp(String.raw`\$\s*${PRICE_NUM}\s*/\s*(?:bar|unit|piece|item|pc|ea)\b`, 'gi'),
+  new RegExp(String.raw`${PRICE_NUM}\s*(?:USD|EUR|GBP|CAD)?\s*/\s*each`, 'gi'),
+  new RegExp(String.raw`(?:each|per)\s*(?:[\$€£]|USD)?\s*${PRICE_NUM}`, 'gi'),
+];
 
 const SYMBOL_PATTERNS: { currency: string; re: RegExp }[] = [
   { currency: 'BRL', re: new RegExp(String.raw`R\$\s*${PRICE_NUM}`, 'g') },
@@ -61,11 +68,94 @@ function parseAmount(raw: string, context: string): number | null {
 
   let n = parseFloat(cleaned);
   if (!Number.isFinite(n)) return null;
-  if (n >= 500 && /"price"|compare_at|regular_price|Shopify|variant/i.test(context)) {
+  if (n >= 100 && n < 10000000 && /"price"|compare_at|regular_price|Shopify|variant|cents/i.test(context)) {
     const asMajor = n / 100;
     if (asMajor >= 0.5 && asMajor < 100000) n = asMajor;
   }
   return n >= 0.01 && n < 10000000 ? n : null;
+}
+
+function scorePriceContext(raw: string, fullText: string, index: number): number {
+  const window = fullText
+    .slice(Math.max(0, index - 140), Math.min(fullText.length, index + raw.length + 140))
+    .toLowerCase();
+  let score = 0;
+
+  if (/\/\s*each|per\s+(?:each|unit|bar|piece|item|pc)\b/i.test(raw)) score += 55;
+  if (/most popular|most-popular|bestseller|best\s+seller/i.test(window)) score += 48;
+  if (/best value|best-value/i.test(window)) score += 38;
+  if (/selected|active|current|default|aria-selected/i.test(window)) score += 32;
+  if (/\b1\s*bar|\b1\s*unit|\bsingle\b|\bone\b/i.test(window)) score += 28;
+  if (/step\s*1|select quantity|choose quantity/i.test(window)) score += 18;
+  if (/compare|was|originally|msrp|strike|~~|line-through|regular\s*price/i.test(window)) score -= 45;
+  if (
+    /shipping|delivery|save\s+\d+\s*%|free\s+shipping|orders?\s+over|off\s+orders|subscribe\s*&\s*save/i.test(
+      window
+    )
+  )
+    score -= 55;
+  if (/subscription|monthly|per\s+month|\/mo\b|every\s+\d+\s+days/i.test(window)) score -= 40;
+
+  return score;
+}
+
+function withScore(
+  hit: Omit<PriceHit, 'score'>,
+  text: string,
+  index = 0,
+  sourceBonus = 0
+): PriceHit {
+  return {
+    ...hit,
+    score: scorePriceContext(hit.raw, text, index) + sourceBonus,
+  };
+}
+
+function sourceBonus(source: string): number {
+  if (source === 'jsonld') return 18;
+  if (source.includes('jsonld-high')) return 8;
+  if (source === 'metadata') return 6;
+  if (source.includes('shopify-price')) return 22;
+  if (source.includes('shopify-compare')) return 12;
+  if (source.includes('unit')) return 12;
+  if (source.includes('compare') || source.includes('regular')) return 10;
+  return 0;
+}
+
+function filterOutlierPrices(hits: PriceHit[]): PriceHit[] {
+  if (hits.length < 2) return hits;
+  const values = hits.map((h) => h.value).sort((a, b) => a - b);
+  const median = values[Math.floor(values.length / 2)];
+  if (!Number.isFinite(median) || median <= 0) return hits;
+  return hits.filter((h) => h.value >= median * 0.45 && h.value <= median * 2.5);
+}
+
+function isQuantityTierCluster(values: number[]): boolean {
+  if (values.length < 2) return false;
+  const sorted = [...values].sort((a, b) => b - a);
+  const highest = sorted[0];
+  const lowest = sorted[sorted.length - 1];
+  if (highest < 5 || lowest < 5) return false;
+  if (highest / lowest > 2.5) return false;
+  return true;
+}
+
+function pickBestSinglePrice(hits: PriceHit[]): PriceHit | null {
+  const filtered = filterOutlierPrices(hits);
+  if (filtered.length === 0) return null;
+
+  const unitHits = filtered.filter((h) => h.source.includes('unit'));
+  const pool = unitHits.length > 0 ? unitHits : filtered;
+
+  const scored = [...pool].sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    if (unitHits.length > 0 && a.score >= 40 && b.score >= 40) {
+      return b.value - a.value;
+    }
+    return b.value - a.value;
+  });
+
+  return scored[0] ?? null;
 }
 
 function detectCurrencyFromText(text: string, urlHint: string | null): string {
@@ -176,12 +266,13 @@ function collectOffersFromNode(
   node: unknown,
   hits: PriceHit[],
   currencyHint: string,
+  sourceText: string,
   depth = 0
 ): void {
   if (depth > 8 || node == null) return;
 
   if (Array.isArray(node)) {
-    for (const item of node) collectOffersFromNode(item, hits, currencyHint, depth + 1);
+    for (const item of node) collectOffersFromNode(item, hits, currencyHint, sourceText, depth + 1);
     return;
   }
 
@@ -190,30 +281,29 @@ function collectOffersFromNode(
 
   if (isProductType(obj['@type'])) {
     const offers = obj.offers ?? obj.Offer;
-    collectOffersFromNode(offers, hits, currencyHint, depth + 1);
+    collectOffersFromNode(offers, hits, currencyHint, sourceText, depth + 1);
 
     const low = obj.lowPrice ?? obj.price;
     const high = obj.highPrice;
     if (typeof low === 'number' || typeof low === 'string') {
       const amt = parseAmount(String(low), JSON.stringify(obj));
       if (amt != null) {
-        hits.push({
-          value: amt,
-          raw: `jsonld:price:${low}`,
-          currency: currencyHint,
-          source: 'jsonld',
-        });
+        const raw = `jsonld:price:${low}`;
+        hits.push(withScore({ value: amt, raw, currency: currencyHint, source: 'jsonld' }, sourceText, 0, sourceBonus('jsonld')));
       }
     }
     if (typeof high === 'number' || typeof high === 'string') {
       const amt = parseAmount(String(high), JSON.stringify(obj));
       if (amt != null) {
-        hits.push({
-          value: amt,
-          raw: `jsonld:highPrice:${high}`,
-          currency: currencyHint,
-          source: 'jsonld',
-        });
+        const raw = `jsonld:highPrice:${high}`;
+        hits.push(
+          withScore(
+            { value: amt, raw, currency: currencyHint, source: 'jsonld-high' },
+            sourceText,
+            0,
+            sourceBonus('jsonld-high')
+          )
+        );
       }
     }
   }
@@ -228,31 +318,30 @@ function collectOffersFromNode(
     if (typeof price === 'number' || typeof price === 'string') {
       const amt = parseAmount(String(price), JSON.stringify(obj));
       if (amt != null) {
-        hits.push({
-          value: amt,
-          raw: `jsonld:offer:${price}`,
-          currency,
-          source: 'jsonld',
-        });
+        const raw = `jsonld:offer:${price}`;
+        hits.push(withScore({ value: amt, raw, currency, source: 'jsonld' }, sourceText, 0, sourceBonus('jsonld')));
       }
     }
     const high = obj.highPrice;
     if (typeof high === 'number' || typeof high === 'string') {
       const amt = parseAmount(String(high), JSON.stringify(obj));
       if (amt != null) {
-        hits.push({
-          value: amt,
-          raw: `jsonld:high:${high}`,
-          currency,
-          source: 'jsonld',
-        });
+        const raw = `jsonld:high:${high}`;
+        hits.push(
+          withScore(
+            { value: amt, raw, currency, source: 'jsonld-high' },
+            sourceText,
+            0,
+            sourceBonus('jsonld-high')
+          )
+        );
       }
     }
   }
 
-  if (obj['@graph']) collectOffersFromNode(obj['@graph'], hits, currencyHint, depth + 1);
+  if (obj['@graph']) collectOffersFromNode(obj['@graph'], hits, currencyHint, sourceText, depth + 1);
   for (const v of Object.values(obj)) {
-    if (v && typeof v === 'object') collectOffersFromNode(v, hits, currencyHint, depth + 1);
+    if (v && typeof v === 'object') collectOffersFromNode(v, hits, currencyHint, sourceText, depth + 1);
   }
 }
 
@@ -274,12 +363,9 @@ function extractShopifyPrices(text: string, currencyHint: string): PriceHit[] {
       const ctx = text.slice(Math.max(0, m.index - 60), m.index + 60);
       const amt = parseAmount(m[1], ctx);
       if (amt != null) {
-        hits.push({
-          value: amt,
-          raw: `shopify:${kind}:${m[1]}`,
-          currency: currencyHint,
-          source: kind === 'regular' ? 'shopify-compare' : 'shopify-price',
-        });
+        const source = kind === 'regular' ? 'shopify-compare' : 'shopify-price';
+        const raw = `shopify:${kind}:${m[1]}`;
+        hits.push(withScore({ value: amt, raw, currency: currencyHint, source }, text, m.index, sourceBonus(source)));
       }
     }
   }
@@ -290,29 +376,52 @@ function extractShopifyPrices(text: string, currencyHint: string): PriceHit[] {
 function hitsToPricing(hits: PriceHit[], currencyFallback: string): ExtractedPricing | null {
   if (hits.length === 0) return null;
 
-  const currency = hits.find((h) => h.currency)?.currency ?? currencyFallback;
-  const regularHits = hits.filter((h) => h.source.includes('compare') || h.source.includes('high'));
-  const saleHits = hits.filter((h) => !h.source.includes('compare') && !h.source.includes('high'));
+  const filtered = filterOutlierPrices(hits);
+  if (filtered.length === 0) return null;
 
-  const allValues = [...new Map(hits.map((h) => [`${h.currency}:${h.value}`, h])).values()].sort(
-    (a, b) => b.value - a.value
+  const currency = filtered.find((h) => h.currency)?.currency ?? currencyFallback;
+  const regularHits = filtered.filter(
+    (h) => h.source.includes('compare') || h.source.includes('high') || h.source.includes('regular')
+  );
+  const explicitSaleHits = filtered.filter(
+    (h) =>
+      h.source.includes('sale') &&
+      !h.source.includes('compare') &&
+      !h.source.includes('high') &&
+      !h.source.includes('regular')
   );
 
   let regular: number | null = null;
   let sale: number | null = null;
 
-  if (regularHits.length > 0 && saleHits.length > 0) {
+  if (regularHits.length > 0 && explicitSaleHits.length > 0) {
     regular = Math.max(...regularHits.map((h) => h.value));
-    sale = Math.min(...saleHits.map((h) => h.value));
-  } else if (allValues.length >= 2) {
-    regular = allValues[0].value;
-    sale = allValues[allValues.length - 1].value;
-    if (regular === sale) sale = null;
+    sale = Math.min(...explicitSaleHits.map((h) => h.value));
   } else {
-    sale = allValues[0].value;
+    const uniqueValues = [...new Set(filtered.map((h) => h.value))];
+    const tierLike = isQuantityTierCluster(uniqueValues);
+
+    if (tierLike) {
+      const best = pickBestSinglePrice(filtered);
+      if (best) sale = best.value;
+    } else if (uniqueValues.length >= 2 && regularHits.length > 0) {
+      regular = Math.max(...regularHits.map((h) => h.value));
+      sale = Math.min(...filtered.map((h) => h.value));
+      if (regular === sale) regular = null;
+    } else {
+      const best = pickBestSinglePrice(filtered);
+      if (best) sale = best.value;
+    }
   }
 
-  const snippets = hits.map((h) => h.raw).slice(0, 8);
+  if (regular != null && sale != null && regular <= sale) {
+    regular = null;
+  }
+
+  const snippets = filtered
+    .sort((a, b) => b.score - a.score)
+    .map((h) => h.raw)
+    .slice(0, 8);
 
   return {
     regularPrice: regular != null ? formatStoredPrice(regular, currency) : null,
@@ -342,17 +451,20 @@ function extractPricingFromStructured(
   if (fromMeta?.salePrice) {
     const amt = parseAmount(fromMeta.salePrice.replace(/[^\d.,]/g, ''), fromMeta.salePrice);
     if (amt != null) {
-      hits.push({
-        value: amt,
-        raw: fromMeta.rawSnippets[0] ?? 'metadata',
-        currency: fromMeta.currency,
-        source: 'metadata',
-      });
+      const raw = fromMeta.rawSnippets[0] ?? 'metadata';
+      hits.push(
+        withScore(
+          { value: amt, raw, currency: fromMeta.currency, source: 'metadata' },
+          combined,
+          0,
+          sourceBonus('metadata')
+        )
+      );
     }
   }
 
   for (const block of parseJsonLdBlocks(combined)) {
-    collectOffersFromNode(block, hits, currencyHint);
+    collectOffersFromNode(block, hits, currencyHint, combined);
   }
 
   hits.push(...extractShopifyPrices(combined, currencyHint));
@@ -369,6 +481,29 @@ export function extractPricingFromText(
   const amounts: PriceHit[] = [];
   const snippets: string[] = [];
 
+  for (const re of UNIT_EACH_PATTERNS) {
+    re.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      const rawNum = m[1];
+      if (!rawNum) continue;
+      const ctx = m[0] + text.slice(Math.max(0, m.index - 40), m.index + 40);
+      const amt = parseAmount(rawNum, ctx);
+      if (amt != null) {
+        const raw = m[0].trim().slice(0, 80);
+        amounts.push(
+          withScore(
+            { value: amt, raw, currency, source: 'unit-each' },
+            text,
+            m.index,
+            sourceBonus('unit-each')
+          )
+        );
+        if (!snippets.includes(raw)) snippets.push(raw);
+      }
+    }
+  }
+
   for (const { currency: symCurrency, re } of SYMBOL_PATTERNS) {
     re.lastIndex = 0;
     let m: RegExpExecArray | null;
@@ -379,7 +514,7 @@ export function extractPricingFromText(
       const amt = parseAmount(rawNum, ctx);
       if (amt != null) {
         const raw = m[0].trim().slice(0, 80);
-        amounts.push({ value: amt, raw, currency: symCurrency, source: 'text' });
+        amounts.push(withScore({ value: amt, raw, currency: symCurrency, source: 'text' }, text, m.index));
         if (!snippets.includes(raw)) snippets.push(raw);
       }
     }
@@ -392,14 +527,12 @@ export function extractPricingFromText(
       const ctx = m[0] + text.slice(Math.max(0, m.index - 40), m.index + 40);
       const isCompare = /compare_at|regular|compareAt/i.test(m[0]);
       const amt = parseAmount(m[1], ctx);
-      if (amt != null) {
+      if (amt != null && amt >= 2) {
         const raw = m[0].trim().slice(0, 80);
-        amounts.push({
-          value: amt,
-          raw,
-          currency,
-          source: isCompare ? 'text-compare' : 'text',
-        });
+        const source = isCompare ? 'text-compare' : 'text-json';
+        amounts.push(
+          withScore({ value: amt, raw, currency, source }, text, m.index, sourceBonus(source))
+        );
         if (!snippets.includes(raw)) snippets.push(raw);
       }
     }
@@ -461,6 +594,21 @@ function mergePricing(
   structured: ExtractedPricing | null,
   fromText: ExtractedPricing
 ): ExtractedPricing {
+  const textHasUnitPrices = fromText.rawSnippets.some((s) =>
+    /\/\s*each|\/\s*bar|per\s+(?:unit|each)/i.test(s)
+  );
+
+  if (textHasUnitPrices && fromText.salePrice) {
+    return {
+      ...fromText,
+      currency: fromText.currency || structured?.currency || 'USD',
+      rawSnippets: [...new Set([...fromText.rawSnippets, ...(structured?.rawSnippets ?? [])])].slice(
+        0,
+        8
+      ),
+    };
+  }
+
   if (!structured?.salePrice && !structured?.regularPrice) {
     return fromText;
   }
@@ -469,44 +617,29 @@ function mergePricing(
   }
 
   const currency = structured!.currency || fromText.currency;
-  const structuredSale = structured!.salePrice;
-  const structuredRegular = structured!.regularPrice;
-  const textSale = fromText.salePrice;
-  const textRegular = fromText.regularPrice;
+  const hits: PriceHit[] = [];
 
-  const parseFmt = (s: string | null) => {
-    if (!s) return null;
-    return parseAmount(s.replace(/[^\d.,]/g, ''), s);
+  const pushFormatted = (
+    formatted: string | null,
+    source: string,
+    rawHint: string,
+    bonus: number
+  ) => {
+    if (!formatted) return;
+    const amt = parseAmount(formatted.replace(/[^\d.,]/g, ''), formatted);
+    if (amt == null) return;
+    hits.push(withScore({ value: amt, raw: rawHint || formatted, currency, source }, rawHint || formatted, 0, bonus));
   };
 
-  const saleCandidates = [parseFmt(structuredSale), parseFmt(textSale)].filter(
-    (n): n is number => n != null
-  );
-  const regularCandidates = [parseFmt(structuredRegular), parseFmt(textRegular)].filter(
-    (n): n is number => n != null
-  );
+  pushFormatted(structured!.regularPrice, 'structured-regular', structured!.rawSnippets[0] ?? '', 14);
+  pushFormatted(structured!.salePrice, 'structured', structured!.rawSnippets[0] ?? '', 10);
+  pushFormatted(fromText.regularPrice, 'text-regular', fromText.rawSnippets[0] ?? '', 16);
+  pushFormatted(fromText.salePrice, 'text', fromText.rawSnippets[0] ?? '', 18);
 
-  const sale = saleCandidates.length ? Math.min(...saleCandidates) : null;
-  let regular = regularCandidates.length ? Math.max(...regularCandidates) : null;
+  const merged = hitsToPricing(hits, currency);
+  if (merged) return merged;
 
-  if (regular != null && sale != null && regular <= sale) {
-    regular = null;
-  }
-
-  return {
-    regularPrice: regular != null ? formatStoredPrice(regular, currency) : null,
-    salePrice:
-      sale != null
-        ? formatStoredPrice(sale, currency)
-        : regular != null
-          ? formatStoredPrice(regular, currency)
-          : null,
-    currency,
-    rawSnippets: [...new Set([...(structured!.rawSnippets ?? []), ...fromText.rawSnippets])].slice(
-      0,
-      8
-    ),
-  };
+  return fromText.salePrice ? fromText : structured!;
 }
 
 /** Full pricing extraction from all Firecrawl scrape outputs. */
@@ -517,7 +650,15 @@ export function extractProductPricing(input: {
   metadata?: Record<string, unknown> | null;
   productUrl?: string;
 }): ExtractedPricing {
-  const textBlob = [input.summary, input.markdown].filter(Boolean).join('\n');
+  const htmlText = input.html
+    ? input.html
+        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+    : null;
+  const textBlob = [input.summary, input.markdown, htmlText].filter(Boolean).join('\n');
   const structured = extractPricingFromStructured(
     { html: input.html, markdown: input.markdown, metadata: input.metadata },
     { productUrl: input.productUrl }
