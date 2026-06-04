@@ -3,14 +3,54 @@
 import { useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
+async function markPendingCheckout(): Promise<void> {
+  try {
+    sessionStorage.setItem('pending_whop_checkout', '1');
+  } catch {
+    /* ignore */
+  }
+  try {
+    await fetch('/api/subscription/mark-checkout', { method: 'POST', credentials: 'include' });
+  } catch {
+    /* cookie set on next checkout-url if needed */
+  }
+}
+
+async function syncUntilActive(): Promise<boolean> {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    try {
+      const syncRes = await fetch('/api/subscription/sync', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (syncRes.ok) return true;
+
+      const subRes = await fetch('/api/subscription', { credentials: 'include' });
+      if (subRes.ok) {
+        const subData = await subRes.json();
+        if (
+          subData?.ok &&
+          subData.plan !== 'free_trial' &&
+          subData.plan !== 'owner' &&
+          Number(subData.credits_remaining) > 0
+        ) {
+          return true;
+        }
+      }
+    } catch {
+      /* retry */
+    }
+    if (attempt < 7) {
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+    }
+  }
+  return false;
+}
+
 /** Whop success URL target — activates subscription then sends user to dashboard or login. */
 export default function PostPurchasePage() {
   useEffect(() => {
-    try {
-      sessionStorage.setItem('pending_whop_checkout', '1');
-    } catch {
-      /* ignore */
-    }
+    void markPendingCheckout();
 
     const finish = async () => {
       const supabase = createClient();
@@ -19,20 +59,7 @@ export default function PostPurchasePage() {
       } = await supabase.auth.getUser();
 
       if (user) {
-        for (let attempt = 0; attempt < 5; attempt += 1) {
-          try {
-            const res = await fetch('/api/subscription/sync', {
-              method: 'POST',
-              credentials: 'include',
-            });
-            if (res.ok) break;
-          } catch {
-            /* retry */
-          }
-          if (attempt < 4) {
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-          }
-        }
+        await syncUntilActive();
         window.location.replace('/app');
         return;
       }

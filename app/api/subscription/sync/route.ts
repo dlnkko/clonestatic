@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { syncWhopSubscriptionForEmail } from '@/lib/whop';
+import { syncWhopSubscriptionForEmailWithRetries } from '@/lib/whop';
+import { clearPendingWhopCheckoutCookie } from '@/lib/pending-checkout';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,15 +17,21 @@ export async function POST() {
   }
 
   const email = user.email.trim().toLowerCase();
-  const result = await syncWhopSubscriptionForEmail(email);
+  const result = await syncWhopSubscriptionForEmailWithRetries(email, {
+    maxAttempts: 5,
+    delayMs: 2000,
+  });
+
   if (!result.ok) {
     console.error('POST /api/subscription/sync:', result.error, 'email=', email);
     return NextResponse.json({ ok: false, error: result.error }, { status: 404 });
   }
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     ok: true,
     plan: result.plan,
     credits_remaining: result.credits,
   });
+  clearPendingWhopCheckoutCookie(response);
+  return response;
 }

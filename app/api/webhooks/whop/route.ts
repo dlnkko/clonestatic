@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
   }
 
   const isPayment =
-    /payment\.(succeeded|completed)|membership\.(went_valid|activated|created|valid)|subscription\.(created|activated)|invoice\.paid/i.test(
+    /payment\.(succeeded|completed|created)|membership\.(went_valid|activated|created|valid)|subscription\.(created|activated)|invoice\.paid|checkout\.completed/i.test(
       event
     );
 

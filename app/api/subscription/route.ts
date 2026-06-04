@@ -2,11 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getClientIpHash, getFreeTrialRemaining } from '@/lib/free-trial';
-import { getUserSubscriptionContext, resolveOwnerEmail } from '@/lib/subscription-limits';
+import { resolveOwnerEmail } from '@/lib/subscription-limits';
 import { maxProductsForPlan, PAID_PLAN_BY_KEY, isPaidPlan } from '@/lib/plans';
-import { syncWhopSubscriptionForEmail } from '@/lib/whop';
+import { syncWhopSubscriptionForEmailWithRetries } from '@/lib/whop';
+import {
+  clearPendingWhopCheckoutCookie,
+  hasPendingWhopCheckout,
+} from '@/lib/pending-checkout';
 
 export const dynamic = 'force-dynamic';
+
+async function loadSubscriptionRow(admin: ReturnType<typeof createAdminClient>, email: string) {
+  return admin
+    .from('subscriptions')
+    .select('plan, credits_remaining, period_end, cancel_at_period_end, whop_membership_id')
+    .eq('email', email)
+    .maybeSingle();
+}
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -26,14 +38,19 @@ export async function GET(request: NextRequest) {
   const isOwner = email === resolveOwnerEmail();
   if (isOwner) {
     const admin = createAdminClient();
-    const ctx = await getUserSubscriptionContext(admin, user.id, email);
+    const { count: productCount } = await admin
+      .from('products')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id);
+    const count = productCount ?? 0;
+    const maxProducts = maxProductsForPlan('owner');
     return NextResponse.json({
       ok: true,
       plan: 'owner',
       credits_remaining: 999999,
-      max_products: ctx.maxProducts,
-      product_count: ctx.productCount,
-      can_add_product: ctx.canAddProduct,
+      max_products: maxProducts,
+      product_count: count,
+      can_add_product: true,
       period_end: null,
       cancel_at_period_end: false,
       plan_name: 'Owner',
@@ -43,21 +60,19 @@ export async function GET(request: NextRequest) {
   try {
     const admin = createAdminClient();
     const ipHash = getClientIpHash(request);
+    const pendingCheckout = hasPendingWhopCheckout(request);
 
-    let { data, error } = await admin
-      .from('subscriptions')
-      .select('plan, credits_remaining, period_end, cancel_at_period_end, whop_membership_id')
-      .eq('email', email)
-      .maybeSingle();
+    let { data, error } = await loadSubscriptionRow(admin, email);
 
     if (error || !data || !isPaidPlan(data.plan)) {
-      const syncResult = await syncWhopSubscriptionForEmail(email);
+      const syncAttempts = pendingCheckout ? 5 : 2;
+      const syncResult = await syncWhopSubscriptionForEmailWithRetries(email, {
+        maxAttempts: syncAttempts,
+        delayMs: 2000,
+      });
+
       if (syncResult.ok) {
-        const refreshed = await admin
-          .from('subscriptions')
-          .select('plan, credits_remaining, period_end, cancel_at_period_end, whop_membership_id')
-          .eq('email', email)
-          .maybeSingle();
+        const refreshed = await loadSubscriptionRow(admin, email);
         if (refreshed.data && isPaidPlan(refreshed.data.plan)) {
           data = refreshed.data;
           error = refreshed.error;
@@ -75,6 +90,18 @@ export async function GET(request: NextRequest) {
     const count = productCount ?? 0;
 
     if (error || !data || !isPaidPlan(data.plan)) {
+      if (pendingCheckout) {
+        const response = NextResponse.json(
+          {
+            ok: false,
+            error: 'Activating subscription',
+            pending_checkout: true,
+          },
+          { status: 428 }
+        );
+        return response;
+      }
+
       const freeTrialRemaining = await getFreeTrialRemaining(admin, ipHash);
       if (freeTrialRemaining > 0) {
         const maxProducts = maxProductsForPlan('free_trial');
@@ -98,7 +125,7 @@ export async function GET(request: NextRequest) {
     const maxProducts = maxProductsForPlan(data.plan);
     const planMeta = PAID_PLAN_BY_KEY[data.plan];
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       ok: true,
       plan: data.plan,
       plan_name: planMeta?.name ?? data.plan,
@@ -110,6 +137,8 @@ export async function GET(request: NextRequest) {
       cancel_at_period_end: data.cancel_at_period_end === true,
       has_whop_membership: Boolean(data.whop_membership_id),
     });
+    clearPendingWhopCheckoutCookie(response);
+    return response;
   } catch (err) {
     console.error('GET /api/subscription:', err);
     return NextResponse.json({ ok: false, error: 'Server error' }, { status: 500 });

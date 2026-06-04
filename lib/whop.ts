@@ -1,6 +1,23 @@
 import { getWhopClient, getWhopClientOrNull } from '@/lib/whop-sdk';
 import { paidPlanRank, resolveWhopPlanKey, type PaidPlanKey } from '@/lib/plans';
 import type { WhopSubscriptionInput } from '@/lib/whop-subscription';
+import type Whop from '@whop/sdk';
+
+type MembershipStatus = NonNullable<
+  Parameters<Whop['memberships']['list']>[0]
+>['statuses'] extends Array<infer S> | null | undefined
+  ? S
+  : never;
+
+const MEMBERSHIP_STATUS_PRIMARY: MembershipStatus[] = ['active', 'trialing', 'completed'];
+const MEMBERSHIP_STATUS_EXTENDED: MembershipStatus[] = [
+  'active',
+  'trialing',
+  'completed',
+  'past_due',
+  'drafted',
+  'unresolved',
+];
 
 let cachedCompanyId: string | null = null;
 
@@ -141,6 +158,31 @@ async function upsertFromWhopData(input: WhopSubscriptionInput) {
   return upsertWhopSubscription(supabase, input, { grantFreshCredits: true });
 }
 
+async function listMembershipsForEmail(
+  normalizedEmail: string,
+  companyId: string,
+  statuses: MembershipStatus[] | undefined,
+  candidates: MembershipCandidate[],
+  seenMembershipIds: Set<string>
+) {
+  const client = getWhopClientOrNull();
+  if (!client) return;
+
+  const params: { company_id: string; first: number; statuses?: MembershipStatus[] } = {
+    company_id: companyId,
+    first: 200,
+  };
+  if (statuses) params.statuses = statuses;
+
+  try {
+    for await (const membership of client.memberships.list(params)) {
+      addMembershipCandidate(candidates, seenMembershipIds, normalizedEmail, membership);
+    }
+  } catch (err) {
+    console.error('Whop memberships.list failed:', err);
+  }
+}
+
 async function gatherMembershipCandidates(
   normalizedEmail: string,
   companyId: string
@@ -151,23 +193,29 @@ async function gatherMembershipCandidates(
   const candidates: MembershipCandidate[] = [];
   const seenMembershipIds = new Set<string>();
 
-  try {
-    for await (const membership of client.memberships.list({
-      company_id: companyId,
-      statuses: ['active', 'trialing', 'completed'],
-      first: 100,
-    })) {
-      addMembershipCandidate(candidates, seenMembershipIds, normalizedEmail, membership);
-    }
-  } catch (err) {
-    console.error('Whop memberships.list failed:', err);
+  await listMembershipsForEmail(
+    normalizedEmail,
+    companyId,
+    MEMBERSHIP_STATUS_PRIMARY,
+    candidates,
+    seenMembershipIds
+  );
+
+  if (candidates.length === 0) {
+    await listMembershipsForEmail(
+      normalizedEmail,
+      companyId,
+      MEMBERSHIP_STATUS_EXTENDED,
+      candidates,
+      seenMembershipIds
+    );
   }
 
   try {
     for await (const member of client.members.list({
       company_id: companyId,
       query: normalizedEmail,
-      first: 10,
+      first: 50,
     })) {
       if (memberEmail(member) !== normalizedEmail) continue;
       const userId = member.user?.id;
@@ -176,8 +224,7 @@ async function gatherMembershipCandidates(
       for await (const membership of client.memberships.list({
         company_id: companyId,
         user_ids: [userId],
-        statuses: ['active', 'trialing', 'completed'],
-        first: 20,
+        first: 50,
       })) {
         addMembershipCandidate(candidates, seenMembershipIds, normalizedEmail, membership);
       }
@@ -187,6 +234,53 @@ async function gatherMembershipCandidates(
   }
 
   return candidates;
+}
+
+const PAYMENT_SUCCESS_PATTERN = /success|complete|paid|succeed/i;
+
+function isSuccessfulPaymentStatus(status: unknown): boolean {
+  if (status == null || status === '') return true;
+  const normalized = String(status).toLowerCase();
+  if (normalized === 'failed' || normalized === 'canceled' || normalized === 'cancelled') {
+    return false;
+  }
+  return PAYMENT_SUCCESS_PATTERN.test(normalized);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function findPaymentForEmail(
+  normalizedEmail: string,
+  companyId: string
+): Promise<WhopSubscriptionInput | null> {
+  const client = getWhopClientOrNull();
+  if (!client) return null;
+
+  try {
+    for await (const payment of client.payments.list({ company_id: companyId })) {
+      const payEmail = payment.user?.email?.trim().toLowerCase();
+      if (payEmail !== normalizedEmail) continue;
+      if (!isSuccessfulPaymentStatus(payment.status)) continue;
+
+      const planId = payment.plan?.id;
+      if (!planId) continue;
+
+      return {
+        email: normalizedEmail,
+        planId,
+        membershipId: payment.membership?.id ?? null,
+        memberId: payment.user?.id ?? null,
+        renewalPeriodEnd: null,
+        cancelAtPeriodEnd: false,
+      };
+    }
+  } catch (err) {
+    console.error('Whop payments.list failed:', err);
+  }
+
+  return null;
 }
 
 /** Pull active membership from Whop API when webhook is delayed or failed. */
@@ -218,23 +312,9 @@ export async function syncWhopSubscriptionForEmail(
       return { ok: true, plan: row.plan, credits: row.credits_remaining };
     }
 
-    for await (const payment of client.payments.list({
-      company_id: companyId,
-      first: 100,
-    })) {
-      const payEmail = payment.user?.email?.trim().toLowerCase();
-      if (payEmail !== normalizedEmail) continue;
-      const planId = payment.plan?.id;
-      if (!planId) continue;
-
-      const { row, error } = await upsertFromWhopData({
-        email: normalizedEmail,
-        planId,
-        membershipId: payment.membership?.id ?? null,
-        memberId: payment.user?.id ?? null,
-        renewalPeriodEnd: null,
-        cancelAtPeriodEnd: false,
-      });
+    const paymentInput = await findPaymentForEmail(normalizedEmail, companyId);
+    if (paymentInput) {
+      const { row, error } = await upsertFromWhopData(paymentInput);
       if (error) return { ok: false, error: error.message };
       return { ok: true, plan: row.plan, credits: row.credits_remaining };
     }
@@ -244,6 +324,31 @@ export async function syncWhopSubscriptionForEmail(
     const message = err instanceof Error ? err.message : 'Whop sync failed';
     return { ok: false, error: message };
   }
+}
+
+export type WhopSyncResult =
+  | { ok: true; plan: string; credits: number }
+  | { ok: false; error: string };
+
+/** Retry Whop sync — useful right after checkout when membership may not be indexed yet. */
+export async function syncWhopSubscriptionForEmailWithRetries(
+  email: string,
+  options?: { maxAttempts?: number; delayMs?: number }
+): Promise<WhopSyncResult> {
+  const maxAttempts = Math.max(1, options?.maxAttempts ?? 1);
+  const delayMs = options?.delayMs ?? 2000;
+
+  let lastResult: WhopSyncResult = { ok: false, error: 'Sync not attempted' };
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    lastResult = await syncWhopSubscriptionForEmail(email);
+    if (lastResult.ok) return lastResult;
+    if (attempt < maxAttempts - 1) {
+      await sleep(delayMs);
+    }
+  }
+
+  return lastResult;
 }
 
 /** Fetch payment/membership details when webhook payload omits email. */

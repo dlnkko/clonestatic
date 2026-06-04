@@ -21,7 +21,7 @@ function setAuthFlowCookies(next: string, plan: string) {
   }
 }
 
-async function activateWhopSubscriptionIfNeeded(): Promise<void> {
+async function activateWhopSubscriptionIfNeeded(): Promise<boolean> {
   let pending = false;
   try {
     pending =
@@ -30,14 +30,55 @@ async function activateWhopSubscriptionIfNeeded(): Promise<void> {
   } catch {
     /* ignore */
   }
-  if (!pending) return;
+  if (!pending) return false;
 
   try {
-    await fetch('/api/subscription/sync', { method: 'POST', credentials: 'include' });
-    sessionStorage.removeItem('pending_whop_checkout');
+    await fetch('/api/subscription/mark-checkout', { method: 'POST', credentials: 'include' });
   } catch {
-    /* retry on dashboard */
+    /* ignore */
   }
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    try {
+      const syncRes = await fetch('/api/subscription/sync', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (syncRes.ok) {
+        try {
+          sessionStorage.removeItem('pending_whop_checkout');
+        } catch {
+          /* ignore */
+        }
+        return true;
+      }
+
+      const subRes = await fetch('/api/subscription', { credentials: 'include' });
+      if (subRes.ok) {
+        const subData = await subRes.json();
+        if (
+          subData?.ok &&
+          subData.plan !== 'free_trial' &&
+          subData.plan !== 'owner' &&
+          Number(subData.credits_remaining) > 0
+        ) {
+          try {
+            sessionStorage.removeItem('pending_whop_checkout');
+          } catch {
+            /* ignore */
+          }
+          return true;
+        }
+      }
+    } catch {
+      /* retry */
+    }
+    if (attempt < 7) {
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+    }
+  }
+
+  return false;
 }
 
 function LoginContent() {

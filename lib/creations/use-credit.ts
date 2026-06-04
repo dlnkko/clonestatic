@@ -21,8 +21,11 @@ export async function useCreditForGeneration(
     .maybeSingle();
 
   if (!row || fetchError) {
-    const { syncWhopSubscriptionForEmail } = await import('@/lib/whop');
-    const syncResult = await syncWhopSubscriptionForEmail(email);
+    const { syncWhopSubscriptionForEmailWithRetries } = await import('@/lib/whop');
+    const syncResult = await syncWhopSubscriptionForEmailWithRetries(email, {
+      maxAttempts: 3,
+      delayMs: 1500,
+    });
     if (syncResult.ok) {
       const refreshed = await admin
         .from('subscriptions')

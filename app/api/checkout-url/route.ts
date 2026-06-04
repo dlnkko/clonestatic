@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { WHOP_CHECKOUT_URLS } from '@/lib/plans';
+import { setPendingWhopCheckoutCookie } from '@/lib/pending-checkout';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,5 +40,7 @@ export async function GET(request: NextRequest) {
     checkout.searchParams.set('email.disabled', '1');
   }
 
-  return NextResponse.json({ url: checkout.toString() });
+  const response = NextResponse.json({ url: checkout.toString() });
+  setPendingWhopCheckoutCookie(response);
+  return response;
 }

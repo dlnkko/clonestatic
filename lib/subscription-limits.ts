@@ -61,8 +61,11 @@ export async function getUserSubscriptionContext(
   let activeSub = sub;
 
   if (!activeSub || !isPaidPlan(activeSub.plan)) {
-    const { syncWhopSubscriptionForEmail } = await import('@/lib/whop');
-    const syncResult = await syncWhopSubscriptionForEmail(normalizedEmail);
+    const { syncWhopSubscriptionForEmailWithRetries } = await import('@/lib/whop');
+    const syncResult = await syncWhopSubscriptionForEmailWithRetries(normalizedEmail, {
+      maxAttempts: 3,
+      delayMs: 1500,
+    });
     if (syncResult.ok) {
       const refreshed = await admin
         .from('subscriptions')

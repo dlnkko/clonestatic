@@ -1113,6 +1113,8 @@ function StaticAdAppPage() {
 
       const subRes = await fetch('/api/subscription', { credentials: 'include' });
       const subData = subRes.ok ? await subRes.json() : null;
+      const pendingFromServer =
+        subRes.status === 428 || subData?.pending_checkout === true;
       const hasPaidPlan =
         subRes.ok &&
         subData?.ok &&
@@ -1123,10 +1125,17 @@ function StaticAdAppPage() {
       const paidCredits = Number(subData?.credits_remaining ?? 0);
       const needsSync =
         pendingCheckout ||
+        pendingFromServer ||
         !hasPaidPlan ||
         (hasPaidPlan && (!Number.isFinite(paidCredits) || paidCredits <= 0));
 
       if (!needsSync) return;
+
+      try {
+        await fetch('/api/subscription/mark-checkout', { method: 'POST', credentials: 'include' });
+      } catch {
+        /* ignore */
+      }
 
       for (let attempt = 0; attempt < 10 && !cancelled; attempt += 1) {
         if (attempt > 0) {
