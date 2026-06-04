@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { cn } from '@/lib/cn';
 import { AdmirrorLogo } from './AdmirrorLogo';
@@ -11,14 +12,14 @@ import { useScrollParallax } from './useScrollParallax';
 const NAV = [
   { label: 'How it works', href: '#how' },
   { label: 'Features', href: '#features' },
-  { label: 'Library', href: '#library' },
+  { label: 'Meta Ad Library', href: '#library' },
   { label: 'Pricing', href: '#pricing' },
 ];
 
 const FEATURES = [
   {
-    title: 'Mirror winning layouts',
-    body: 'Upload a reference or pick from the library. We rebuild structure, hierarchy, and hooks for your product—not generic AI slop.',
+    title: 'Mirror what already converts',
+    body: 'Upload a reference or pull one from the Meta Ad Library. We rebuild layout, hierarchy, and hooks around your product. Structure comes from winners, not generic AI output.',
     gradient: 'from-cyan-400 via-sky-500 to-indigo-600',
     span: 'md:col-span-2',
     icon: (
@@ -30,8 +31,8 @@ const FEATURES = [
     ),
   },
   {
-    title: 'Product page scraping',
-    body: 'Paste your PDP URL—we pull real features, benefits, pricing, and brand colors so copy matches what you sell.',
+    title: 'Your PDP, in the creative',
+    body: 'Paste your product URL. We pull benefits, pricing, and brand colors from the page. The ad reads like your store, not a template pulled from thin air.',
     gradient: 'from-violet-400 to-purple-600',
     span: '',
     icon: (
@@ -43,8 +44,8 @@ const FEATURES = [
     ),
   },
   {
-    title: 'Edit & iterate fast',
-    body: 'Tweak headlines, swap visuals, or refine with natural-language edits—without restarting from scratch.',
+    title: 'Iterate without rebuilding',
+    body: 'Tweak headlines, swap visuals, or refine with a short edit note. Same ad, faster rounds. No new brief. No starting over.',
     gradient: 'from-fuchsia-400 to-pink-600',
     span: '',
     icon: (
@@ -52,8 +53,8 @@ const FEATURES = [
     ),
   },
   {
-    title: 'US Ad Library built in',
-    body: 'Browse meme statics by category and brand, sorted by impressions. Mirror what is already spending—not what you guess might work.',
+    title: 'Meta Ad Library, built in',
+    body: 'Thousands of statics sourced from Meta, sorted by impressions and refreshed every month. Mirror what brands are spending on, not what you guess might work.',
     gradient: 'from-emerald-400 to-teal-600',
     span: 'md:col-span-2',
     icon: (
@@ -69,8 +70,8 @@ const FEATURES = [
 const STEPS = [
   {
     n: '01',
-    title: 'Pick a proven ad',
-    text: 'Upload a reference or choose from the US library—filter by niche, brand, and impressions.',
+    title: 'Choose what\'s spending',
+    text: 'Upload a reference or pick from the Meta Ad Library. Filter by niche, brand, and impressions.',
     icon: (
       <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14" />
     ),
@@ -78,15 +79,15 @@ const STEPS = [
   {
     n: '02',
     title: 'Add your product',
-    text: 'Save product images or paste your store URL. We match layout and write copy from your real page data.',
+    text: 'Save product images or paste your store URL. Layout and copy adapt to your catalog, not a competitor\'s.',
     icon: (
       <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
     ),
   },
   {
     n: '03',
-    title: 'Generate & launch',
-    text: 'Download HD statics in seconds. Test more variants before competitors finish their first brief.',
+    title: 'Export and launch',
+    text: 'Download HD statics in under a minute. Run more tests this week while others are still in revision.',
     icon: (
       <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
     ),
@@ -95,7 +96,7 @@ const STEPS = [
 
 const PROOF = [
   { value: '60s', label: 'Reference to export' },
-  { value: '10×', label: 'More creative tests' },
+  { value: '10×', label: 'More variants per week' },
   { value: '0', label: 'Prompts to write' },
 ];
 
@@ -194,32 +195,32 @@ export function LandingPage() {
               <Reveal direction="down">
                 <p className="landing-pill mx-auto lg:mx-0">
                   <span className="landing-pill-dot" />
-                  Static ads · US library · AI mirror
+                  Meta Ad Library · Refreshed monthly
                 </p>
               </Reveal>
               <Reveal direction="up" delayMs={80}>
                 <h1 className="mt-6 text-[1.75rem] font-bold leading-[1.06] tracking-tight sm:text-5xl lg:text-[3.25rem]">
-                  Proven static ads in{' '}
+                  Ship proven static ads in{' '}
                   <span className="landing-gradient-text">60 seconds</span>
-                  — no prompts
                 </h1>
               </Reveal>
               <Reveal direction="down" delayMs={160}>
                 <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-white/70 sm:text-lg lg:mx-0">
-                  Upload your product. Pick a layout that already converted. Download and launch.
-                  admirror mirrors winners with your brand, your copy, your product—fast.
+                  Performance teams don&apos;t need another image generator. They need a way to turn
+                  what&apos;s already spending on Meta into their product, their copy, and their brand.
+                  admirror is that layer.
                 </p>
               </Reveal>
               <Reveal direction="up" delayMs={240}>
                 <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row lg:justify-start">
                   <a href="/login?next=/app" className="landing-btn-primary w-full sm:w-auto">
-                    Try admirror free
+                    Start free · 2 generations
                   </a>
                   <a href="#how" className="landing-btn-ghost w-full sm:w-auto">
                     See how it works
                   </a>
                 </div>
-                <p className="mt-4 text-xs text-white/45">2 free generations · No card required</p>
+                <p className="mt-4 text-xs text-white/45">No credit card · Cancel anytime</p>
               </Reveal>
             </div>
 
@@ -231,17 +232,37 @@ export function LandingPage() {
                     <span className="landing-showcase-dot bg-red-400/80" />
                     <span className="landing-showcase-dot bg-amber-400/80" />
                     <span className="landing-showcase-dot bg-emerald-400/80" />
-                    <span className="ml-2 text-[10px] font-medium text-white/40">admirror — Mirror</span>
+                    <span className="ml-2 text-[10px] font-medium text-white/40">admirror · Mirror</span>
                   </div>
                   <div className="landing-showcase-body">
                     <div className="grid grid-cols-2 gap-2 p-3">
                       <div className="landing-showcase-card landing-showcase-card-ref col-span-1">
                         <span className="text-[9px] font-semibold uppercase tracking-wider text-cyan-300/90">Reference</span>
-                        <div className="mt-2 aspect-[4/5] rounded-lg bg-gradient-to-br from-indigo-500/30 to-purple-600/20 ring-1 ring-white/10" />
+                        <div className="landing-showcase-ad-image mt-2">
+                          <Image
+                            src="/landing/hero-reference.png"
+                            alt="Reference static ad, lemme BALANCE hormonal support"
+                            width={360}
+                            height={640}
+                            className="h-full w-full object-cover object-center"
+                            priority
+                            sizes="(max-width: 1024px) 40vw, 220px"
+                          />
+                        </div>
                       </div>
                       <div className="landing-showcase-card landing-showcase-card-out col-span-1">
                         <span className="text-[9px] font-semibold uppercase tracking-wider text-emerald-300/90">Your ad</span>
-                        <div className="mt-2 aspect-[4/5] rounded-lg bg-gradient-to-br from-cyan-500/25 to-indigo-600/25 ring-1 ring-cyan-400/20" />
+                        <div className="landing-showcase-ad-image mt-2">
+                          <Image
+                            src="/landing/hero-generated.png"
+                            alt="Static ad generated with admirror, Bloom creatine gummies"
+                            width={360}
+                            height={640}
+                            className="h-full w-full object-cover object-center"
+                            priority
+                            sizes="(max-width: 1024px) 40vw, 220px"
+                          />
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center justify-center gap-2 border-t border-white/5 px-3 py-2.5">
@@ -273,8 +294,8 @@ export function LandingPage() {
         <section className="relative px-4 py-16 sm:py-20">
           <Reveal direction="up" className="mx-auto max-w-4xl text-center">
             <h2 className="text-2xl font-bold leading-snug sm:text-4xl md:text-[2.5rem]">
-              Mirror any static ad with your product—{' '}
-              <span className="landing-gradient-text">one click</span>
+              Same layout that converted.{' '}
+              <span className="landing-gradient-text">Your product inside it.</span>
             </h2>
           </Reveal>
         </section>
@@ -283,24 +304,24 @@ export function LandingPage() {
         <section className="landing-pain-section relative px-4 py-16 sm:py-24">
           <div className="mx-auto max-w-3xl">
             <Reveal direction="up">
-              <p className="landing-section-label">The real bottleneck</p>
+              <p className="landing-section-label">The production gap</p>
               <h2 className="mt-4 text-2xl font-bold leading-tight sm:text-4xl">
-                You already know what converts. You just can&apos;t produce it fast enough.
+                You know what works. You just can&apos;t ship it fast enough.
               </h2>
             </Reveal>
             <Reveal direction="down" delayMs={100} className="mt-8 space-y-5 text-base leading-relaxed text-white/70 sm:text-lg">
               <p>
-                You open Meta Ad Library. You screenshot winners. You write a brief, send it to a designer,
-                and wait. The first draft misses the hook. Revisions take days.
+                You pull references from Meta Ad Library. Screenshot. Brief a designer. Wait.
+                First draft misses the hook. Revisions eat the week.
               </p>
               <p>
-                By the time the ad goes live, the moment passed—and a competitor already tested fifteen
-                variations of the same concept.
+                By launch day the trend moved. A sharper team had already tested a dozen angles
+                on the same concept.
               </p>
               <p className="text-white/90">
-                <strong className="font-semibold text-white">The bottleneck was never strategy. It was production.</strong>{' '}
-                admirror lets you mirror proven layouts with your product, brand, and scraped PDP copy—in
-                minutes, not weeks.
+                <strong className="font-semibold text-white">Strategy wasn&apos;t the bottleneck. Production was.</strong>{' '}
+                admirror mirrors proven layouts with your product, brand, and store copy in minutes,
+                not sprints.
               </p>
             </Reveal>
             <Reveal direction="up" delayMs={180}>
@@ -318,10 +339,10 @@ export function LandingPage() {
             <Reveal direction="down" className="text-center">
               <p className="landing-section-label landing-section-label-dark mx-auto">How it works</p>
               <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
-                From inspo to ad in three steps
+                Reference to export in three steps
               </h2>
               <p className="mx-auto mt-4 max-w-2xl text-slate-600 sm:text-lg">
-                No prompt engineering. No agency retainer. Just proven structure + your product.
+                No prompt docs. No agency retainer. Proven structure, your catalog.
               </p>
             </Reveal>
 
@@ -351,10 +372,10 @@ export function LandingPage() {
             <Reveal direction="down" className="text-center">
               <p className="landing-section-label mx-auto">Features</p>
               <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
-                Built for performance marketers
+                Everything a performance team expects
               </h2>
               <p className="mx-auto mt-4 max-w-2xl text-white/65 sm:text-lg">
-                Stop guessing. Start mirroring. Ship more ads before the market shifts.
+                The creative ops stack, without the ops. Ship more statics before the account goes stale.
               </p>
             </Reveal>
 
@@ -387,16 +408,17 @@ export function LandingPage() {
             <div className="landing-library-band-v2 overflow-hidden rounded-[2rem] px-6 py-14 sm:px-12 sm:py-16">
               <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
                 <Reveal direction="up">
-                  <p className="landing-section-label landing-section-label-dark">Ad Library</p>
+                  <p className="landing-section-label landing-section-label-dark">Meta Ad Library</p>
                   <h2 className="mt-3 text-3xl font-bold leading-tight text-slate-900 sm:text-4xl">
-                    Thousands of proven US statics—sorted by impressions
+                    What&apos;s spending on Meta, curated and sorted for you
                   </h2>
                   <p className="mt-4 leading-relaxed text-slate-600">
-                    Browse by category or brand. See what&apos;s actually spending in supplements, beauty,
-                    fitness, and more. One click to mirror any ad as your reference.
+                    Browse statics by category and brand, ranked by impressions. Pick a reference,
+                    mirror it with your product and store copy. The library refreshes every month, so
+                    you always work from current winners, not last quarter&apos;s archive.
                   </p>
                   <a href="/login?next=/app" className="landing-btn-primary mt-8 inline-flex !text-white">
-                    Browse library
+                    Explore Meta Ad Library
                   </a>
                 </Reveal>
                 <Reveal direction="down" delayMs={120}>
@@ -438,16 +460,16 @@ export function LandingPage() {
             <div className="landing-cta-glow-v2 mx-auto max-w-3xl rounded-[2rem] px-6 py-14 text-center sm:px-12 sm:py-16">
               <AdmirrorLogo theme="light" size="lg" className="mx-auto justify-center" />
               <h2 className="mt-8 text-2xl font-bold sm:text-4xl">
-                Stop producing ads.{' '}
-                <span className="landing-gradient-text">Start mirroring winners.</span>
+                Stop briefing from scratch.{' '}
+                <span className="landing-gradient-text">Start from what converts.</span>
               </h2>
               <p className="mx-auto mt-4 max-w-md text-white/65">
-                Every ad from scratch is a gamble. Every ad mirrored from proven data is a bet with the
-                odds in your favor.
+                Every concept built from scratch is a bet. Every mirrored winner is a head start.
+                admirror is the tool your stack was missing.
               </p>
               <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
                 <a href="/login?next=/app" className="landing-btn-primary">
-                  Try free
+                  Start free
                 </a>
                 <a href="#pricing" className="landing-btn-ghost">
                   View pricing

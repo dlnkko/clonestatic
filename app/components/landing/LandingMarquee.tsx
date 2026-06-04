@@ -2,15 +2,16 @@
 
 const ITEMS = [
   'Mirror static ads',
-  'US Meta Ad Library',
-  'Sort by impressions',
-  'Product URL scrape',
-  'Brand-matched copy',
-  'No prompts needed',
+  'Meta Ad Library',
+  'Refreshed monthly',
+  'Sorted by impressions',
+  'Product page sync',
+  'Copy that matches your brand',
+  'No prompt engineering',
   'HD export',
   'Saved products',
-  'Ad library by niche',
-  'Launch in minutes',
+  'Browse by category',
+  'Ship in minutes',
 ];
 
 export function LandingMarquee() {

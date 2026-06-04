@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
         status: 'processing',
         creationId,
         message:
-          'Your ad is generating on our servers (~2 min). You can lock your phone — it will appear in History.',
+          'Your ad is on the way — it will appear in History when ready.',
       },
       { status: 202 }
     );

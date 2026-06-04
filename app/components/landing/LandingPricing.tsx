@@ -72,10 +72,10 @@ export function LandingPricing() {
       <Reveal direction="down" className="text-center">
         <p className="landing-section-label landing-section-label-dark mx-auto">Pricing</p>
         <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
-          Choose your plan
+          Simple pricing. Serious output.
         </h2>
         <p className="mx-auto mt-3 max-w-lg text-sm text-slate-500 sm:text-base">
-          Start with a free trial. No contracts — cancel anytime.
+          Two free generations to prove the workflow. Upgrade when mirroring becomes essential.
         </p>
       </Reveal>
 

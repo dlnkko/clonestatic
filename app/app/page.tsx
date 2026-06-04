@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { createClient as createSupabaseClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { DashboardShell } from '../components/dashboard/DashboardShell';
+import { AdPreviewLoading } from '../components/dashboard/AdPreviewLoading';
 import { PricingModal } from '../components/dashboard/PricingModal';
 import { OnboardingWelcome } from '../components/OnboardingWelcome';
 import { DashCombobox } from '../components/dashboard/DashCombobox';
@@ -239,7 +240,6 @@ function StaticAdAppPage() {
   const [creations, setCreations] = useState<CreationItem[]>([]);
   const [creationsLoading, setCreationsLoading] = useState(false);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
-  const [backgroundGenNotice, setBackgroundGenNotice] = useState<string | null>(null);
   const [pendingPreviewCreationId, setPendingPreviewCreationId] = useState<string | null>(null);
   const [user, setUser] = useState<{ email: string; name?: string } | null>(null);
   const [creditsRemaining, setCreditsRemaining] = useState<number | null>(null);
@@ -436,8 +436,6 @@ function StaticAdAppPage() {
       const aspect = getResolvedAspectRatio();
 
       if (hasSupabase && authUserId) {
-        setBackgroundGenNotice('Uploading images…');
-
         const referenceUploadRes = await fetch('/api/upload-product-image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -530,9 +528,6 @@ function StaticAdAppPage() {
         setPendingImageJob(creationId);
         setPendingPreviewCreationId(creationId);
         setError(null);
-        setBackgroundGenNotice(
-          'Generating on our servers (~2 min). You can lock your phone — your ad will appear here and in History.'
-        );
         void loadCreations({ silent: true });
         void fetchSubscription();
         return;
@@ -709,9 +704,6 @@ function StaticAdAppPage() {
             setPendingPreviewCreationId(serverCreationId);
           }
           setError(null);
-          setBackgroundGenNotice(
-            'Generating on our servers (~90 sec). You can lock your phone or switch apps — your ad will appear in History.'
-          );
           void loadCreations({ silent: true });
           void fetchSubscription();
           return;
@@ -725,7 +717,6 @@ function StaticAdAppPage() {
           setGeneratedImageUrl(imgData.imageUrl);
           clearPendingImageJob(creationId ?? undefined);
           setPendingPreviewCreationId(null);
-          setBackgroundGenNotice(null);
           if (creationId) {
             await loadCreations({ silent: true });
             await fetchSubscription();
@@ -749,9 +740,6 @@ function StaticAdAppPage() {
           setPendingImageJob(creationId);
           setPendingPreviewCreationId(creationId);
           setError(null);
-          setBackgroundGenNotice(
-            'Request sent — generation continues on our servers. Lock your phone and check History in ~90 sec.'
-          );
           void loadCreations({ silent: true });
         } else if (isTransientFetchError(imgErr)) {
           setError('Connection lost. If image generation started, check History in a minute.');
@@ -766,9 +754,6 @@ function StaticAdAppPage() {
       if (pending?.creationId) {
         setPendingPreviewCreationId(pending.creationId);
         setError(null);
-        setBackgroundGenNotice(
-          'Generation continues on our servers. Lock your phone if you want — check History in ~2 min.'
-        );
         void loadCreations({ silent: true });
       } else if (isTransientFetchError(err)) {
         setError('Connection interrupted. If you already tapped Generate, check History in ~2 min.');
@@ -1021,7 +1006,6 @@ function StaticAdAppPage() {
         setGeneratedImageUrl(done.image_url);
         clearPendingImageJob(id);
         setPendingPreviewCreationId(null);
-        setBackgroundGenNotice(null);
         setError(null);
         return;
       }
@@ -1029,7 +1013,6 @@ function StaticAdAppPage() {
       if (failed) {
         clearPendingImageJob(id);
         setPendingPreviewCreationId(null);
-        setBackgroundGenNotice(null);
         setError(failed.error_message?.trim() || 'Generation failed. Please try again.');
         return;
       }
@@ -1077,9 +1060,6 @@ function StaticAdAppPage() {
     const pending = readPendingImageJob();
     if (!pending?.creationId) return;
     setPendingPreviewCreationId(pending.creationId);
-    setBackgroundGenNotice(
-      'Your ad is still generating on our servers. Lock your phone if you want — check History when ready.'
-    );
     void loadCreations({ silent: true });
   }, [hasSupabase, authUserId, loadCreations]);
 
@@ -1246,6 +1226,10 @@ function StaticAdAppPage() {
   const hasGenerating = creations.some(
     (c) => c.status === 'generating' || (!c.image_url && c.status !== 'failed')
   );
+  const isPreviewLoading =
+    isGenerating || isGeneratingImage || Boolean(pendingPreviewCreationId);
+  const previewLoadingPhase =
+    isGenerating && !isGeneratingImage && !pendingPreviewCreationId ? 'upload' : 'generate';
   useEffect(() => {
     if (!hasSupabase || !authUserId || (!hasGenerating && !pendingPreviewCreationId)) return;
     const ms = pendingPreviewCreationId ? 2500 : 4000;
@@ -1956,36 +1940,14 @@ function StaticAdAppPage() {
                 {generatedImageUrl && <a href={generatedImageUrl} target="_blank" rel="noopener noreferrer" className="dash-btn dash-btn-secondary !px-3 !py-2 text-xs min-h-[40px] items-center"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>Open</a>}
               </div>
               <div className="dash-preview-panel-body min-h-[240px] sm:min-h-[320px] lg:min-h-[380px]">
-                {!generatedImageUrl && !isGenerating && !isGeneratingImage && !pendingPreviewCreationId ? (
-                  backgroundGenNotice ? (
-                    <div className="flex flex-col items-center justify-center gap-3 px-4 text-center">
-                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-indigo-200 bg-indigo-50">
-                        <svg className="h-7 w-7 dash-spinner text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                      </div>
-                      <p className="text-sm font-medium text-slate-800">{backgroundGenNotice}</p>
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab('history')}
-                        className="dash-btn dash-btn-secondary text-xs min-h-[40px]"
-                      >
-                        View History
-                      </button>
-                    </div>
-                  ) : (
+                {!generatedImageUrl && !isPreviewLoading ? (
                   <div className="flex flex-col items-center justify-center text-center px-2">
                     <div className="mb-3 sm:mb-4 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50"><svg className="h-7 w-7 sm:h-8 sm:w-8 text-slate-400" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>
                     <h3 className="text-sm font-semibold text-slate-800">Your ad will appear here</h3>
                     <p className="mt-1 max-w-[260px] text-xs text-slate-500">Upload both images and tap Generate Image.</p>
                   </div>
-                  )
-                ) : (isGenerating || isGeneratingImage || pendingPreviewCreationId) ? (
-                  <div className="flex flex-col items-center justify-center text-center px-2">
-                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-slate-200 bg-slate-50"><svg className="h-7 w-7 dash-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg></div>
-                    <p className="text-sm font-medium text-slate-700">Analyzing & adapting image…</p>
-                    <p className="mt-3 max-w-[280px] text-xs text-slate-500">
-                      Runs on our servers (~90 sec). You can lock your phone — your ad will appear in History.
-                    </p>
-                  </div>
+                ) : isPreviewLoading ? (
+                  <AdPreviewLoading phase={previewLoadingPhase} />
                 ) : generatedImageUrl ? (
                   <div className="w-full flex flex-col items-center">
                     <div className="w-full max-w-lg rounded-xl overflow-hidden bg-slate-50 ring-1 ring-slate-200">

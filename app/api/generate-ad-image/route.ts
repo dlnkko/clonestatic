@@ -198,7 +198,7 @@ export async function POST(request: NextRequest) {
         status: 'processing',
         creationId: jobCreationId,
         message:
-          'Image generation runs on the server. You can lock your phone or switch apps — check History when ready.',
+          'Getting your ad ready — check History when it finishes.',
       },
       { status: 202 }
     );
