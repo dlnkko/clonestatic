@@ -1,15 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import type { ExtractedPricing, ProductImage, ProductRecord } from '@/lib/products/types';
+import type { ExtractedPricing, ProductImage, ProductPricingConfig, ProductRecord } from '@/lib/products/types';
 import { BrandColorPicker } from '@/app/components/products/BrandColorPicker';
 import { ImageUploadSlots } from '@/app/components/products/ImageUploadSlots';
+import { ProductPricingEditor } from '@/app/components/products/ProductPricingEditor';
 import {
-  formatProductPrice,
-  normalizeProductCurrency,
-  parsePriceNumeric,
-  PRODUCT_CURRENCIES,
-} from '@/lib/products/currencies';
+  emptyPricingConfig,
+  pricingConfigFromExtracted,
+  syncPricingConfigDefaults,
+} from '@/lib/products/pricing-config';
 
 type Mode = 'url' | 'manual';
 type UrlStep = 'input' | 'review';
@@ -24,6 +24,8 @@ type ScrapePreview = {
   images: ProductImage[];
   extractedPricing: ExtractedPricing;
   priceDisplay: string;
+  pricingConfig: ProductPricingConfig;
+  logoUrl?: string | null;
 };
 
 type Props = {
@@ -44,8 +46,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
   const [description, setDescription] = useState('');
   const [targetAudience, setTargetAudience] = useState('');
   const [paletteColors, setPaletteColors] = useState<string[]>([]);
-  const [priceAmount, setPriceAmount] = useState('');
-  const [priceCurrency, setPriceCurrency] = useState('USD');
+  const [pricingConfig, setPricingConfig] = useState<ProductPricingConfig>(emptyPricingConfig());
   const [logoFiles, setLogoFiles] = useState<File[]>([]);
   const [logoPreviews, setLogoPreviews] = useState<string[]>([]);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
@@ -116,8 +117,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     setDescription('');
     setTargetAudience('');
     setPaletteColors([]);
-    setPriceAmount('');
-    setPriceCurrency('USD');
+    setPricingConfig(emptyPricingConfig());
     setLogoFiles([]);
     logoPreviews.forEach((u) => URL.revokeObjectURL(u));
     setLogoPreviews([]);
@@ -126,15 +126,8 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     setImagePreviews([]);
   };
 
-  const applyScrapedPrice = (p: ScrapePreview) => {
-    const detectedCurrency = normalizeProductCurrency(p.extractedPricing?.currency);
-    setPriceCurrency(detectedCurrency);
-    const ep = p.extractedPricing;
-    const sale = ep?.salePrice;
-    const regular = ep?.regularPrice;
-    const hasDiscount =
-      sale && regular && sale !== regular ? sale : p.priceDisplay || sale || regular || '';
-    setPriceAmount(parsePriceNumeric(hasDiscount));
+  const applyScrapedPricing = (p: ScrapePreview) => {
+    setPricingConfig(pricingConfigFromExtracted(p.extractedPricing));
   };
 
   const handleScrapePreview = async () => {
@@ -159,7 +152,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
       setDescription(p.description);
       setTargetAudience(p.targetAudience);
       setPaletteColors(parsePalette(p.colorPalette));
-      applyScrapedPrice(p);
+      applyScrapedPricing(p);
       setUrlStep('review');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Scrape failed');
@@ -175,7 +168,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     try {
       const logoBase64List =
         logoFiles.length > 0 ? await Promise.all(logoFiles.map(readFileAsDataUrl)) : undefined;
-      const priceDisplay = formatProductPrice(priceAmount, priceCurrency);
+      const syncedPricing = syncPricingConfigDefaults(pricingConfig);
       const res = await fetch('/api/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -188,11 +181,13 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
           description: description.trim(),
           targetAudience: targetAudience.trim(),
           colorPalette: paletteColors.join(', '),
-          priceDisplay: priceDisplay || null,
+          priceDisplay: syncedPricing.priceDisplay,
+          pricingConfig: syncedPricing,
           logoBase64List,
           branding: preview.branding,
           extractedPricing: preview.extractedPricing,
           images: preview.images,
+          logoUrl: preview.logoUrl ?? null,
         }),
       });
       const data = await res.json();
@@ -220,8 +215,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
       const imageBase64List = await Promise.all(imageFiles.map(readFileAsDataUrl));
       const logoBase64List =
         logoFiles.length > 0 ? await Promise.all(logoFiles.map(readFileAsDataUrl)) : undefined;
-      const priceDisplay = formatProductPrice(priceAmount, priceCurrency) || undefined;
-
+      const syncedPricing = syncPricingConfigDefaults(pricingConfig);
       const res = await fetch('/api/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -232,7 +226,8 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
           description: description.trim(),
           targetAudience: targetAudience.trim(),
           colorPalette: paletteColors.join(', '),
-          priceDisplay,
+          priceDisplay: syncedPricing.priceDisplay || undefined,
+          pricingConfig: syncedPricing,
           imageBase64List,
           logoBase64List,
         }),
@@ -249,45 +244,12 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     }
   };
 
-  const priceFields = (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-      <div className="sm:col-span-2">
-        <label className="mb-1 block text-xs font-medium text-slate-600">Price amount (optional)</label>
-        <input
-          value={priceAmount}
-          onChange={(e) => setPriceAmount(e.target.value)}
-          inputMode="decimal"
-          placeholder="e.g. 120"
-          className="dash-input"
-        />
-      </div>
-      <div>
-        <label className="mb-1 block text-xs font-medium text-slate-600">Currency</label>
-        <select
-          value={priceCurrency}
-          onChange={(e) => setPriceCurrency(e.target.value)}
-          className="dash-select w-full text-sm"
-        >
-          {PRODUCT_CURRENCIES.map((c) => (
-            <option key={c.code} value={c.code}>
-              {c.symbol} {c.code} — {c.label}
-            </option>
-          ))}
-        </select>
-      </div>
-      <p className="sm:col-span-3 text-[11px] leading-relaxed text-slate-500">
-        Optional. Never copied from reference ads — leave empty to hide prices in generated ads.
-        {priceAmount ? (
-          <>
-            {' '}
-            Preview:{' '}
-            <span className="font-medium text-slate-700">
-              {formatProductPrice(priceAmount, priceCurrency) || '—'}
-            </span>
-          </>
-        ) : null}
-      </p>
-    </div>
+  const pricingFields = (
+    <ProductPricingEditor
+      config={pricingConfig}
+      onChange={setPricingConfig}
+      detectedPricing={preview?.extractedPricing ?? null}
+    />
   );
 
   const logoUpload = (
@@ -323,7 +285,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
           <label className="mb-1 block text-xs font-medium text-slate-600">Product name</label>
           <input value={name} onChange={(e) => setName(e.target.value)} className="dash-input" />
         </div>
-        {priceFields}
+        {pricingFields}
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-600">Description</label>
           <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} className="dash-input" />
@@ -339,11 +301,20 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
         <div className="product-modal-section">
           <p className="mb-2 text-xs font-medium text-slate-600">Images found on page</p>
           <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-            {preview.images.slice(0, 10).map((img, i) => (
-              <img key={i} src={img.url} alt="" className="aspect-square rounded-lg object-cover ring-1 ring-slate-200" />
+            {preview.images.slice(0, 12).map((img, i) => (
+              <div key={i} className="relative">
+                <img src={img.url} alt="" className="aspect-square rounded-lg object-cover ring-1 ring-slate-200" />
+                {img.kind === 'logo' && (
+                  <span className="absolute left-1 top-1 rounded bg-black/70 px-1 py-0.5 text-[9px] text-white">
+                    Logo
+                  </span>
+                )}
+              </div>
             ))}
           </div>
-          <p className="mt-2 text-[10px] text-slate-500">Up to 10 images will be stored from the page.</p>
+          <p className="mt-2 text-[10px] text-slate-500">
+            Product shots, trust badges, and logo (when found) are stored separately for ad matching.
+          </p>
         </div>
       )}
     </div>
@@ -355,7 +326,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
         <label className="mb-1 block text-xs font-medium text-slate-600">Product name</label>
         <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="dash-input" />
       </div>
-      {priceFields}
+      {pricingFields}
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-600">What is this product?</label>
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="dash-input" />

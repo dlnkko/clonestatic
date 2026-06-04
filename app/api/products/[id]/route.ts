@@ -60,6 +60,7 @@ export async function PATCH(
       target_audience,
       color_palette,
       priceDisplay,
+      pricingConfig,
       scrape_cache,
     } = body as {
       name?: string;
@@ -67,6 +68,7 @@ export async function PATCH(
       target_audience?: string;
       color_palette?: { colors?: string[]; notes?: string } | string;
       priceDisplay?: string | null;
+      pricingConfig?: ProductScrapeCache['pricingConfig'];
       scrape_cache?: ProductScrapeCache;
     };
 
@@ -106,6 +108,9 @@ export async function PATCH(
     }
     if (priceDisplay !== undefined && cache) {
       cache = { ...cache, priceDisplay: priceDisplay?.trim() || null };
+    }
+    if (pricingConfig !== undefined && cache) {
+      cache = { ...cache, pricingConfig };
     }
     if (cache) updates.scrape_cache = cache;
 

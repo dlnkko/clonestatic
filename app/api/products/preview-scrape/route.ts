@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { scrapeProductPage } from '@/lib/products/scrape';
+import { pricingConfigFromExtracted } from '@/lib/products/pricing-config';
 import { checkRateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
@@ -29,6 +30,7 @@ export async function POST(request: NextRequest) {
 
     const scraped = await scrapeProductPage(productUrl.trim());
     const extractedPricing = scraped.extractedPricing;
+    const pricingConfig = pricingConfigFromExtracted(extractedPricing);
 
     const productName =
       (scraped.metadata?.title as string) ||
@@ -52,8 +54,10 @@ export async function POST(request: NextRequest) {
         colorPalette: colorPalette?.colors?.join(', ') ?? '',
         branding: scraped.branding,
         images: scraped.images,
+        logoUrl: scraped.logoUrl,
         extractedPricing,
-        priceDisplay: extractedPricing.salePrice ?? extractedPricing.regularPrice ?? '',
+        priceDisplay: pricingConfig.priceDisplay ?? '',
+        pricingConfig,
       },
     });
   } catch (err) {

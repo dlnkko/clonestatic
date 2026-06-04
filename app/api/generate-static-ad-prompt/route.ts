@@ -29,7 +29,7 @@ import type {
 import { refineProductImageKinds } from '@/lib/products/classify-images';
 import { resolveCopyLanguage } from '@/lib/copy-languages';
 import { GEMINI_MODEL } from '@/lib/gemini-model';
-import { getProductAllowedPrice, productCopywritingPayload, rowToProduct } from '@/lib/products/db';
+import { getProductAllowedPrice, getProductPricingInstructions, productCopywritingPayload, rowToProduct } from '@/lib/products/db';
 import { allowedPriceForAds, extractPricingFromText } from '@/lib/products/extract-pricing';
 import { identifyReferenceProductElements } from '@/lib/products/identify-elements';
 import {
@@ -157,6 +157,7 @@ export async function POST(request: NextRequest) {
     let scrapedBranding: Record<string, unknown> | null = null;
     let scrapedMarkdown: string | null = null;
     let allowedPrice: string | null = savedProduct ? getProductAllowedPrice(savedProduct) : null;
+    let pricingDetail: string | null = savedProduct ? getProductPricingInstructions(savedProduct) : null;
 
     if (isUrlScraped && copywritingResolved) {
       try {
@@ -698,6 +699,7 @@ export async function POST(request: NextRequest) {
           matchedProductVisuals,
           productName: savedProduct?.name ?? null,
           allowedPrice,
+          pricingDetail,
           referenceHasPromoOfferLine,
           referenceTrustBadge,
           referenceVerbatimPhrases,

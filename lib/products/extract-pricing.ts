@@ -1,5 +1,6 @@
-import { currencyHintFromUrl, formatProductPrice, normalizeProductCurrency } from './currencies';
-import type { ExtractedPricing } from './types';
+import { currencyHintFromUrl, formatProductPrice, normalizeProductCurrency, parsePriceNumeric } from './currencies';
+import { createTierId, formatTierUnitPrice } from './pricing-config';
+import type { ExtractedPricing, PricingTier } from './types';
 
 export type { ExtractedPricing };
 
@@ -642,6 +643,65 @@ function mergePricing(
   return fromText.salePrice ? fromText : structured!;
 }
 
+const QTY_LABEL_RE =
+  /(\d+\+?\s*(?:bars?|units?|items?|packs?|pcs?|pieces?|bottles?|boxes?|sets?|bags?|rolls?|pairs?))/i;
+
+function extractPricingTiers(text: string, currency: string): PricingTier[] {
+  const unitEachRe = new RegExp(String.raw`\$\s*${PRICE_NUM}\s*/\s*each`, 'gi');
+  const hits: { label: string; amount: number; context: string; index: number }[] = [];
+
+  let m: RegExpExecArray | null;
+  while ((m = unitEachRe.exec(text)) !== null) {
+    const amt = parseAmount(m[1], m[0]);
+    if (amt == null || amt < 1) continue;
+
+    const start = Math.max(0, m.index - 180);
+    const end = Math.min(text.length, m.index + m[0].length + 180);
+    const context = text.slice(start, end);
+    const labelMatch = context.match(QTY_LABEL_RE);
+    const label = labelMatch ? labelMatch[1].trim() : `Option ${hits.length + 1}`;
+
+    hits.push({ label, amount: amt, context, index: m.index });
+  }
+
+  if (hits.length < 2) return [];
+
+  const tiers: PricingTier[] = [];
+  const seen = new Set<string>();
+
+  for (const h of hits) {
+    const key = `${h.label.toLowerCase()}:${h.amount}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const save = h.context.match(/save\s+(\d{1,2})\s*%/i);
+    const badgeMatch = h.context.match(/(most popular|best value|best seller)/i);
+
+    tiers.push({
+      id: createTierId(),
+      label: h.label,
+      unitPrice: formatTierUnitPrice(String(h.amount), currency),
+      discountPercent: save ? Number(save[1]) : null,
+      badge: badgeMatch ? badgeMatch[1] : null,
+      isDefault: false,
+    });
+  }
+
+  tiers.sort(
+    (a, b) =>
+      Number(parsePriceNumeric(b.unitPrice) || 0) - Number(parsePriceNumeric(a.unitPrice) || 0)
+  );
+
+  const popularIdx = tiers.findIndex((t) => /most popular/i.test(t.badge || ''));
+  const bestIdx = tiers.findIndex((t) => /best value/i.test(t.badge || ''));
+  const defaultIdx = popularIdx >= 0 ? popularIdx : bestIdx >= 0 ? bestIdx : 0;
+  tiers.forEach((t, i) => {
+    t.isDefault = i === defaultIdx;
+  });
+
+  return tiers;
+}
+
 /** Full pricing extraction from all Firecrawl scrape outputs. */
 export function extractProductPricing(input: {
   summary?: string | null;
@@ -664,7 +724,16 @@ export function extractProductPricing(input: {
     { productUrl: input.productUrl }
   );
   const fromText = extractPricingFromText(textBlob, { productUrl: input.productUrl });
-  return mergePricing(structured, fromText);
+  const merged = mergePricing(structured, fromText);
+  const tiers = extractPricingTiers(textBlob, merged.currency);
+  const hasDiscount =
+    merged.regularPrice && merged.salePrice && merged.regularPrice !== merged.salePrice;
+
+  return {
+    ...merged,
+    tiers: tiers.length >= 2 ? tiers : undefined,
+    compareAtPrice: hasDiscount ? merged.regularPrice : null,
+  };
 }
 
 /** Single price line allowed in generated ads, or null if none found. */

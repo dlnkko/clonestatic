@@ -1,11 +1,24 @@
 import { allowedPriceForAds } from './extract-pricing';
+import {
+  buildAllowedPriceFromConfig,
+  pricingInstructionsFromConfig,
+} from './pricing-config';
 import type { ProductImage, ProductRecord, ProductScrapeCache } from './types';
 
 export function getProductAllowedPrice(product: ProductRecord): string | null {
+  const fromConfig = buildAllowedPriceFromConfig(product.scrape_cache?.pricingConfig);
+  if (fromConfig) return fromConfig;
   return allowedPriceForAds(
     product.scrape_cache?.extractedPricing,
     product.scrape_cache?.priceDisplay
   );
+}
+
+export function getProductPricingInstructions(product: ProductRecord): string | null {
+  const fromConfig = pricingInstructionsFromConfig(product.scrape_cache?.pricingConfig);
+  if (fromConfig) return fromConfig;
+  const allowed = getProductAllowedPrice(product);
+  return allowed;
 }
 
 export function rowToProduct(row: Record<string, unknown>): ProductRecord {
@@ -38,6 +51,7 @@ export function productCopywritingPayload(product: ProductRecord): string {
       targetAudience: product.target_audience,
       colorPalette: product.color_palette,
       allowedPrice: getProductAllowedPrice(product),
+      pricingConfig: product.scrape_cache.pricingConfig ?? null,
       extractedPricing: product.scrape_cache.extractedPricing ?? null,
     });
   }

@@ -1,11 +1,13 @@
 import getFirecrawlInstance from '@/lib/firecrawl';
+import { classifyProductImagesHeuristic } from './classify-images';
 import { extractProductPricing } from './extract-pricing';
 import type { ExtractedPricing, ProductImage } from './types';
 
 const IMAGE_EXT = /\.(jpe?g|png|webp|gif|avif)(\?|$)/i;
+const LOGO_EXT = /\.(jpe?g|png|webp|gif|avif|svg)(\?|$)/i;
 /** Skip UI chrome only — do NOT skip award/trust badge assets (often contain "badge" in URL). */
 const SKIP_PATTERNS =
-  /(favicon|sprite|logo-small|pixel|tracking|arrow|chevron|social|facebook|twitter|instagram|\.svg$|\/icons?\/)/i;
+  /(favicon|sprite|logo-small|pixel|tracking|arrow|chevron|social|facebook|twitter|instagram|\/icons?\/|icon-\d+)/i;
 
 function isLikelyProductImage(url: string): boolean {
   if (!IMAGE_EXT.test(url)) return false;
@@ -17,6 +19,14 @@ function isLikelyProductImage(url: string): boolean {
     return false;
   }
   return true;
+}
+
+function isLikelyLogoUrl(url: string): boolean {
+  if (!LOGO_EXT.test(url)) return false;
+  if (/favicon|icon-16|icon-32|apple-touch|sprite|pixel|avatar|profile|gravatar/i.test(url)) {
+    return false;
+  }
+  return /logo|brand-mark|wordmark|site-logo|header-logo|brand_logo|brand-logo/i.test(url);
 }
 
 function extractUrlsFromMarkdown(markdown: string): string[] {
@@ -31,6 +41,57 @@ function extractUrlsFromMarkdown(markdown: string): string[] {
     urls.push(m[1]);
   }
   return urls;
+}
+
+function extractLogoUrlsFromHtml(html: string): string[] {
+  const urls: string[] = [];
+  const imgRe =
+    /<img[^>]+(?:class|id|alt|data-srcset|src)=["'][^"']*logo[^"']*["'][^>]*>/gi;
+  let tag: RegExpExecArray | null;
+  while ((tag = imgRe.exec(html)) !== null) {
+    const src = tag[0].match(/\bsrc=["'](https?:\/\/[^"']+)["']/i)?.[1];
+    const dataSrc = tag[0].match(/\bdata-src=["'](https?:\/\/[^"']+)["']/i)?.[1];
+    if (src) urls.push(src);
+    if (dataSrc) urls.push(dataSrc);
+  }
+  return urls;
+}
+
+function readStringField(obj: unknown): string | null {
+  return typeof obj === 'string' && obj.startsWith('http') ? obj : null;
+}
+
+function extractLogoFromBranding(branding: Record<string, unknown> | null): string[] {
+  if (!branding) return [];
+  const out: string[] = [];
+  const direct = [
+    readStringField(branding.logo),
+    readStringField(branding.logoUrl),
+    readStringField(branding.logo_url),
+    readStringField(branding.image),
+  ];
+  for (const u of direct) {
+    if (u) out.push(u);
+  }
+  const images = branding.images;
+  if (images && typeof images === 'object') {
+    const imgObj = images as Record<string, unknown>;
+    for (const key of ['logo', 'brand', 'wordmark']) {
+      const u = readStringField(imgObj[key]);
+      if (u) out.push(u);
+    }
+  }
+  return out;
+}
+
+function extractLogoFromMetadata(metadata: Record<string, unknown> | null): string[] {
+  if (!metadata) return [];
+  const out: string[] = [];
+  for (const key of ['logo', 'ogLogo', 'twitterImage', 'appleTouchIcon']) {
+    const u = readStringField(metadata[key]);
+    if (u && isLikelyLogoUrl(u)) out.push(u);
+  }
+  return out;
 }
 
 function collectFromUnknown(obj: unknown, out: Set<string>, depth = 0): void {
@@ -50,12 +111,33 @@ function collectFromUnknown(obj: unknown, out: Set<string>, depth = 0): void {
   }
 }
 
+function orderProductImages(images: ProductImage[]): ProductImage[] {
+  const classified = classifyProductImagesHeuristic(images);
+  const productLike = classified.filter(
+    (i) => i.kind === 'product' || i.kind === 'packaging' || i.kind === 'lifestyle'
+  );
+  const trust = classified.filter((i) => i.kind === 'trust_badge' || i.kind === 'ingredient');
+  const logos = classified.filter((i) => i.kind === 'logo');
+  const other = classified.filter(
+    (i) =>
+      i.kind !== 'product' &&
+      i.kind !== 'packaging' &&
+      i.kind !== 'lifestyle' &&
+      i.kind !== 'trust_badge' &&
+      i.kind !== 'ingredient' &&
+      i.kind !== 'logo'
+  );
+  const ordered = [...productLike, ...other, ...trust, ...logos];
+  return ordered.length > 0 ? ordered.slice(0, 24) : classified.slice(0, 24);
+}
+
 export type ProductPageScrapeResult = {
   summary: string;
   branding: Record<string, unknown> | null;
   markdown: string | null;
   metadata: Record<string, unknown> | null;
   images: ProductImage[];
+  logoUrl: string | null;
   extractedPricing: ExtractedPricing;
 };
 
@@ -107,30 +189,70 @@ export async function scrapeProductPage(url: string): Promise<ProductPageScrapeR
       : markdown
     : null;
 
-  const urlSet = new Set<string>();
+  const productUrlSet = new Set<string>();
+  const logoUrlSet = new Set<string>();
+
   if (markdown) {
     for (const u of extractUrlsFromMarkdown(markdown)) {
-      if (isLikelyProductImage(u)) urlSet.add(u);
+      if (isLikelyLogoUrl(u)) logoUrlSet.add(u);
+      else if (isLikelyProductImage(u)) productUrlSet.add(u);
     }
   }
+  if (html) {
+    for (const u of extractLogoUrlsFromHtml(html)) {
+      if (isLikelyLogoUrl(u) || LOGO_EXT.test(u)) logoUrlSet.add(u);
+    }
+    const htmlImg = /<img[^>]+src=["'](https?:\/\/[^"']+)["']/gi;
+    let m: RegExpExecArray | null;
+    while ((m = htmlImg.exec(html)) !== null) {
+      const u = m[1];
+      if (isLikelyLogoUrl(u)) logoUrlSet.add(u);
+      else if (isLikelyProductImage(u)) productUrlSet.add(u);
+    }
+  }
+
   const links = data.links as string[] | undefined;
   if (Array.isArray(links)) {
     for (const link of links) {
-      if (typeof link === 'string' && isLikelyProductImage(link)) urlSet.add(link);
+      if (typeof link !== 'string') continue;
+      if (isLikelyLogoUrl(link)) logoUrlSet.add(link);
+      else if (isLikelyProductImage(link)) productUrlSet.add(link);
     }
   }
-  collectFromUnknown(branding, urlSet);
-  collectFromUnknown(metadata, urlSet);
-  collectFromUnknown(data, urlSet);
+
+  collectFromUnknown(branding, productUrlSet);
+  collectFromUnknown(metadata, productUrlSet);
+  collectFromUnknown(data, productUrlSet);
+
+  for (const u of extractLogoFromBranding(branding)) {
+    if (isLikelyLogoUrl(u) || LOGO_EXT.test(u)) logoUrlSet.add(u);
+  }
+  for (const u of extractLogoFromMetadata(metadata)) {
+    logoUrlSet.add(u);
+  }
 
   const og = metadata?.ogImage ?? metadata?.image;
-  if (typeof og === 'string' && isLikelyProductImage(og)) urlSet.add(og);
+  if (typeof og === 'string' && isLikelyProductImage(og)) productUrlSet.add(og);
 
-  const images: ProductImage[] = [...urlSet].slice(0, 24).map((imageUrl, i) => ({
-    url: imageUrl,
-    kind: i === 0 ? 'product' : 'other',
-    alt: `Product page image ${i + 1}`,
-  }));
+  for (const logoUrl of logoUrlSet) {
+    productUrlSet.delete(logoUrl);
+  }
+
+  const rawImages: ProductImage[] = [
+    ...[...productUrlSet].map((imageUrl, i) => ({
+      url: imageUrl,
+      kind: i === 0 ? ('product' as const) : ('other' as const),
+      alt: `Product page image ${i + 1}`,
+    })),
+    ...[...logoUrlSet].map((imageUrl, i) => ({
+      url: imageUrl,
+      kind: 'logo' as const,
+      alt: `Brand logo ${i + 1}`,
+    })),
+  ];
+
+  const images = orderProductImages(rawImages);
+  const logoUrl = images.find((i) => i.kind === 'logo')?.url ?? [...logoUrlSet][0] ?? null;
 
   const extractedPricing = extractProductPricing({
     summary,
@@ -146,6 +268,7 @@ export async function scrapeProductPage(url: string): Promise<ProductPageScrapeR
     markdown: markdownForPrompt ?? markdown,
     metadata,
     images,
+    logoUrl,
     extractedPricing,
   };
 }

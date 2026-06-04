@@ -1,14 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { ProductRecord, ProductScrapeCache } from '@/lib/products/types';
+import type { ProductRecord, ProductScrapeCache, ProductPricingConfig } from '@/lib/products/types';
 import { useI18n } from '@/lib/i18n/LocaleProvider';
 import { BrandColorPicker } from '@/app/components/products/BrandColorPicker';
+import { ProductPricingEditor } from '@/app/components/products/ProductPricingEditor';
 import {
-  formatProductPrice,
-  normalizeProductCurrency,
-  PRODUCT_CURRENCIES,
-} from '@/lib/products/currencies';
+  emptyPricingConfig,
+  pricingConfigFromExtracted,
+  syncPricingConfigDefaults,
+} from '@/lib/products/pricing-config';
 
 type Props = {
   product: ProductRecord | null;
@@ -23,8 +24,7 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
   const [description, setDescription] = useState('');
   const [targetAudience, setTargetAudience] = useState('');
   const [paletteColors, setPaletteColors] = useState<string[]>([]);
-  const [priceAmount, setPriceAmount] = useState('');
-  const [priceCurrency, setPriceCurrency] = useState('USD');
+  const [pricingConfig, setPricingConfig] = useState<ProductPricingConfig>(emptyPricingConfig());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,14 +34,18 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
     setDescription(product.description ?? '');
     setTargetAudience(product.target_audience ?? '');
     setPaletteColors((product.color_palette?.colors ?? []).map((c) => c.toUpperCase()).slice(0, 8));
-    const detectedCurrency = normalizeProductCurrency(product.scrape_cache?.extractedPricing?.currency);
-    setPriceCurrency(detectedCurrency);
-    const raw =
-      product.scrape_cache?.priceDisplay ??
-      product.scrape_cache?.extractedPricing?.salePrice ??
-      product.scrape_cache?.extractedPricing?.regularPrice ??
-      '';
-    setPriceAmount(raw.replace(/[^\d.,]/g, '').replace(',', '.').trim());
+    const existingConfig = product.scrape_cache?.pricingConfig;
+    if (existingConfig) {
+      setPricingConfig(existingConfig);
+    } else if (product.scrape_cache?.extractedPricing || product.scrape_cache?.priceDisplay) {
+      const fromExtracted = pricingConfigFromExtracted(product.scrape_cache?.extractedPricing);
+      setPricingConfig({
+        ...fromExtracted,
+        priceDisplay: product.scrape_cache?.priceDisplay ?? fromExtracted.priceDisplay,
+      });
+    } else {
+      setPricingConfig(emptyPricingConfig());
+    }
     setError(null);
   }, [product]);
 
@@ -51,11 +55,12 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
     setSaving(true);
     setError(null);
     try {
-      const priceDisplay = formatProductPrice(priceAmount, priceCurrency) || null;
+      const syncedPricing = syncPricingConfigDefaults(pricingConfig);
       const scrape_cache: ProductScrapeCache | null = product.scrape_cache
         ? {
             ...product.scrape_cache,
-            priceDisplay,
+            priceDisplay: syncedPricing.priceDisplay,
+            pricingConfig: syncedPricing,
           }
         : null;
 
@@ -68,7 +73,8 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
           description: description.trim(),
           target_audience: targetAudience.trim(),
           color_palette: paletteColors.join(', '),
-          priceDisplay,
+          priceDisplay: syncedPricing.priceDisplay,
+          pricingConfig: syncedPricing,
           scrape_cache,
         }),
       });
@@ -156,57 +162,11 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
 
             <BrandColorPicker colors={paletteColors} onChange={setPaletteColors} />
 
-            <div>
-              <label className="dash-label mb-1.5">{t('products', 'price')}</label>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                <div className="sm:col-span-2">
-                  <input
-                    value={priceAmount}
-                    onChange={(e) => setPriceAmount(e.target.value)}
-                    placeholder="e.g. 120"
-                    className="dash-input"
-                    inputMode="decimal"
-                  />
-                </div>
-                <div>
-                  <select
-                    value={priceCurrency}
-                    onChange={(e) => setPriceCurrency(e.target.value)}
-                    className="dash-select w-full text-sm"
-                  >
-                    {PRODUCT_CURRENCIES.map((c) => (
-                      <option key={c.code} value={c.code}>
-                        {c.symbol} {c.code}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <p className="sm:col-span-3 text-[11px] text-slate-500">
-                  {t('products', 'priceHint')}{' '}
-                  {priceAmount ? (
-                    <>
-                      Preview:{' '}
-                      <span className="font-medium text-slate-700">
-                        {formatProductPrice(priceAmount, priceCurrency) || '—'}
-                      </span>
-                    </>
-                  ) : null}
-                </p>
-              </div>
-              {product.scrape_cache?.extractedPricing && (
-                <p className="mt-1 text-[11px] text-slate-400">
-                  {t('products', 'detectedPrice')}: {product.scrape_cache.extractedPricing.regularPrice}
-                  {product.scrape_cache.extractedPricing.salePrice &&
-                  product.scrape_cache.extractedPricing.salePrice !==
-                    product.scrape_cache.extractedPricing.regularPrice
-                    ? ` (${product.scrape_cache.extractedPricing.salePrice})`
-                    : ''}
-                  {product.scrape_cache.extractedPricing.currency
-                    ? ` · ${product.scrape_cache.extractedPricing.currency}`
-                    : ''}
-                </p>
-              )}
-            </div>
+            <ProductPricingEditor
+              config={pricingConfig}
+              onChange={setPricingConfig}
+              detectedPricing={product.scrape_cache?.extractedPricing ?? null}
+            />
 
             <div>
               <label className="dash-label mb-2">{t('products', 'productImages')}</label>
@@ -217,9 +177,14 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
                     href={img.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block h-20 w-20 overflow-hidden rounded-xl ring-1 ring-slate-200 transition hover:ring-indigo-300"
+                    className="relative block h-20 w-20 overflow-hidden rounded-xl ring-1 ring-slate-200 transition hover:ring-indigo-300"
                   >
                     <img src={img.url} alt="" className="h-full w-full object-cover" />
+                    {img.kind === 'logo' && (
+                      <span className="absolute left-0.5 top-0.5 rounded bg-black/70 px-1 text-[8px] text-white">
+                        Logo
+                      </span>
+                    )}
                   </a>
                 ))}
               </div>

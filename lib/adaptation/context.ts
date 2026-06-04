@@ -89,6 +89,7 @@ export type BuildContextInput = {
   matchedProductVisuals?: MatchedProductVisual[];
   productName?: string | null;
   allowedPrice?: string | null;
+  pricingDetail?: string | null;
   referenceHasPromoOfferLine?: boolean;
   referenceTrustBadge?: ReferenceTrustBadge;
   referenceVerbatimPhrases?: string[];
@@ -120,6 +121,7 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     matchedProductVisuals = [],
     productName = null,
     allowedPrice = null,
+    pricingDetail = null,
     referenceHasPromoOfferLine = false,
     referenceTrustBadge = { present: false, placement: '', description: '' },
     referenceVerbatimPhrases = [],
@@ -135,7 +137,7 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     ? parseReferenceComparisonModule(referenceComparisonModule)
     : null;
 
-  const pricingInstructions = buildPricingInstructions(allowedPrice);
+  const pricingInstructions = buildPricingInstructions(allowedPrice, pricingDetail);
 
   const resolvedLang: CopyLanguageOption = resolveCopyLanguage(copyLanguage);
   const langInstruction = copyLanguageInstruction(resolvedLang);
