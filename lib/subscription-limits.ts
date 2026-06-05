@@ -92,13 +92,12 @@ export async function getUserSubscriptionContext(
     };
   }
 
-  const maxProducts = maxProductsForPlan('free_trial');
   return {
     plan: 'free_trial',
     creditsRemaining: 0,
-    maxProducts,
+    maxProducts: 0,
     productCount,
-    canAddProduct: productCount < maxProducts,
+    canAddProduct: false,
     whopMembershipId: null,
     cancelAtPeriodEnd: false,
     periodEnd: null,

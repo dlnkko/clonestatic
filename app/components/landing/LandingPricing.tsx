@@ -4,8 +4,6 @@ import { useState } from 'react';
 import { cn } from '@/lib/cn';
 import { Reveal } from './Reveal';
 import {
-  FREE_PLAN_FEATURES,
-  FREE_TRIAL_CREDITS,
   PAID_PLANS,
   planDisplayPrice,
   planFeatureList,
@@ -75,7 +73,7 @@ export function LandingPricing() {
           Simple pricing. Serious output.
         </h2>
         <p className="mx-auto mt-3 max-w-lg text-sm text-slate-500 sm:text-base">
-          Two free generations to prove the workflow. Upgrade when mirroring becomes essential.
+          Pick a plan and start mirroring winning static ads with your products.
         </p>
       </Reveal>
 
@@ -83,39 +81,14 @@ export function LandingPricing() {
         <BillingToggle billing={billing} onChange={setBilling} />
       </Reveal>
 
-      <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <Reveal direction="up" delayMs={0}>
-          <article className="landing-pricing-card flex h-full flex-col rounded-3xl border border-slate-200/80 bg-white p-7 shadow-sm transition-shadow hover:shadow-md">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Free trial</p>
-            <h3 className="mt-2 text-xl font-bold text-slate-900">Try it free</h3>
-            <p className="mt-8 flex items-baseline gap-1">
-              <span className="text-4xl font-bold tracking-tight text-slate-900">$0</span>
-            </p>
-            <p className="mt-1 text-sm text-slate-500">{FREE_TRIAL_CREDITS} generations, no card</p>
-            <ul className="mt-6 flex-1 space-y-3 text-sm text-slate-600">
-              {FREE_PLAN_FEATURES.map((f) => (
-                <li key={f} className="flex items-start gap-2.5">
-                  <Check />
-                  <span>{f}</span>
-                </li>
-              ))}
-            </ul>
-            <a
-              href="/login?next=/app"
-              className="mt-8 inline-flex w-full items-center justify-center rounded-xl border-2 border-slate-900 py-3.5 text-sm font-semibold text-slate-900 transition-colors hover:bg-slate-50"
-            >
-              Get started
-            </a>
-          </article>
-        </Reveal>
-
+      <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {PAID_PLANS.map((plan, i) => {
           const isFeatured = plan.badge === 'popular';
           const price = planDisplayPrice(plan, billing);
           const href = `/login?next=checkout&plan=${billing === 'yearly' ? plan.checkoutYearly : plan.checkoutMonthly}`;
 
           return (
-            <Reveal key={plan.key} direction="up" delayMs={(i + 1) * 70}>
+            <Reveal key={plan.key} direction="up" delayMs={i * 70}>
               <article
                 className={cn(
                   'relative flex h-full flex-col rounded-3xl p-7 transition-all',
@@ -155,7 +128,7 @@ export function LandingPricing() {
                       : 'border-2 border-slate-900 text-slate-900 hover:bg-slate-50'
                   )}
                 >
-                  Subscribe
+                  Get started
                 </a>
               </article>
             </Reveal>

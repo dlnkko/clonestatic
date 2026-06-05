@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getClientIpHash, getFreeTrialRemaining } from '@/lib/free-trial';
 import { resolveOwnerEmail } from '@/lib/subscription-limits';
 import { maxProductsForPlan, PAID_PLAN_BY_KEY, isPaidPlan } from '@/lib/plans';
 import { syncWhopSubscriptionForEmailWithRetries } from '@/lib/whop';
@@ -59,7 +58,6 @@ export async function GET(request: NextRequest) {
 
   try {
     const admin = createAdminClient();
-    const ipHash = getClientIpHash(request);
     const pendingCheckout = hasPendingWhopCheckout(request);
 
     let { data, error } = await loadSubscriptionRow(admin, email);
@@ -100,22 +98,6 @@ export async function GET(request: NextRequest) {
           { status: 428 }
         );
         return response;
-      }
-
-      const freeTrialRemaining = await getFreeTrialRemaining(admin, ipHash);
-      if (freeTrialRemaining > 0) {
-        const maxProducts = maxProductsForPlan('free_trial');
-        return NextResponse.json({
-          ok: true,
-          plan: 'free_trial',
-          credits_remaining: freeTrialRemaining,
-          max_products: maxProducts,
-          product_count: count,
-          can_add_product: count < maxProducts,
-          period_end: null,
-          cancel_at_period_end: false,
-          plan_name: 'Free trial',
-        });
       }
 
       return NextResponse.json({ ok: false, error: 'No subscription found' }, { status: 404 });

@@ -44,7 +44,7 @@ export default function TermsOfServicePage() {
       </p>
       <ul>
         <li>Subscriptions renew automatically until canceled</li>
-        <li>Free trials and promotional credits are limited and may change or end at our discretion</li>
+        <li>Promotional credits are limited and may change or end at our discretion</li>
         <li>Refunds are handled according to Whop&apos;s policies and applicable law</li>
       </ul>
       <p>

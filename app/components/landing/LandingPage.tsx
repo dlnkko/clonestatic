@@ -149,7 +149,7 @@ export function LandingPage() {
               Sign in
             </a>
             <a href="/login?next=/app" className="landing-btn-primary hidden sm:inline-flex">
-              Try free
+              Get started
             </a>
             <button
               type="button"
@@ -181,7 +181,7 @@ export function LandingPage() {
               </a>
             ))}
             <a href="/login?next=/app" onClick={() => setMenuOpen(false)} className="landing-btn-primary mx-2 mb-2 mt-1 justify-center">
-              Try free
+              Get started
             </a>
           </div>
         </div>
@@ -212,14 +212,14 @@ export function LandingPage() {
               </Reveal>
               <Reveal direction="up" delayMs={240}>
                 <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row lg:justify-start">
-                  <a href="/login?next=/app" className="landing-btn-primary w-full sm:w-auto">
-                    Start free · 2 generations
+                  <a href="#pricing" className="landing-btn-primary w-full sm:w-auto">
+                    Get started
                   </a>
                   <a href="#how" className="landing-btn-ghost w-full sm:w-auto">
                     See how it works
                   </a>
                 </div>
-                <p className="mt-4 text-xs text-white/45">No credit card · Cancel anytime</p>
+                <p className="mt-4 text-xs text-white/45">Plans from $29/mo · Cancel anytime</p>
               </Reveal>
             </div>
 
@@ -324,8 +324,8 @@ export function LandingPage() {
               </p>
             </Reveal>
             <Reveal direction="up" delayMs={180}>
-              <a href="/login?next=/app" className="landing-btn-primary mt-10 inline-flex">
-                Start mirroring free
+              <a href="#pricing" className="landing-btn-primary mt-10 inline-flex">
+                Get started
               </a>
             </Reveal>
           </div>
@@ -467,8 +467,8 @@ export function LandingPage() {
                 admirror is the tool your stack was missing.
               </p>
               <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                <a href="/login?next=/app" className="landing-btn-primary">
-                  Start free
+                <a href="#pricing" className="landing-btn-primary">
+                  Get started
                 </a>
                 <a href="#pricing" className="landing-btn-ghost">
                   View pricing

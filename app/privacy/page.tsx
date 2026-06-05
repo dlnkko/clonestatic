@@ -48,7 +48,7 @@ export default function PrivacyPolicyPage() {
       <ul>
         <li>Provide, operate, and improve admirror</li>
         <li>Generate ad prompts and images based on your inputs</li>
-        <li>Manage subscriptions, credits, and free trials</li>
+        <li>Manage subscriptions and credits</li>
         <li>Communicate with you about the service, billing, or support requests</li>
         <li>Detect abuse, enforce our Terms, and protect the security of our platform</li>
         <li>Comply with legal obligations</li>

@@ -12,6 +12,7 @@ import { ProductDetailPanel } from '../components/ProductDetailPanel';
 import { ProductModal } from '../components/ProductModal';
 import { AppProviders } from './providers';
 import { useI18n } from '@/lib/i18n/LocaleProvider';
+import { isPaidPlan } from '@/lib/plans';
 import { COPY_LANGUAGES } from '@/lib/copy-languages';
 import type { ProductRecord } from '@/lib/products/types';
 import type { AdVisualMode } from '@/lib/ad-visual-mode';
@@ -381,15 +382,13 @@ function StaticAdAppPage() {
         const credits = Number(subData?.credits_remaining ?? 0);
         if (Number.isFinite(credits)) setCreditsRemaining(credits);
         setPlanName(typeof subData?.plan_name === 'string' ? subData.plan_name : null);
-        setCurrentPlan(typeof subData?.plan === 'string' ? subData.plan : 'free_trial');
+        setCurrentPlan(typeof subData?.plan === 'string' ? subData.plan : null);
         setProductCount(typeof subData?.product_count === 'number' ? subData.product_count : null);
         setMaxProducts(typeof subData?.max_products === 'number' ? subData.max_products : null);
         setCanAddProduct(subData?.can_add_product !== false);
         setCancelAtPeriodEnd(subData?.cancel_at_period_end === true);
         setCanCancelSubscription(
-          subData?.plan !== 'free_trial' &&
-            subData?.plan !== 'owner' &&
-            subData?.has_whop_membership === true
+          isPaidPlan(subData?.plan) && subData?.has_whop_membership === true
         );
       } else {
         setCreditsRemaining(0);
@@ -1117,9 +1116,7 @@ function StaticAdAppPage() {
       const hasPaidPlan =
         subRes.ok &&
         subData?.ok &&
-        subData.plan !== 'free_trial' &&
-        subData.plan !== 'owner' &&
-        ['standard', 'pro', 'scale'].includes(String(subData.plan));
+        isPaidPlan(subData.plan);
 
       const paidCredits = Number(subData?.credits_remaining ?? 0);
       const needsSync =
@@ -1162,8 +1159,7 @@ function StaticAdAppPage() {
         const checkData = await checkRes.json();
         if (
           checkData?.ok &&
-          checkData.plan !== 'free_trial' &&
-          checkData.plan !== 'owner' &&
+          isPaidPlan(checkData.plan) &&
           Number(checkData.credits_remaining) > 0
         ) {
           try {

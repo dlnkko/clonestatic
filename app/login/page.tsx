@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useSearchParams } from 'next/navigation';
+import { isPaidPlan } from '@/lib/plans';
 import { AdmirrorLogo } from '@/app/components/AdmirrorLogo';
 
 function getOAuthRedirectOrigin(): string {
@@ -70,12 +71,7 @@ async function activateWhopSubscriptionIfNeeded(nextPath: string): Promise<boole
       const subRes = await fetch('/api/subscription', { credentials: 'include' });
       if (subRes.ok) {
         const subData = await subRes.json();
-        if (
-          subData?.ok &&
-          subData.plan !== 'free_trial' &&
-          subData.plan !== 'owner' &&
-          Number(subData.credits_remaining) > 0
-        ) {
+        if (subData?.ok && isPaidPlan(subData.plan) && Number(subData.credits_remaining) > 0) {
           try {
             sessionStorage.removeItem('pending_whop_checkout');
             sessionStorage.removeItem('whop_payment_id');
