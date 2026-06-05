@@ -1,4 +1,4 @@
-import { formatProductPrice, normalizeProductCurrency, parsePriceNumeric } from './currencies';
+import { formatProductPrice, normalizeProductCurrency, parsePriceNumeric, sanitizePriceInput } from './currencies';
 import type { ExtractedPricing, PricingTier, ProductPricingConfig } from './types';
 
 export function createTierId(): string {
@@ -62,6 +62,33 @@ export function syncPricingConfigDefaults(config: ProductPricingConfig): Product
   return { ...config, currency };
 }
 
+/** Format stored price strings before save (call on blur or submit). */
+export function finalizePricingConfig(config: ProductPricingConfig): ProductPricingConfig {
+  const synced = syncPricingConfigDefaults(config);
+  const currency = synced.currency;
+
+  const formatSingle = (value: string | null | undefined): string | null => {
+    if (!value?.trim()) return null;
+    const num = parsePriceNumeric(value);
+    if (!num) return null;
+    return formatProductPrice(num, currency) || null;
+  };
+
+  const tiers = synced.tiers?.map((tier) => ({
+    ...tier,
+    unitPrice: tier.unitPrice?.trim()
+      ? normalizeTierUnitPrice(parsePriceNumeric(tier.unitPrice), currency)
+      : tier.unitPrice,
+  }));
+
+  return {
+    ...synced,
+    priceDisplay: formatSingle(synced.priceDisplay),
+    compareAtPrice: formatSingle(synced.compareAtPrice),
+    tiers,
+  };
+}
+
 export function buildAllowedPriceFromConfig(config: ProductPricingConfig | null | undefined): string | null {
   if (!config) return null;
   const synced = syncPricingConfigDefaults(config);
@@ -110,7 +137,7 @@ export function newEmptyTier(currency: string): PricingTier {
 
 export function normalizeTierUnitPrice(raw: string, currency: string): string {
   const num = parsePriceNumeric(raw);
-  if (!num) return raw.trim();
+  if (!num) return sanitizePriceInput(raw.trim());
   if (/\/\s*each/i.test(raw)) return raw.trim();
   return formatTierUnitPrice(num, currency);
 }

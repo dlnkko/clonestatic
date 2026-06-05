@@ -11,6 +11,7 @@ import {
   formatProductPrice,
   parsePriceNumeric,
   PRODUCT_CURRENCIES,
+  sanitizePriceInput,
 } from '@/lib/products/currencies';
 
 type Props = {
@@ -117,9 +118,16 @@ export function ProductPricingEditor({ config, onChange, detectedPricing }: Prop
               onChange={(e) =>
                 onChange({
                   ...synced,
-                  priceDisplay: formatProductPrice(e.target.value, currency) || null,
+                  priceDisplay: sanitizePriceInput(e.target.value) || null,
                 })
               }
+              onBlur={(e) => {
+                const num = parsePriceNumeric(e.target.value);
+                onChange({
+                  ...synced,
+                  priceDisplay: num ? formatProductPrice(num, currency) || null : null,
+                });
+              }}
               inputMode="decimal"
               placeholder="e.g. 12.00"
               className="dash-input"
@@ -132,9 +140,16 @@ export function ProductPricingEditor({ config, onChange, detectedPricing }: Prop
               onChange={(e) =>
                 onChange({
                   ...synced,
-                  compareAtPrice: formatProductPrice(e.target.value, currency) || null,
+                  compareAtPrice: sanitizePriceInput(e.target.value) || null,
                 })
               }
+              onBlur={(e) => {
+                const num = parsePriceNumeric(e.target.value);
+                onChange({
+                  ...synced,
+                  compareAtPrice: num ? formatProductPrice(num, currency) || null : null,
+                });
+              }}
               inputMode="decimal"
               placeholder="e.g. 15.00"
               className="dash-input"
@@ -183,6 +198,11 @@ export function ProductPricingEditor({ config, onChange, detectedPricing }: Prop
                   <input
                     value={parsePriceNumeric(tier.unitPrice)}
                     onChange={(e) =>
+                      updateTier(tier.id, {
+                        unitPrice: sanitizePriceInput(e.target.value),
+                      })
+                    }
+                    onBlur={(e) =>
                       updateTier(tier.id, {
                         unitPrice: normalizeTierUnitPrice(e.target.value, currency),
                       })

@@ -7,8 +7,8 @@ import { BrandColorPicker } from '@/app/components/products/BrandColorPicker';
 import { ProductPricingEditor } from '@/app/components/products/ProductPricingEditor';
 import {
   emptyPricingConfig,
+  finalizePricingConfig,
   pricingConfigFromExtracted,
-  syncPricingConfigDefaults,
 } from '@/lib/products/pricing-config';
 
 type Props = {
@@ -55,7 +55,7 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
     setSaving(true);
     setError(null);
     try {
-      const syncedPricing = syncPricingConfigDefaults(pricingConfig);
+      const syncedPricing = finalizePricingConfig(pricingConfig);
       const scrape_cache: ProductScrapeCache | null = product.scrape_cache
         ? {
             ...product.scrape_cache,

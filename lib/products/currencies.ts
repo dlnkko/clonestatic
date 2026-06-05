@@ -66,6 +66,20 @@ export function formatProductPrice(
   }
 }
 
+/** Allow free numeric typing (digits + one decimal separator). Does not format. */
+export function sanitizePriceInput(raw: string): string {
+  let s = raw.replace(/[^\d.,]/g, '');
+  const firstSep = s.search(/[.,]/);
+  if (firstSep !== -1) {
+    const sep = s[firstSep];
+    s = s.slice(0, firstSep + 1) + s.slice(firstSep + 1).replace(/[.,]/g, '');
+    if (sep === ',') {
+      s = s.replace(',', '.');
+    }
+  }
+  return s;
+}
+
 /** Parse numeric amount from a formatted price string (e.g. "$59.99" → "59.99"). */
 export function parsePriceNumeric(display: string | null | undefined): string {
   if (!display?.trim()) return '';

@@ -12,8 +12,8 @@ import {
 } from '@/lib/api-error-message';
 import {
   emptyPricingConfig,
+  finalizePricingConfig,
   pricingConfigFromExtracted,
-  syncPricingConfigDefaults,
 } from '@/lib/products/pricing-config';
 
 type Mode = 'url' | 'manual';
@@ -206,7 +206,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
       const imageBase64List = await Promise.all(imageFiles.map(readFileAsDataUrl));
       const logoBase64List =
         logoFiles.length > 0 ? await Promise.all(logoFiles.map(readFileAsDataUrl)) : undefined;
-      const syncedPricing = syncPricingConfigDefaults(pricingConfig);
+      const syncedPricing = finalizePricingConfig(pricingConfig);
       const res = await fetch('/api/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -255,7 +255,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
       const imageBase64List = await Promise.all(imageFiles.map(readFileAsDataUrl));
       const logoBase64List =
         logoFiles.length > 0 ? await Promise.all(logoFiles.map(readFileAsDataUrl)) : undefined;
-      const syncedPricing = syncPricingConfigDefaults(pricingConfig);
+      const syncedPricing = finalizePricingConfig(pricingConfig);
       const res = await fetch('/api/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
