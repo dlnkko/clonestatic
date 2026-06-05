@@ -13,6 +13,8 @@ import {
   packagingMirroringBlock,
   productCatalogFidelityBlock,
   productThemedEnvironmentBlock,
+  productVariantMatchingBlock,
+  ctaSubscriptionGuardBlock,
   referenceCopyMirroringBlock,
   subheroCopyPatternBlock,
   textLayoutBlock,
@@ -76,6 +78,8 @@ ${referenceCopyMirroringBlock(ctx)}
 
 ${subheroCopyPatternBlock(ctx)}
 
+${ctaSubscriptionGuardBlock(ctx)}
+
 ${textLayoutBlock(ctx)}
 
 ${copyStructureRulesBlock(ctx)}
@@ -137,6 +141,8 @@ ${marketingAngleExtrapolationBlock(ctx)}
 
 ${productCatalogFidelityBlock(ctx)}
 
+${productVariantMatchingBlock(ctx)}
+
 ${productThemedEnvironmentBlock(ctx)}
 
 ${illustrativeVisualBlock(ctx)}
@@ -164,7 +170,7 @@ RULES (JSON output):
 - poseAndArrangementParagraph: mirror reference LAYOUT zones only; user's product form comes from catalog photos — if reference had a bottle but user has gummy pouch, describe the pouch in that zone; NEVER describe a bottle/jar unless catalog shows one
 - peopleAndSceneRules: must state on-theme environment/props for user's product category; clone reference framing/mood/aesthetic, NOT competitor-category setting when categories differ
 - compositionRules / brandingNotes / iconRowNotes / trustBadgeNotes
-- compositionRules: visual hierarchy (headline → comparison/table → product row), spacing, shadows, full-bleed; product row with 2–4 units if reference shows multiple; award seal overlaps product per reference; **typography size ladder** — headline largest, subheadline clearly smaller, footer smallest
+- compositionRules: visual hierarchy (headline → icon/feature row → product row → CTA bar); preserve reference **vertical band proportions** and text block geometry; product row with **exact unit count** from reference (use distinct catalog variants when reference shows different flavors/colors); award seal overlaps product per reference; **typography size ladder** — headline largest, subheadline clearly smaller, footer/CTA smallest
 ${ctx.referenceTrustBadge.present ? `- trustBadgeNotes: describe placing user's award seal (${ctx.referenceTrustBadge.placement || 'overlap on hero product'})` : ''}
 ${ctx.trustBadgeInstructions ? ctx.trustBadgeInstructions : ''}
 
@@ -245,6 +251,9 @@ ${ctx.hasReferenceComparisonModule ? `26. LAYOUT PROPORTIONS: FAIL if prompt spl
 27. PACKAGING PHOTO: When reference top band shows labeled bottle/box/tube, prompt must use user packaging catalog photo — FAIL if lifestyle grass/scene photo used as hero
 ${ctx.hasReferenceComparisonModule ? `19. BEFORE/AFTER: Prompt must describe natural side-by-side panels — FAIL if "vertical split face", harsh bisect, full portrait when reference was macro crop, or oversized Before/After labels` : ''}
 ${ctx.referenceTextLayout ? `20. TEXT LAYOUT: Top copy must be ${ctx.referenceTextLayout.alignment}-aligned ${ctx.referenceTextLayout.stackDirection} stack — FAIL if subhero same visual size as hero` : ''}
+
+${ctx.referenceProductUnits && ctx.referenceProductUnits.unitCount > 1 ? `28. PRODUCT VARIANTS: Reference had ${ctx.referenceProductUnits.unitCount} units${ctx.referenceProductUnits.distinctVariants ? ' with distinct variants' : ''} — FAIL if prompt shows ${ctx.referenceProductUnits.unitCount} identical copies of one flavor when reference had distinct variants and user catalog has multiple variant photos` : ''}
+${!ctx.referenceTextLines.some((l) => /cta|button/i.test(l.role) && /\bsubscribe\b/i.test(l.text)) ? '29. CTA: FAIL if prompt/footer includes "Subscribe", "Subscribe & Save", or auto-ship language when reference CTA did not' : ''}
 
 referenceHasPromoOfferLine: ${ctx.referenceHasPromoOfferLine}
 referenceVerbatimPhrases: ${JSON.stringify(ctx.referenceVerbatimPhrases)}

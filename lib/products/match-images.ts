@@ -7,6 +7,7 @@ import type {
   MatchedProductImage,
   ProductImage,
   ReferenceProductElement,
+  ReferenceProductUnitsProfile,
 } from './types';
 import { anchorMatchedDescriptions, catalogMatchDescription } from './product-fidelity';
 
@@ -22,7 +23,8 @@ export async function matchProductImagesToReference(
   ai: GoogleGenAI,
   referenceElements: ReferenceProductElement[],
   productImages: ProductImage[],
-  productName: string
+  productName: string,
+  unitsProfile?: ReferenceProductUnitsProfile | null
 ): Promise<MatchProductImagesResult> {
   if (productImages.length === 0) return { matches: [], usage: null };
   if (referenceElements.length === 0) {
@@ -58,18 +60,25 @@ export async function matchProductImagesToReference(
     alt: img.alt || '',
   }));
 
+  const distinctVariants = unitsProfile?.distinctVariants === true;
+  const variantRule = distinctVariants
+    ? `- Reference shows ${unitsProfile?.unitCount ?? referenceElements.length} DISTINCT variants — pick a DIFFERENT catalog index for each product/packaging slot when possible (different flavors/colors/packaging photos). Reuse an index ONLY if catalog has fewer variant photos than slots.`
+    : `- Reference shows repeated identical units — you MAY reuse the same catalog index for multiple slots.`;
+
   const prompt = `You match product page photos to roles needed in a cloned static ad.
 Only the images you select (by index) will be downloaded and sent to the image model — pick the minimum set that covers each reference element. Do not select extra catalog images.
 
 Product brand: "${productName}"
+${unitsProfile && unitsProfile.unitCount > 1 ? `Reference shows ${unitsProfile.unitCount} visible product units (${distinctVariants ? 'DISTINCT variants/flavors/colors' : 'same SKU repeated'}).` : ''}
 
-Reference ad needs these visual elements:
-${referenceElements.map((e, i) => `${i + 1}. role=${e.role}: ${e.description}`).join('\n')}
+Reference ad needs these visual elements (one catalog pick per row — rows may share role):
+${referenceElements.map((e, i) => `${i + 1}. role=${e.role}${e.slotIndex != null ? ` slot=${e.slotIndex + 1}` : ''}: ${e.description}`).join('\n')}
 
 Available product images (by index):
 ${catalog.map((c) => `[${c.index}] kind=${c.kind} url=${c.url.slice(0, 120)}${c.alt ? ` alt=${c.alt}` : ''}`).join('\n')}
 
-For EACH reference element, pick the best matching image index. Rules:
+For EACH reference row above, pick the best matching image index. Rules:
+${variantRule}
 - NEVER describe the reference competitor's product type in your output — you are picking USER catalog photos only
 - packaging → MUST pick an image showing retail packaging (pouch, bag, box, tub, bottle WITH user's label). Prefer kind=packaging. NEVER assign a loose gummy flat lay to packaging.
 - product → loose item, gummies, capsules, powder, device (NOT the reference competitor's bottle shape — pick user's actual product photo)
@@ -77,14 +86,13 @@ For EACH reference element, pick the best matching image index. Rules:
 - logo → dedicated kind=logo if available; otherwise pick packaging/product image where the brand wordmark is clearly printed on the pack (no separate logo upload required)
 - trust_badge → MUST pick an image with kind=trust_badge (award seal, press badge, certification). If several trust_badge images exist, pick the clearest award/press seal. NEVER skip trust_badge when reference needs it.
 - trust_badge images are separate assets — do not use a product photo as the seal
-- Same image index may be reused only if one photo clearly shows both
-- Prefer distinct images when reference has multiple elements
-- When reference has trust_badge, include it in matches even if product images are also needed
+- When matching variant slots, use alt text and URL hints (flavor, color, strawberry, vanilla, etc.) to align with slot descriptions
+- Return one match object per reference row, in the same order
 
 Output JSON only:
 {
   "matches": [
-    { "role": string, "imageIndex": number, "description": string }
+    { "role": string, "imageIndex": number, "slotIndex": number | null, "description": string }
   ]
 }`;
 
@@ -97,58 +105,53 @@ Output JSON only:
   const parts = result.candidates?.[0]?.content?.parts;
   const raw = parts?.map((p) => p.text || '').join('').trim() || '';
   const parsed = parseJson<{
-    matches: { role: string; imageIndex: number; description: string }[];
+    matches: { role: string; imageIndex: number; slotIndex?: number | null; description: string }[];
   }>(raw);
 
   const matches: MatchedProductImage[] = [];
-  const used = new Set<number>();
-  for (const m of parsed.matches || []) {
-    const idx = m.imageIndex;
-    if (idx < 0 || idx >= productImages.length || used.has(idx)) continue;
-    used.add(idx);
+  const usedDistinct = new Set<number>();
+  const parsedMatches = parsed.matches || [];
+
+  for (let i = 0; i < referenceElements.length; i++) {
+    const el = referenceElements[i];
+    const m = parsedMatches[i] ?? parsedMatches.find((_, j) => j === i);
+    let idx = m?.imageIndex;
+    if (idx == null || idx < 0 || idx >= productImages.length) {
+      idx = pickFallbackIndex(productImages, el, usedDistinct, distinctVariants);
+    }
+    if (idx == null || idx < 0) continue;
+
+    if (distinctVariants && usedDistinct.has(idx)) {
+      const alt = pickFallbackIndex(productImages, el, usedDistinct, true);
+      if (alt != null && alt >= 0) idx = alt;
+    }
+    if (distinctVariants) usedDistinct.add(idx);
+
     matches.push({
-      role: m.role as MatchedProductImage['role'],
+      role: (m?.role ?? el.role) as MatchedProductImage['role'],
       url: productImages[idx].url,
+      slotIndex: el.slotIndex ?? m?.slotIndex ?? undefined,
+      catalogImageIndex: idx,
       description: catalogMatchDescription(
-        m.role as MatchedProductImage['role'],
+        (m?.role ?? el.role) as MatchedProductImage['role'],
         productImages[idx],
-        referenceElements[matches.length]?.description
+        el.description
       ),
     });
-    if (matches.length >= referenceElements.length) break;
-  }
-
-  if (matches.length < referenceElements.length) {
-    for (let i = 0; i < productImages.length && matches.length < referenceElements.length; i++) {
-      if (used.has(i)) continue;
-      const el = referenceElements[matches.length];
-      matches.push({
-        role: el.role,
-        url: productImages[i].url,
-        description: catalogMatchDescription(
-          el.role as MatchedProductImage['role'],
-          productImages[i],
-          el.description
-        ),
-      });
-      used.add(i);
-    }
   }
 
   for (const el of referenceElements) {
     if (el.role !== 'trust_badge') continue;
     if (matches.some((m) => m.role === 'trust_badge')) continue;
-    const idx = productImages.findIndex(
-      (img, i) => !used.has(i) && img.kind === 'trust_badge'
-    );
+    const idx = productImages.findIndex((img) => img.kind === 'trust_badge');
     const pick = idx >= 0 ? idx : productImages.findIndex((img) => TRUST_HINT.test(`${img.url} ${img.alt || ''}`));
     if (pick >= 0) {
       matches.push({
         role: 'trust_badge',
         url: productImages[pick].url,
+        catalogImageIndex: pick,
         description: catalogMatchDescription('trust_badge', productImages[pick], el.description),
       });
-      used.add(pick);
     }
   }
 
@@ -173,11 +176,11 @@ Output JSON only:
       const entry = {
         role: 'packaging' as const,
         url: img.url,
+        catalogImageIndex: labelIdx,
         description: catalogMatchDescription('packaging', img, el.description),
       };
       if (existingIdx >= 0) matches[existingIdx] = entry;
       else if (matches.length < referenceElements.length) matches.push(entry);
-      used.add(labelIdx);
     }
   }
 
@@ -191,22 +194,21 @@ Output JSON only:
         /bottle|tube|jar|labeled|label|box|container|packaging|canister/i.test(el.description));
     if (!needsPackaging) continue;
     const packagingIdx = productImages.findIndex(
-      (img, idx) =>
-        !used.has(idx) &&
-        (img.kind === 'packaging' ||
-          /label|wrap|sleeve|carton|packaging|pack-shot/i.test(`${img.url} ${img.alt || ''}`))
+      (img) =>
+        img.kind === 'packaging' ||
+        /label|wrap|sleeve|carton|packaging|pack-shot/i.test(`${img.url} ${img.alt || ''}`)
     );
     if (packagingIdx >= 0 && matches[i].role !== 'packaging') {
       matches[i] = {
         role: 'packaging',
         url: productImages[packagingIdx].url,
+        catalogImageIndex: packagingIdx,
         description: catalogMatchDescription(
           'packaging',
           productImages[packagingIdx],
           el.description
         ),
       };
-      used.add(packagingIdx);
     }
   }
 
@@ -218,6 +220,7 @@ Output JSON only:
           {
             role: 'product',
             url: productImages[0].url,
+            catalogImageIndex: 0,
             description: catalogMatchDescription('product', productImages[0]),
           },
         ],
@@ -225,6 +228,30 @@ Output JSON only:
     referenceElements
   );
   return { matches: anchored, usage };
+}
+
+function pickFallbackIndex(
+  productImages: ProductImage[],
+  el: ReferenceProductElement,
+  usedDistinct: Set<number>,
+  preferUnused: boolean
+): number {
+  const productLike = productImages.filter(
+    (img) => img.kind === 'product' || img.kind === 'packaging' || img.kind === 'other'
+  );
+  const pool = el.role === 'packaging'
+    ? productImages.filter((img) => img.kind === 'packaging' || img.kind === 'product')
+    : productLike.length > 0
+      ? productLike
+      : productImages;
+
+  for (let i = 0; i < productImages.length; i++) {
+    const img = productImages[i];
+    if (!pool.includes(img)) continue;
+    if (preferUnused && usedDistinct.has(i)) continue;
+    return i;
+  }
+  return productImages.length > 0 ? 0 : -1;
 }
 
 async function waitForGeminiFileActive(

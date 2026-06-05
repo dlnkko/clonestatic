@@ -12,6 +12,7 @@ import type {
   TypographyHierarchyLine,
   VisualMetaphorProfile,
 } from './types';
+import type { ReferenceProductUnitsProfile } from '@/lib/products/types';
 
 function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length;
@@ -614,5 +615,42 @@ export function parseReferenceVisualStyle(vsText: string): import('./types').Ref
     hasEnvironment: hasEnv,
     designType,
     oneHeroOnly: mainElementsMatch ? mainElementsMatch[1].toLowerCase() === 'one-hero-only' : false,
+  };
+}
+
+export function parseReferenceProductUnits(analysisText: string): ReferenceProductUnitsProfile | null {
+  const block = analysisText.match(
+    /\*\*PRODUCT UNITS \(REFERENCE AD\):\*\*\s*([\s\S]*?)(?=\*\*PRODUCT POSE|\*\*REFERENCE AD PROMPT:\*\*|$)/i
+  );
+  if (!block) return null;
+
+  const text = block[1];
+  const countMatch = text.match(/Visible unit count:\s*(\d+)/i);
+  const unitCount = countMatch ? Math.min(6, Math.max(1, Number(countMatch[1]))) : 1;
+  if (unitCount <= 1) return null;
+
+  const variantMatch = text.match(
+    /Same product repeated vs distinct variants:\s*(same-repeated|distinct-variants|same|distinct)/i
+  );
+  const distinctVariants =
+    variantMatch?.[1]?.toLowerCase().includes('distinct') ||
+    /distinct-variants/i.test(variantMatch?.[1] ?? '');
+
+  const arrangeMatch = text.match(
+    /Arrangement:\s*(horizontal-row|scattered|stack|pyramid|other)/i
+  );
+  const arrangement = (arrangeMatch?.[1]?.toLowerCase() ?? 'other') as ReferenceProductUnitsProfile['arrangement'];
+
+  const notesMatch = text.match(/Variant notes:\s*([\s\S]+?)(?=\n-\s|\n\*\*|$)/i);
+  const perSlot = [...text.matchAll(/Slot\s*(\d+):\s*([^\n]+)/gi)].map((m) => ({
+    description: m[2].trim(),
+  }));
+
+  return {
+    unitCount,
+    distinctVariants,
+    arrangement,
+    variantNotes: notesMatch?.[1]?.trim(),
+    slots: perSlot.length > 0 ? perSlot : undefined,
   };
 }

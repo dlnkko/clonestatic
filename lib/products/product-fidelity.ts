@@ -51,9 +51,9 @@ export function anchorMatchedDescriptions(
   productImages: ProductImage[],
   referenceElements: { role: string; description: string }[]
 ): MatchedProductImage[] {
-  return matches.map((m) => {
+  return matches.map((m, index) => {
     const img = productImages.find((i) => i.url === m.url);
-    const refEl = referenceElements.find((e) => e.role === m.role);
+    const refEl = referenceElements[index] ?? referenceElements.find((e) => e.role === m.role);
     if (!img) return m;
     return {
       ...m,
@@ -67,19 +67,32 @@ export function anchorMatchedDescriptions(
 }
 
 export function productCatalogFidelityBlock(ctx: AdaptationContext): string {
+  const units = ctx.referenceProductUnits;
   const catalogLines =
     ctx.matchedProductVisuals.length > 0
       ? ctx.matchedProductVisuals
-          .map((m) => `  - ${m.role}: ${m.description}`)
+          .map((m, i) => {
+            const slot =
+              m.role === 'product' || m.role === 'packaging'
+                ? ` [visible unit ${i + 1}${units && units.unitCount > 1 ? ` of ${units.unitCount}` : ''}]`
+                : '';
+            return `  - ${m.role}${slot}: ${m.description}`;
+          })
           .join('\n')
       : '  - Use ONLY the attached product image(s).';
+
+  const variantRule =
+    units && units.unitCount > 1
+      ? `\n**MULTI-UNIT LAYOUT:** Reference shows **${units.unitCount}** visible product unit(s)${units.distinctVariants ? ' with **distinct variants** (different flavors/colors/packaging)' : ' (same SKU repeated)'}. Use the matched catalog photo per slot — ${units.distinctVariants ? 'each slot should show a DIFFERENT catalog variant when available; never render three copies of one flavor when reference had three different ones' : 'repeat the same catalog photo for each unit when reference shows identical units'}. If user uploaded only 1 product photo, show 1 unit (do not invent extra variants).`
+      : '';
 
   const productLabel = ctx.productName ? `"${ctx.productName}"` : "the user's product";
 
   return `**PRODUCT CATALOG FIDELITY (CRITICAL — non-negotiable):**
 ${productLabel} must appear ONLY as shown in the user's product catalog photos — NEVER as the reference ad's competitor product.
+${variantRule}
 
-Catalog assets (sole source of product appearance):
+Catalog assets (sole source of product appearance — one row per visible unit/slot):
 ${catalogLines}
 
 **The reference ad is for LAYOUT + COPY structure only** — composition, text placement, lighting mood, and where heroes sit in the frame. **Environment/props must match the user's product category** (not the competitor's setting).

@@ -189,9 +189,43 @@ export function sanitizeAdaptedCopy(
       ? null
       : raw.brandSubtagline,
     specLine: specInLines ? null : raw.specLine,
-    textLines,
+    textLines: sanitizeCtaSubscriptionLanguage(textLines, ctx),
     featureIcons: raw.featureIcons ?? [],
   };
+}
+
+const SUBSCRIBE_CTA_RE =
+  /\bsubscribe\s*(?:&|and)\s*save\b|\bsubscribe\b|\bauto-?ship\b|\bmembership\b|\bjoin and save\b|\brecurring delivery\b/i;
+
+function referenceCtaHasSubscribe(ctx: AdaptationContext): boolean {
+  return ctx.referenceTextLines.some(
+    (l) => /cta|button|call/i.test(l.role) && SUBSCRIBE_CTA_RE.test(l.text)
+  );
+}
+
+/** Strip invented subscription CTAs when reference did not use them. */
+export function sanitizeCtaSubscriptionLanguage(
+  lines: AdaptedTextLine[],
+  ctx: AdaptationContext
+): AdaptedTextLine[] {
+  if (referenceCtaHasSubscribe(ctx)) return lines;
+
+  return lines.map((line) => {
+    if (!/cta|button|call|footer|offer|promo/i.test(line.role)) return line;
+    if (!SUBSCRIBE_CTA_RE.test(line.text)) return line;
+
+    const price = ctx.allowedPrice?.trim();
+    if (price && line.text.includes(price.replace(/[^\d.,]/g, '').slice(0, 6))) {
+      return { ...line, text: price };
+    }
+    if (/\bfor only\b|\$\d/i.test(line.text)) {
+      return {
+        ...line,
+        text: price ? `Shop now — ${price}` : 'Shop now',
+      };
+    }
+    return { ...line, text: 'Shop now' };
+  });
 }
 
 export function textArchitectureRulesBlock(ctx: AdaptationContext): string {

@@ -71,13 +71,26 @@ export type ProductRecord = {
   updated_at: string;
 };
 
+export type ReferenceProductUnitsProfile = {
+  unitCount: number;
+  /** true when reference shows different flavors/colors/SKUs (not identical repeats) */
+  distinctVariants: boolean;
+  arrangement: 'horizontal-row' | 'scattered' | 'stack' | 'pyramid' | 'other';
+  variantNotes?: string;
+  slots?: { description: string }[];
+};
+
 export type ReferenceProductElement = {
   role: ProductImageKind;
   description: string;
+  slotIndex?: number;
+  needsDistinctVariant?: boolean;
 };
 
 export type MatchedProductImage = {
   role: ProductImageKind;
   url: string;
   description: string;
+  slotIndex?: number;
+  catalogImageIndex?: number;
 };

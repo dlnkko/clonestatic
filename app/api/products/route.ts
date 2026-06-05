@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { uploadBase64ToImgBB } from '@/lib/imgbb';
 import { rowToProduct } from '@/lib/products/db';
 import { classifyProductImagesHeuristic } from '@/lib/products/classify-images';
+import { primaryProductImageUrl } from '@/lib/products/prepare-catalog';
 import { scrapeProductPage } from '@/lib/products/scrape';
 import type { ProductImage, ProductScrapeCache } from '@/lib/products/types';
 import { checkRateLimit } from '@/lib/rate-limit';
@@ -126,7 +127,7 @@ export async function POST(request: NextRequest) {
         const url = await uploadBase64ToImgBB(b.imageBase64List[i]);
         images.push({
           url,
-          kind: i === 0 ? 'product' : 'other',
+          kind: i === 0 ? 'product' : 'packaging',
           alt: `${b.name.trim()} image ${i + 1}`,
         });
       }
@@ -142,7 +143,7 @@ export async function POST(request: NextRequest) {
       }
 
       const classifiedImages = classifyProductImagesHeuristic(images);
-      const primary = classifiedImages.find((i) => i.kind !== 'logo')?.url ?? classifiedImages[0]?.url;
+      const primary = primaryProductImageUrl(classifiedImages);
       if (!primary) {
         return NextResponse.json({ error: 'No images to save' }, { status: 400 });
       }
@@ -304,7 +305,7 @@ export async function POST(request: NextRequest) {
         const url = await uploadBase64ToImgBB(imageBase64List[i]);
         images.push({
           url,
-          kind: i === 0 ? 'product' : 'other',
+          kind: i === 0 ? 'product' : 'packaging',
           alt: `${name.trim()} image ${i + 1}`,
         });
       }
@@ -350,7 +351,7 @@ export async function POST(request: NextRequest) {
           target_audience: targetAudience?.trim().slice(0, 1000) || null,
           color_palette: colors?.length ? { colors } : null,
           logo_url: logoUrls[0] ?? null,
-          primary_image_url: classifiedImages[0].url,
+          primary_image_url: primaryProductImageUrl(classifiedImages) ?? classifiedImages[0].url,
           images: classifiedImages,
           scrape_cache: manualCache,
         })

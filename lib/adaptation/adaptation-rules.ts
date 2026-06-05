@@ -432,3 +432,45 @@ ${summary}
 
 **In your final prompt, for EACH text line specify:** font family style, weight, color, alignment, AND **relative size vs headline** (e.g. "subhero in **light** sans-serif at **~30% of headline cap height**, two lines max, centered below headline — noticeably smaller than headline"). Word count limits do NOT replace size hierarchy — a 15-word subhero must still be **visually ~⅓ the headline size**.`;
 }
+
+/** Match N reference product units to N user catalog photos (flavor/color variants). */
+export function productVariantMatchingBlock(ctx: AdaptationContext): string {
+  const units = ctx.referenceProductUnits;
+  if (!units || units.unitCount <= 1) return '';
+
+  const distinct = units.distinctVariants;
+  const catalogCount = ctx.matchedProductVisuals.filter(
+    (m) => m.role === 'product' || m.role === 'packaging'
+  ).length;
+
+  return `**PRODUCT VARIANT ROW (CRITICAL):**
+Reference shows **${units.unitCount}** product unit(s) in the hero row (${units.arrangement}).
+${distinct ? 'These are **distinct variants** (different flavors/colors/packaging) — NOT three copies of the same SKU.' : 'These are **identical repeated units** — same packaging photo may repeat.'}
+
+**Your generated ad MUST:**
+- Show exactly **${Math.min(units.unitCount, Math.max(catalogCount, 1))}** visible unit(s) — mirror reference count, capped by user catalog photos uploaded (${catalogCount} variant photo(s) available)
+- Preserve reference **arrangement** (${units.arrangement}) and **relative scale/spacing** between units
+- Assign each slot left-to-right the corresponding catalog variant photo — never swap variant order randomly
+${distinct && catalogCount < units.unitCount ? `- User has fewer variant photos (${catalogCount}) than reference units (${units.unitCount}) — show ${catalogCount} distinct variant(s), do NOT duplicate one flavor to fake ${units.unitCount} variants` : ''}
+${units.variantNotes ? `Reference variant notes: ${units.variantNotes}` : ''}`;
+}
+
+/** Prevent invented subscription CTAs when reference did not use them. */
+export function ctaSubscriptionGuardBlock(ctx: AdaptationContext): string {
+  const refCtaLines = ctx.referenceTextLines.filter((l) => /cta|button|call/i.test(l.role));
+  const refCtaText = refCtaLines.map((l) => l.text).join(' ').toLowerCase();
+  const refHasSubscribe =
+    /\bsubscribe\b|\bsubscription\b|\bauto-?ship\b|\bmembership\b|\bjoin and save\b/i.test(refCtaText);
+  const refHasSaveOffer = /\bsave \d|save \$\d|\d+% off|\bflash sale\b/i.test(refCtaText);
+
+  if (refHasSubscribe) {
+    return `**CTA:** Reference CTA includes subscription language — you may mirror subscription phrasing structure only (not competitor brand names).`;
+  }
+
+  return `**CTA / OFFER BAR (CRITICAL — do NOT invent):**
+Reference CTA/button text does NOT include "Subscribe", "Subscribe & Save", "auto-ship", or recurring membership offers.
+- **FORBIDDEN in CTA/footer bar:** "Subscribe and Save", "Subscribe & Save", "Join and save", auto-ship, membership, recurring delivery
+${refHasSaveOffer ? '- Reference had a save/discount line — mirror that structure with allowed pricing only' : '- Do NOT add "% off", "Save X%", or flash-sale language unless reference had a dedicated promo line'}
+- Use a **direct purchase CTA** aligned with reference tone (e.g. "Shop now", "Get yours", promo code bar) — NOT subscription commerce unless reference had it
+- If allowed price is set (${ctx.allowedPrice ?? 'none'}), price may appear once — never pair with fake subscription savings`;
+}

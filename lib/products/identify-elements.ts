@@ -2,7 +2,7 @@ import type { GoogleGenAI } from '@google/genai';
 import { extractUsage, parseJson } from '@/lib/adaptation/gemini';
 import type { ReferenceVisualStyle, Step2Usage } from '@/lib/adaptation/types';
 import { GEMINI_MODEL } from '@/lib/gemini-model';
-import type { ReferenceProductElement } from './types';
+import type { ReferenceProductElement, ReferenceProductUnitsProfile } from './types';
 
 export type IdentifyReferenceElementsResult = {
   elements: ReferenceProductElement[];
@@ -17,11 +17,15 @@ export async function identifyReferenceProductElements(
   ai: GoogleGenAI,
   staticAdFile: { uri: string; mimeType?: string },
   referenceVisualStyle: ReferenceVisualStyle | null,
-  referenceProductPose: string
+  referenceProductPose: string,
+  referenceProductUnits?: ReferenceProductUnitsProfile | null
 ): Promise<IdentifyReferenceElementsResult> {
   const styleHint = referenceVisualStyle
     ? `oneHeroOnly: ${referenceVisualStyle.oneHeroOnly ?? false}, mainElements: ${referenceVisualStyle.oneHeroOnly ? 'one' : 'possibly multiple'}`
     : 'unknown';
+  const unitsHint = referenceProductUnits
+    ? `Visible product units in reference: ${referenceProductUnits.unitCount} (${referenceProductUnits.distinctVariants ? 'distinct variants/flavors/colors' : 'same SKU repeated'})`
+    : 'Count visible product units/packs in the image';
 
   const prompt = `Analyze this REFERENCE static ad image.
 
@@ -39,7 +43,10 @@ If the ad shows an award/press/certification seal overlapping the product, you M
 
 Context from prior analysis:
 - Visual style: ${styleHint}
+- Product units: ${unitsHint}
 - Product pose/arrangement notes: ${referenceProductPose.slice(0, 1500)}
+
+If the ad shows MULTIPLE product units or flavor/color variants (e.g. three cans in a row), describe the layout — do NOT collapse to a single element.
 
 If the ad shows only ONE hero product element (no separate bottle/box/pouch shot), return a single element:
 - role **packaging** when the hero is a retail container with label (bottle, tube, jar, labeled box, wrapped bar with sleeve) — common in beauty/supplement top bands
@@ -82,5 +89,5 @@ Output JSON only:
       usage,
     };
   }
-  return { elements: elements.slice(0, 4), usage };
+  return { elements: elements.slice(0, 8), usage };
 }

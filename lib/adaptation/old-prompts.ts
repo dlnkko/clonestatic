@@ -269,6 +269,14 @@ If "graphic-product-only" or "illustration-led": do NOT add real photographic pe
 - Numeric claims in module (DO NOT COPY): [rating numbers, review count, discount numbers if any]
 (If not present, write "Present: no" and nothing else.)
 
+**PRODUCT UNITS (REFERENCE AD):**
+- Visible unit count: [1–6 — count every distinct product unit/pack shown as a hero, e.g. three cans = 3]
+- Same product repeated vs distinct variants: [same-repeated | distinct-variants] — distinct-variants when colors/flavors/labels differ (e.g. three different can colors); same-repeated when identical units
+- Arrangement: [horizontal-row | scattered | stack | pyramid | other]
+- Variant notes: [e.g. "three Huel cans in mint, peach, chocolate left to right" OR "three identical bottles"]
+- Per-slot (optional, left to right): Slot 1: [color/flavor/label cue]; Slot 2: [...]; Slot 3: [...]
+(If only one product hero, write Visible unit count: 1)
+
 **PRODUCT POSE AND ARRANGEMENT (REFERENCE AD) — CRITICAL, OUTPUT THIS BLOCK:**
 Write ONE detailed paragraph that describes how the product(s) should be positioned. **PREFER arrangements that look best in ads:** When the reference shows multiple bottles/products in a pyramid or triangle stack, describe them instead as **in a horizontal row** (side by side) — a row looks cleaner and more professional than a triangle. Only use pyramid/triangle if the reference has a strong, intentional reason for it. Include:
 - Number of product units visible (e.g. three bottles, four earplugs).

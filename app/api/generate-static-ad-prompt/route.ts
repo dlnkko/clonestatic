@@ -18,6 +18,7 @@ import {
   parseProductMentionedInCopy,
   parseReferenceTextLines,
   parseReferenceTrustBadge,
+  parseReferenceProductUnits,
   parseReferenceVisualStyle,
   parseVerbatimPhrasesFromCopyBlock,
   parseVisualMetaphorBlock,
@@ -32,17 +33,25 @@ import type {
   VisualMetaphorProfile,
 } from '@/lib/adaptation/types';
 import { refineProductImageKinds } from '@/lib/products/classify-images';
-import { filterCatalogProductImages } from '@/lib/products/filter-catalog-images';
+import {
+  finalizeCatalogAfterClassification,
+  isUserUploadedProduct,
+  prepareCatalogForGeneration,
+} from '@/lib/products/prepare-catalog';
 import { resolveCopyLanguage } from '@/lib/copy-languages';
 import { GEMINI_MODEL } from '@/lib/gemini-model';
 import { getProductAllowedPrice, getProductPricingInstructions, productCopywritingPayload, rowToProduct } from '@/lib/products/db';
 import { allowedPriceForAds, extractPricingFromText } from '@/lib/products/extract-pricing';
+import {
+  expandElementsForProductUnits,
+  inferProductUnitsFromPose,
+} from '@/lib/products/expand-product-units';
 import { identifyReferenceProductElements } from '@/lib/products/identify-elements';
 import {
   matchProductImagesToReference,
   uploadProductImageUrlsToGemini,
 } from '@/lib/products/match-images';
-import type { ProductImage, ProductRecord } from '@/lib/products/types';
+import type { ProductImage, ProductRecord, ReferenceProductUnitsProfile } from '@/lib/products/types';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isInternalServerJob } from '@/lib/internal-job';
@@ -304,8 +313,9 @@ export async function POST(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let staticAdFile: any;
     let productFiles: { uri: string; mimeType?: string }[] = [];
-    let catalogImages: ProductImage[] =
-      savedProduct?.images ?? preloadedCatalogImages;
+    let catalogImages: ProductImage[] = savedProduct
+      ? prepareCatalogForGeneration(savedProduct)
+      : preloadedCatalogImages;
     const resolvedProductName =
       savedProduct?.name ?? preloadedProductName ?? 'Product';
 
@@ -426,6 +436,7 @@ export async function POST(request: NextRequest) {
     let referencePrompt = '';
     let referenceTypography = '';
     let referenceProductPoseAndArrangement = '';
+    let referenceProductUnits: ReferenceProductUnitsProfile | null = null;
     let referenceReviewModule = '';
     let hasReferenceReviewModule = false;
     let referenceFeatureRow = '';
@@ -628,6 +639,13 @@ export async function POST(request: NextRequest) {
           console.log('Pose block preview:', referenceProductPoseAndArrangement.substring(0, 400) + (referenceProductPoseAndArrangement.length > 400 ? '...' : ''));
         }
 
+        referenceProductUnits =
+          parseReferenceProductUnits(analysisText) ??
+          inferProductUnitsFromPose(referenceProductPoseAndArrangement);
+        if (referenceProductUnits) {
+          console.log('\n=== REFERENCE PRODUCT UNITS ===', referenceProductUnits);
+        }
+
         // Extract review/social proof module (if present)
         const reviewMatch = analysisText.match(/\*\*SOCIAL PROOF \/ REVIEW MODULE \(REFERENCE AD\):\*\*\s*([\s\S]*?)(?=\*\*PRODUCT POSE AND ARRANGEMENT \(REFERENCE AD\)|\*\*ICON \/ FEATURE ROW|\*\*REFERENCE AD PROMPT:\*\*|$)/i);
         if (reviewMatch) {
@@ -672,8 +690,11 @@ export async function POST(request: NextRequest) {
       const classified = await refineProductImageKinds(ai, catalogImages, {
         needTrustBadge: referenceTrustBadge.present,
       });
-      catalogImages = filterCatalogProductImages(classified.images, 10);
+      catalogImages = finalizeCatalogAfterClassification(classified.images, savedProduct);
       if (classified.usage) productMatchingUsages.push(classified.usage);
+      if (savedProduct && isUserUploadedProduct(savedProduct)) {
+        console.log('- Product catalog: user-uploaded photos (imgBB)');
+      }
       console.log(
         '\n=== PRODUCT IMAGE CLASSIFICATION ===',
         catalogImages.map((i) => ({ kind: i.kind, url: i.url.slice(0, 80) }))
@@ -686,15 +707,22 @@ export async function POST(request: NextRequest) {
           ai,
           { uri: staticAdFile.uri!, mimeType: staticAdFile.mimeType },
           referenceVisualStyle,
-          referenceProductPoseAndArrangement || referencePrompt.slice(0, 800)
+          referenceProductPoseAndArrangement || referencePrompt.slice(0, 800),
+          referenceProductUnits
         );
         if (identified.usage) productMatchingUsages.push(identified.usage);
 
+        const expandedElements = expandElementsForProductUnits(
+          identified.elements,
+          referenceProductUnits
+        );
+
         const matched = await matchProductImagesToReference(
           ai,
-          identified.elements,
+          expandedElements,
           catalogImages,
-          resolvedProductName
+          resolvedProductName,
+          referenceProductUnits
         );
         if (matched.usage) productMatchingUsages.push(matched.usage);
 
@@ -719,6 +747,7 @@ export async function POST(request: NextRequest) {
         console.warn('Product image matching failed, fallback to primary only:', matchErr);
         const primary =
           savedProduct?.primary_image_url ||
+          catalogImages.find((i) => i.kind !== 'logo' && i.url.startsWith('http'))?.url ||
           catalogImages.find((i) => i.url.startsWith('http'))?.url;
         if (primary) {
           matchedProductVisuals = [
@@ -736,6 +765,7 @@ export async function POST(request: NextRequest) {
     if (productFilesForStep2.length === 0 && catalogImages.length > 0) {
       const primary =
         savedProduct?.primary_image_url ||
+        catalogImages.find((i) => i.kind !== 'logo' && i.url.startsWith('http'))?.url ||
         catalogImages.find((i) => i.url.startsWith('http'))?.url;
       if (primary) {
         console.log('Retrying product upload with primary image only');
@@ -756,7 +786,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            'Could not download product images from the store (connection reset or CDN blocked). Try re-saving the product in Products.',
+            'Could not load product images. Check that your saved product photos are accessible, or re-upload them in Products.',
         },
         { status: 502 }
       );
@@ -775,6 +805,7 @@ export async function POST(request: NextRequest) {
           referencePrompt,
           referenceTypography,
           referenceProductPoseAndArrangement,
+          referenceProductUnits,
           referenceReviewModule,
           hasReferenceReviewModule,
           referenceFeatureRow,

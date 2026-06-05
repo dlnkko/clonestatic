@@ -73,6 +73,7 @@ export type BuildContextInput = {
   referencePrompt: string;
   referenceTypography: string;
   referenceProductPoseAndArrangement: string;
+  referenceProductUnits?: import('@/lib/products/types').ReferenceProductUnitsProfile | null;
   referenceReviewModule: string;
   hasReferenceReviewModule: boolean;
   referenceFeatureRow: string;
@@ -108,6 +109,7 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     referencePrompt,
     referenceTypography,
     referenceProductPoseAndArrangement,
+    referenceProductUnits = null,
     referenceReviewModule,
     hasReferenceReviewModule,
     referenceFeatureRow = '',
@@ -165,8 +167,9 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
       guidelinesTrimmed
     );
   const referenceShowsPackaging = matchedProductVisuals.some((m) => m.role === 'packaging');
+  const multiUnitLayout = (referenceProductUnits?.unitCount ?? 1) > 1;
   const enforceOneMainElement =
-    (oneHeroOnly || guidelinesAskSingleHero) && !referenceShowsPackaging;
+    (oneHeroOnly || guidelinesAskSingleHero) && !referenceShowsPackaging && !multiUnitLayout;
   const hasPersonInReference = referenceVisualStyle?.hasPerson === true;
   const hasIllustrativeVisual =
     referenceVisualStyle?.hasIllustrationOrDiagram === true ||
@@ -256,6 +259,7 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     hasReferenceComparisonModule,
     referenceLayoutZones,
     referenceProductPoseAndArrangement,
+    referenceProductUnits,
     referenceReviewModule,
     hasReferenceReviewModule,
     referenceFeatureRow,

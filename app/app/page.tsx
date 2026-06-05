@@ -651,8 +651,13 @@ function StaticAdAppPage() {
         productImageUrl = uploadData.url;
         if (productImageUrls.length === 0) productImageUrls = [uploadData.url];
       } else if (selectedProduct && productImageUrls.length === 0) {
-        productImageUrls = selectedProduct.images.map((i) => i.url);
+        productImageUrls = selectedProduct.images
+          .filter((i) => i.kind !== 'logo')
+          .map((i) => i.url);
         productImageUrl = selectedProduct.primary_image_url;
+        if (productImageUrls.length === 0 && productImageUrl) {
+          productImageUrls = [productImageUrl];
+        }
       }
 
       let referenceImageUrl: string | null = null;
