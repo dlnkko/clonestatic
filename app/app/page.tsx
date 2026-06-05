@@ -1795,23 +1795,52 @@ function StaticAdAppPage() {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="dash-product-grid">
               {products.map((p) => (
-                <div key={p.id} className="dash-product-card">
-                  <button type="button" onClick={() => setDetailProduct(p)} className="block w-full text-left">
-                    <div className="aspect-square bg-slate-50">
-                      <img src={p.primary_image_url} alt={p.name} className="h-full w-full object-cover" />
+                <article key={p.id} className="dash-product-card">
+                  <button
+                    type="button"
+                    onClick={() => setDetailProduct(p)}
+                    className="dash-product-card-main"
+                  >
+                    <div className="dash-product-card-thumb">
+                      <img src={p.primary_image_url} alt={p.name} />
                     </div>
-                    <div className="p-4 space-y-2">
-                      <h3 className="font-semibold text-slate-900 truncate">{p.name}</h3>
-                      <p className="text-xs text-slate-500">{p.source === 'url' ? 'From URL' : 'Manual'} · {p.images.length} image{p.images.length !== 1 ? 's' : ''}</p>
-                      <p className="text-[10px] text-sky-600">Tap to view & edit scraped data →</p>
+                    <div className="dash-product-card-body">
+                      <h3 className="dash-product-card-title">{p.name}</h3>
+                      <p className="dash-product-card-meta">
+                        {p.source === 'url' ? t('products', 'fromUrl') : t('products', 'manual')}
+                        {' · '}
+                        {p.images.length} {p.images.length === 1 ? 'image' : 'images'}
+                      </p>
+                      <span className="dash-product-card-link">{t('products', 'editHint')}</span>
                     </div>
                   </button>
-                  <div className="px-4 pb-4 flex gap-2">
-                    <button type="button" onClick={() => { handleSelectProduct(p.id); setActiveTab('new'); }} className="dash-btn dash-btn-primary flex-1 !py-2 text-xs">Use in Clone</button>
+                  <div className="dash-product-card-actions">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleSelectProduct(p.id);
+                        setActiveTab('new');
+                      }}
+                      className="dash-btn dash-btn-primary dash-product-card-cta"
+                    >
+                      {t('products', 'useInMirror')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteProduct(p.id)}
+                      className="dash-btn dash-btn-danger dash-product-card-delete"
+                      aria-label={t('products', 'delete')}
+                      title={t('products', 'delete')}
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      <span>{t('products', 'delete')}</span>
+                    </button>
                   </div>
-                </div>
+                </article>
               ))}
             </div>
           )}

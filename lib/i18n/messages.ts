@@ -118,6 +118,8 @@ const en: Messages = {
     save: 'Save changes',
     saving: 'Saving…',
     delete: 'Delete',
+    useInMirror: 'Use in Mirror',
+    editHint: 'View & edit →',
     detectedPrice: 'Detected from page',
   },
   common: {
@@ -231,6 +233,8 @@ const es: Messages = {
     save: 'Guardar cambios',
     saving: 'Guardando…',
     delete: 'Eliminar',
+    useInMirror: 'Usar en Mirror',
+    editHint: 'Ver y editar →',
     detectedPrice: 'Detectado de la página',
   },
   common: {
@@ -344,6 +348,8 @@ const pt: Messages = {
     save: 'Salvar alterações',
     saving: 'Salvando…',
     delete: 'Excluir',
+    useInMirror: 'Usar no Mirror',
+    editHint: 'Ver e editar →',
     detectedPrice: 'Detectado da página',
   },
   common: {
