@@ -28,6 +28,8 @@ Reference text lines (patterns to mirror — do NOT copy verbatim):
 ${linesBlock}
 
 **FORBIDDEN copy mistakes:**
+- **Naming the user's product or "[Brand] helps you…"** when the reference never mentioned a product (curiosity-gap / pain ads) — scraped benefits belong in later funnel steps, NOT in this ad
+- Inserting a literal product pitch ("Bloom Creatine Gummies help you build muscle…") when reference only agitated a problem + mystery CTA
 - Generic category headlines ("Pure silk. Real beauty.") when reference uses a specific rhetorical pattern ("Less caffeine works better")
 - Authority/trope claims ("Dermatologist recommended…") in the **subhero** when reference uses a **benefit bridge** ("[Product] helps you …") — credentials belong in badge/footer/spec slots only
 - Dropping reference's copy LOGIC and replacing with unrelated marketing phrases from scraped data — scraped data fills CONTENT within reference's rhetorical framework, never replaces the framework
@@ -50,12 +52,80 @@ Headline max ${ctx.headlineWords} words · secondary max ${ctx.mainCopyWords} wo
 /**
  * Subhero / line-2 copy rules — especially DTC "product helps you [benefit]" pattern.
  */
+/** Extrapolate the reference's real marketing angle to the user's product category. */
+export function marketingAngleExtrapolationBlock(ctx: AdaptationContext): string {
+  const angle = ctx.marketingAngle;
+  if (!angle) {
+    return `**MARKETING ANGLE EXTRAPOLATION (CRITICAL):**
+Read ALL reference text lines together — identify the REAL problem being sold (not the literal object in the photo).
+Extrapolate that same persuasive angle to the user's product category. If reference never names a product, adapted copy must NOT name the user's product either.`;
+  }
+
+  return `**MARKETING ANGLE EXTRAPOLATION (CRITICAL — read before writing any line):**
+- **What this ad is REALLY about:** ${angle.realTopic}
+- **Audience:** ${angle.targetAudience || 'match reference audience, translated to user product buyers'}
+- **Core pain:** ${angle.painPoint || 'same tension, new category'}
+- **Funnel:** ${angle.funnelStage} — ${angle.funnelStage === 'curiosity-gap' ? 'NO product reveal; mystery CTA only' : 'mirror reference reveal level'}
+- **Product mentioned in reference copy:** ${angle.productMentionedInCopy ? 'yes — you may name user product at same slot/depth' : 'NO — forbidden to name user product, brand, or "X helps you" anywhere'}
+- **Headline role:** ${angle.headlineRhetoricalRole || 'match reference headline function'}
+- **How to adapt:** ${angle.copyExtrapolationNotes || 'Same angle, new category symptoms/outcomes — never paste scrape as a product pitch if reference was curiosity-led'}
+
+**FORBIDDEN:** Turning a curiosity/problem ad into a product description. Scraped specs are for subtext slots ONLY when reference had them — not a new "helps you" line invented from the product page.`;
+}
+
+/** When reference hero is symbolic, create an analogous visual for the user's audience. */
+export function visualMetaphorExtrapolationBlock(ctx: AdaptationContext): string {
+  const meta = ctx.visualMetaphor;
+  if (!meta?.present) {
+    return `**VISUAL METAPHOR (check reference):**
+If the reference hero is a symbolic object (not the competitor's product), you MUST invent an **analogous metaphor** for the user's product/audience — same idea, new object. Do NOT drop a generic product packshot when reference used symbolism.`;
+  }
+
+  return `**VISUAL METAPHOR EXTRAPOLATION (CRITICAL):**
+Reference uses symbolism — NOT a literal product hero.
+- **Literal subject:** ${meta.visualSubject}
+- **What it means:** ${meta.symbolicMeaning}
+- **Tie to headline:** ${meta.connectionToHeadline}
+- **Adapt for user product:** ${meta.adaptationGuidance || 'Create parallel metaphor for user category (e.g. deflated/wilted/flat object echoing the same bodily or performance failure — then user product only if reference showed product at end, which it did not)'}
+
+**MANDATORY:**
+- Hero visual = **new analogous symbol** for user's audience/problem — NOT random catalog product stacked prettily
+- Headline word (e.g. "Deflated"/"Flat") must **visually match** the symbol (wilted, collapsed, slack) — FAIL if headline says "Flat" but image shows plump/full objects
+- User's actual product appears ONLY if reference showed product; otherwise omit product image or use tiny CTA-zone placement only
+
+**FORBIDDEN:**
+- Replacing a phallic/body/performance metaphor with unrelated plump gummies
+- Ignoring symbolic meaning and photographing catalog SKUs as the hero`;
+}
+
 export function subheroCopyPatternBlockForProfile(
   profile: CopywritingProfile | null,
   pattern: Line2CopyPattern
 ): string {
   const refLine2 = profile?.referenceLine2Example;
   const template = profile?.line2SentenceTemplate;
+
+  if (pattern === 'curiosity-gap') {
+    return `**SUBHERO / BODY — CURIOSITY GAP (CRITICAL — no product pitch):**
+Reference builds **mystery** — problem agitation + curiosity CTA. Reference body pattern: "${refLine2 ?? 'see reference'}"
+Template: ${template ?? "You're [situation]. [Symptom]. [Symptom]. [Symptom]. But nobody told you why."}
+
+**YOUR body/mainLine MUST:**
+- Mirror reference **structure**: dismissals/strikethroughs (if any) → one-word punch headline → symptom triad in second person → curiosity hook (NOT product benefits)
+- Translate symptoms to the **user's product category audience** (e.g. creatine/fitness: training hard but flat energy, weak lifts, stalled gains — NOT bedroom copy unless that's the product)
+- CTA mirrors reference ("See the 'why' →" / "Get the 'fuel' →") — tease, do NOT explain the product
+
+**FORBIDDEN:**
+- "[Product name] helps you…" or any brand name in body copy
+- Explaining product benefits, ingredients, or "build lean muscle" when reference never did
+- Scraped marketing copy pasted as a subhero product pitch`;
+  }
+
+  if (pattern === 'pain-agitation') {
+    return `**SUBHERO — PAIN AGITATION (no product name):**
+Reference agitates the problem without naming product. Pattern: "${refLine2 ?? 'see reference'}"
+**FORBIDDEN:** Product name, "helps you", ingredient specs — unless reference had them.`;
+  }
 
   if (pattern === 'benefit-bullet-list') {
     return `**SUBHERO COPY — BENEFIT LIST (CRITICAL — comma / rhythm list):**

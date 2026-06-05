@@ -49,12 +49,40 @@ export type ReferenceTypographyHierarchy = {
 /** Rhetorical pattern of the subhero / line-2 under the headline. */
 export type Line2CopyPattern =
   | 'product-helps-you'
+  | 'curiosity-gap'
+  | 'pain-agitation'
   | 'authority-credential'
   | 'ingredient-spec'
   | 'transparency-craft'
   | 'wordplay'
   | 'benefit-bullet-list'
   | 'other';
+
+/** What the reference ad is really doing (beyond surface layout). */
+export type MarketingFunnelStage =
+  | 'curiosity-gap'
+  | 'product-led'
+  | 'direct-offer'
+  | 'social-proof'
+  | 'other';
+
+export type MarketingAngleProfile = {
+  realTopic: string;
+  targetAudience: string;
+  painPoint: string;
+  funnelStage: MarketingFunnelStage;
+  productMentionedInCopy: boolean;
+  headlineRhetoricalRole: string;
+  copyExtrapolationNotes: string;
+};
+
+export type VisualMetaphorProfile = {
+  present: boolean;
+  visualSubject: string;
+  symbolicMeaning: string;
+  connectionToHeadline: string;
+  adaptationGuidance: string;
+};
 
 export type AdCopyStyle =
   | 'dtc-benefit-led'
@@ -81,6 +109,8 @@ export type CopywritingProfile = {
   referenceHeadlineExample?: string | null;
   referenceLine2Example?: string | null;
   referenceAllTextLines?: { role: string; text: string }[];
+  /** Step 1: whether competitor product/brand name appears in ad text */
+  productMentionedInCopy?: boolean | null;
 };
 
 export type ReferenceTrustBadge = {
@@ -173,6 +203,8 @@ export type AdaptationContext = {
   referenceTrustBadge: ReferenceTrustBadge;
   referenceVerbatimPhrases: string[];
   trustBadgeInstructions: string;
+  marketingAngle: MarketingAngleProfile | null;
+  visualMetaphor: VisualMetaphorProfile | null;
 };
 
 export type CopyAdaptationResult = {

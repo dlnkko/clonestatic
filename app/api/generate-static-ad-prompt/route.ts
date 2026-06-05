@@ -14,17 +14,22 @@ import {
   parseAdCopyStyle,
   parseHasPromoOfferLine,
   parseLine2CopyPattern,
+  parseMarketingAngleBlock,
+  parseProductMentionedInCopy,
   parseReferenceTextLines,
   parseReferenceTrustBadge,
   parseReferenceVisualStyle,
   parseVerbatimPhrasesFromCopyBlock,
+  parseVisualMetaphorBlock,
 } from '@/lib/adaptation/parse-reference-analysis';
 import { getStaticAdAnalysisPrompt } from '@/lib/adaptation/old-prompts';
 import type {
+  MarketingAngleProfile,
   MatchedProductVisual,
   ReferenceTrustBadge,
   ReferenceVisualStyle,
   Step2Usage,
+  VisualMetaphorProfile,
 } from '@/lib/adaptation/types';
 import { refineProductImageKinds } from '@/lib/products/classify-images';
 import { resolveCopyLanguage } from '@/lib/copy-languages';
@@ -438,6 +443,8 @@ export async function POST(request: NextRequest) {
     let referenceTextLayoutBlock = '';
     let referenceComparisonModule = '';
     let hasReferenceComparisonModule = false;
+    let marketingAngle: MarketingAngleProfile | null = null;
+    let visualMetaphor: VisualMetaphorProfile | null = null;
     let step1Usage: Step2Usage | null = null;
     const productMatchingUsages: Step2Usage[] = [];
     try {
@@ -491,8 +498,17 @@ export async function POST(request: NextRequest) {
         }
 
         // Extract copywriting analysis
+        marketingAngle = parseMarketingAngleBlock(analysisText);
+        visualMetaphor = parseVisualMetaphorBlock(analysisText);
+        if (marketingAngle) {
+          console.log('\n=== MARKETING ANGLE EXTRACTED ===', marketingAngle);
+        }
+        if (visualMetaphor?.present) {
+          console.log('\n=== VISUAL METAPHOR EXTRACTED ===', visualMetaphor);
+        }
+
         const copywritingAnalysisMatch = analysisText.match(
-          /\*\*COPYWRITING ANALYSIS:\*\*\s*([\s\S]*?)(?=\*\*SOCIAL PROOF|\*\*PRODUCT POSE|\*\*REFERENCE AD PROMPT:\*\*|$)/i
+          /\*\*COPYWRITING ANALYSIS:\*\*\s*([\s\S]*?)(?=\*\*MARKETING ANGLE|\*\*VISUAL METAPHOR|\*\*PROMO|\*\*SOCIAL PROOF|\*\*PRODUCT POSE|\*\*REFERENCE AD PROMPT:\*\*|$)/i
         );
         if (copywritingAnalysisMatch) {
           const analysisText2 = copywritingAnalysisMatch[1];
@@ -517,9 +533,24 @@ export async function POST(request: NextRequest) {
           const headlineLine = refTextLines.find((l) =>
             /headline|tagline|hook|main\s*head|title/i.test(l.role)
           );
-          const line2Candidate = refTextLines.find((l) =>
-            /sub|secondary|body|line\s*2|support|main copy|slogan/i.test(l.role)
-          ) ?? refTextLines[1];
+          const line2Candidate =
+            refTextLines.find((l) =>
+              /sub|secondary|body|line\s*2|support|main copy|slogan|paragraph|description/i.test(
+                l.role
+              )
+            ) ??
+            refTextLines.find(
+              (l) =>
+                !/headline|tagline|cta|button|strikethrough|eyebrow|brand-name|dismissal/i.test(
+                  l.role
+                )
+            ) ??
+            refTextLines[1];
+
+          const productMentionedInCopy =
+            parseProductMentionedInCopy(analysisText2) ??
+            marketingAngle?.productMentionedInCopy ??
+            null;
 
           copywritingProfile = {
             wordCount: wordCountMatch ? parseInt(wordCountMatch[1]) : null,
@@ -541,6 +572,7 @@ export async function POST(request: NextRequest) {
             referenceHeadlineExample: headlineLine?.text ?? null,
             referenceLine2Example: line2Candidate?.text ?? null,
             referenceAllTextLines: refTextLines.length > 0 ? refTextLines : undefined,
+            productMentionedInCopy,
           };
 
           rhetoricalFigures = {
@@ -758,6 +790,8 @@ export async function POST(request: NextRequest) {
           referenceTextLayoutBlock,
           referenceComparisonModule,
           hasReferenceComparisonModule,
+          marketingAngle,
+          visualMetaphor,
         },
         productFilesForStep2
       );

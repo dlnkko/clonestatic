@@ -3,6 +3,7 @@ import {
   backgroundColorAdaptationBlock,
   beforeAfterComparisonBlock,
   illustrativeVisualBlock,
+  marketingAngleExtrapolationBlock,
   noStockPhotoUnlessReferenceBlock,
   packagingMirroringBlock,
   productCatalogFidelityBlock,
@@ -11,6 +12,7 @@ import {
   subheroCopyPatternBlock,
   textLayoutBlock,
   typographyHierarchyBlock,
+  visualMetaphorExtrapolationBlock,
 } from './adaptation-rules';
 import {
   buildCopyAgentInstructions,
@@ -37,7 +39,7 @@ ${structure ? `Reference structure: "${structure}"` : 'Match the reference ad te
 - Line 2+ must NOT become a generic spec dump or unrelated authority claim ("Dermatologist recommended") — match reference rhetorical device (transparency, wordplay, contrarian hook, etc.).
 - Max words per line: headline/tagline ≤ ${ctx.headlineWords}, main secondary line ≤ ${ctx.mainCopyWords} (other lines match reference length).
 - **Visual size (image):** headline = largest tier; subhero = clearly smaller (~28–38% of headline height, light weight only) even if word count is higher; footer/reviews = smallest.
-- **Subhero pattern:** ${ctx.line2Pattern} — mirror reference rhetorical structure; never swap benefit-bridge for authority/spec tropes from scrape.`;
+- **Subhero pattern:** ${ctx.line2Pattern} — mirror reference rhetorical structure; never swap curiosity-gap for product pitch; never swap benefit-bridge for authority/spec tropes from scrape.`;
 }
 
 /** Síntesis del agente — finalPromptGeneration completo de oldprompts.md */
@@ -59,6 +61,8 @@ export function copyAgentPrompt(ctx: AdaptationContext): string {
 
 Clone the REFERENCE ad's text architecture for the USER's product — same number of lines, same roles (brand name, sub-tagline, headline, spec line, icon labels, etc.), same brevity per line.
 
+${marketingAngleExtrapolationBlock(ctx)}
+
 ${referenceCopyMirroringBlock(ctx)}
 
 ${subheroCopyPatternBlock(ctx)}
@@ -69,7 +73,7 @@ ${copyStructureRulesBlock(ctx)}
 
 RULES:
 - tagline: main headline (max ${ctx.headlineWords} words) — same rhetorical role as reference headline but NEW wording (not verbatim from reference)
-- mainLine: subhero (max ${ctx.mainCopyWords} words) — pattern **${ctx.line2Pattern}**; if product-helps-you, MUST use "[Product] helps you [outcome] & [outcome]" — never lead with "Dermatologist recommended" unless reference did
+- mainLine: subhero/body (max ${ctx.mainCopyWords} words) — pattern **${ctx.line2Pattern}**${ctx.line2Pattern === 'product-helps-you' ? '; MUST use "[Product] helps you [outcome] & [outcome]" only because reference did' : ctx.line2Pattern === 'curiosity-gap' || ctx.line2Pattern === 'pain-agitation' ? '; MUST NOT name product or use "helps you"' : ''}
 - brandName / brandSubtagline / specLine / textLines / featureIcons: as in reference structure
 - promoClaimsUsed / promoClaimsOmitted: ${ctx.referenceHasPromoOfferLine ? 'only promos explicitly in scraped data' : 'MUST be [] — reference has no promo line; do not add flash sales or % off'}
 - reviewText / reviewNumericClaims
@@ -115,6 +119,10 @@ export function visualAgentPrompt(ctx: AdaptationContext): string {
 
 Define how the USER's product appears in a CLONED ad — identical layout to reference, new product/brand.
 ${multiImageNote}
+
+${visualMetaphorExtrapolationBlock(ctx)}
+
+${marketingAngleExtrapolationBlock(ctx)}
 
 ${productCatalogFidelityBlock(ctx)}
 
@@ -215,8 +223,10 @@ ${structureCheck}
 15. Full-bleed composition, same layout modules as reference (oldprompts Output section)
 16. TYPOGRAPHY HIERARCHY: Prompt must specify headline DOMINANT and subhero clearly SMALLER (~28–38% cap height, light/regular weight). FAIL if equal sizes, bold subhero, or ~50%+ headline size.
 ${ctx.typographyHierarchy?.sizeRatioHeadlineToSub ? `    Reference ratio hint: ${ctx.typographyHierarchy.sizeRatioHeadlineToSub}` : ''}
-17. SUBHERO COPY PATTERN (${ctx.line2Pattern}): ${ctx.line2Pattern === 'product-helps-you' ? 'mainLine MUST follow "helps you" benefit bridge — FAIL if starts with Dermatologist/Clinically/Doctor recommended' : 'mainLine must match reference line 2 function — FAIL if unrelated authority/spec dump from scrape'}
-18. Approved mainLine must match pattern: "${copy.mainLine}" — reject if authority-led subhero when line2Pattern is product-helps-you or benefit-bullet-list
+17. SUBHERO COPY PATTERN (${ctx.line2Pattern}): ${ctx.line2Pattern === 'product-helps-you' ? 'mainLine MUST follow "helps you" benefit bridge — FAIL if starts with Dermatologist/Clinically/Doctor recommended' : ctx.line2Pattern === 'curiosity-gap' || ctx.line2Pattern === 'pain-agitation' ? 'FAIL if mainLine or textLines name user product/brand or use "helps you" / benefit pitch when reference had curiosity gap' : 'mainLine must match reference line 2 function — FAIL if unrelated authority/spec dump from scrape'}
+18. Approved mainLine must match pattern: "${copy.mainLine}" — reject if authority-led subhero when line2Pattern is product-helps-you or benefit-bullet-list; reject if product pitch when line2Pattern is curiosity-gap or pain-agitation
+${ctx.marketingAngle && !ctx.marketingAngle.productMentionedInCopy ? '18b. MARKETING ANGLE: Reference had NO product in copy — FAIL if prompt or copy names user product or "[Brand] helps you"' : ''}
+${ctx.visualMetaphor?.present ? `19. VISUAL METAPHOR: Reference used symbolic hero (${ctx.visualMetaphor.symbolicMeaning}) — FAIL if prompt uses generic product packshot instead of analogous metaphor; FAIL if headline word contradicts image (e.g. "Flat"/"Deflated" with plump/full product)` : ''}
 ${ctx.hasReferenceComparisonModule ? `19. BEFORE/AFTER: Prompt must describe natural side-by-side panels — FAIL if "vertical split face", harsh bisect, full portrait when reference was macro crop, or oversized Before/After labels` : ''}
 ${ctx.referenceTextLayout ? `20. TEXT LAYOUT: Top copy must be ${ctx.referenceTextLayout.alignment}-aligned ${ctx.referenceTextLayout.stackDirection} stack — FAIL if subhero same visual size as hero` : ''}
 

@@ -96,6 +96,8 @@ export type BuildContextInput = {
   referenceTextLayoutBlock?: string;
   referenceComparisonModule?: string;
   hasReferenceComparisonModule?: boolean;
+  marketingAngle?: import('./types').MarketingAngleProfile | null;
+  visualMetaphor?: import('./types').VisualMetaphorProfile | null;
 };
 
 export function buildAdaptationContext(input: BuildContextInput): AdaptationContext {
@@ -128,6 +130,8 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     referenceTextLayoutBlock = '',
     referenceComparisonModule = '',
     hasReferenceComparisonModule = false,
+    marketingAngle: marketingAngleInput = null,
+    visualMetaphor: visualMetaphorInput = null,
   } = input;
 
   const referenceTextLayout = referenceTextLayoutBlock
@@ -170,12 +174,23 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
 
   const typographyHierarchy = parseTypographyHierarchy(referenceTypography);
 
-  const enrichedCopywritingProfile = enrichCopywritingProfile(copywritingProfile);
+  const enrichedCopywritingProfile = enrichCopywritingProfile(
+    copywritingProfile,
+    marketingAngleInput
+  );
   const line2Detected = detectSubheroCopyPattern(
     enrichedCopywritingProfile?.referenceLine2Example,
     enrichedCopywritingProfile?.functionOfLine2,
     enrichedCopywritingProfile?.linguisticDeviceLine2,
-    enrichedCopywritingProfile?.line2Pattern ?? null
+    enrichedCopywritingProfile?.line2Pattern ?? null,
+    {
+      productMentionedInCopy:
+        enrichedCopywritingProfile?.productMentionedInCopy ??
+        marketingAngleInput?.productMentionedInCopy ??
+        null,
+      funnelStage: marketingAngleInput?.funnelStage ?? null,
+      referenceLines: enrichedCopywritingProfile?.referenceAllTextLines,
+    }
   );
   const line2Pattern = line2Detected.pattern;
 
@@ -272,6 +287,8 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     referenceTrustBadge,
     referenceVerbatimPhrases,
     trustBadgeInstructions,
+    marketingAngle: marketingAngleInput,
+    visualMetaphor: visualMetaphorInput,
   };
 }
 
@@ -400,7 +417,7 @@ function buildCopywritingInstructions(opts: {
 The reference ad has a specific text stack (see Text Structure). Your output MUST use the SAME number and types of lines — brand name, sub-tagline, headline, spec line, icon labels, etc. Do NOT collapse to a simplified 2-line ad.
 The reference uses SHORT, punchy text — grammatically correct, natural phrasing:
 - **Line 1 (tagline/headline):** MAX ${headlineWords} words.
-- **Line 2 (subhero / main copy) — SAME FUNCTION AS REFERENCE:** MAX ${mainCopyWords} words. Pattern: **${line2Pattern}**. ${copywritingProfile.functionOfLine2 ? `Reference function: "${copywritingProfile.functionOfLine2}". Device: ${copywritingProfile.linguisticDeviceLine2 || 'match reference'}.` : 'Match reference tone/device.'}${line2Pattern === 'product-helps-you' ? ' Use "[Product] helps you [outcome] & [outcome]" — NOT authority-led openers.' : ''}
+- **Line 2 (subhero / main copy) — SAME FUNCTION AS REFERENCE:** MAX ${mainCopyWords} words. Pattern: **${line2Pattern}**. ${copywritingProfile.functionOfLine2 ? `Reference function: "${copywritingProfile.functionOfLine2}". Device: ${copywritingProfile.linguisticDeviceLine2 || 'match reference'}.` : 'Match reference tone/device.'}${line2Pattern === 'product-helps-you' ? ' Use "[Product] helps you [outcome] & [outcome]" — NOT authority-led openers.' : ''}${line2Pattern === 'curiosity-gap' || line2Pattern === 'pain-agitation' ? ' **NO product name, NO "helps you"** — mirror curiosity/pain structure only.' : ''}
 - **Spec/credentials line:** If reference has one (e.g. "22 momme. Grade 6A..."), write equivalent using ONLY scraped facts; same brevity and punctuation style.
 - **Icon labels:** If reference has icon row, adapt each label (1–3 words) from scrape; same count and order.
 - **Text structure from reference:** ${copywritingProfile.textStructure || 'match all visible lines'}
@@ -496,6 +513,8 @@ export function contextSummaryForAgent(ctx: AdaptationContext): string {
       referenceHasPromoOfferLine: ctx.referenceHasPromoOfferLine,
       referenceTrustBadge: ctx.referenceTrustBadge,
       referenceVerbatimPhrases: ctx.referenceVerbatimPhrases,
+      marketingAngle: ctx.marketingAngle,
+      visualMetaphor: ctx.visualMetaphor,
     },
     null,
     2

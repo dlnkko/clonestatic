@@ -12,10 +12,12 @@ import {
   packagingMirroringBlock,
   productCatalogFidelityBlock,
   productThemedEnvironmentBlock,
+  marketingAngleExtrapolationBlock,
   referenceCopyMirroringBlock,
   subheroCopyPatternBlock,
   textLayoutBlock,
   typographyHierarchyBlock,
+  visualMetaphorExtrapolationBlock,
 } from './adaptation-rules';
 import type { CopywritingProfile, ReferenceTextLayout } from './types';
 
@@ -205,10 +207,29 @@ If "graphic-product-only" or "illustration-led": do NOT add real photographic pe
 - **Function of Line 2 (CRITICAL):** What does the second line do? (e.g. benefit bridge "product helps you X", wordplay, punchline, transparency/craft, authority credential, spec list). Describe so adaptation replicates the SAME function — NOT a generic scrape dump.
 - **Linguistic device of second line:** [wordplay / sarcasm / metaphor / joke / punchline / double meaning / straight benefit / benefit-bridge / authority / other]
 - **Ad copy style:** [dtc-benefit-led | authority-led | spec-led | promo-led | other] — DTC = pain-point headline + emotional outcome subhero (common in Meta static ads)
-- **Line 2 pattern:** [product-helps-you | benefit-bullet-list | authority-credential | ingredient-spec | transparency-craft | wordplay | other] — benefit-bullet-list when line 2 is "8 hrs of X, no Y, Z" style
-- **Line 2 sentence template:** [abstract pattern, e.g. "[Product name] helps you [benefit] & [benefit]" — no competitor brand names]
-- **DO NOT COPY when adapting (product-specific data):** List any discount percentages (e.g. "64% OFF"), review numbers (e.g. "4.8/5 From 27,000+"), or other numerical claims in the reference. These must come ONLY from the scraped product page — never copy from reference.
+- **Line 2 pattern:** [curiosity-gap | pain-agitation | product-helps-you | benefit-bullet-list | authority-credential | ingredient-spec | transparency-craft | wordplay | other] — use **curiosity-gap** when reference builds mystery (symptom story, "see the why", NO product name); **pain-agitation** when it agitates problem without revealing product; **product-helps-you** ONLY when reference literally names product + "helps you"
+- **Product mentioned in reference copy:** [yes/no] — "no" if ad never names competitor product/brand in text (curiosity/problem ads)
+- **Line 2 sentence template:** [abstract pattern — e.g. "You're [age/situation] and [symptom list]. But nobody told you why." for curiosity-gap; "[Product] helps you [benefit]" ONLY if reference used product-helps-you]
 - **Promo / offer line in layout:** Does the reference have a SEPARATE line for sales/discounts (e.g. "30% OFF", "FLASH SALE", "FREE SHIPPING") distinct from the main headline? (yes/no). If no, adaptation must NOT add promo lines even if the product page has discounts.
+
+**MARKETING ANGLE (CRITICAL — read ALL copy + image together):**
+- **Real topic:** [What is this ad ACTUALLY about? e.g. erectile dysfunction / low libido in men 30+, NOT "eggplant" or "vegetable". Read strikethroughs, headline, body, CTA as one story.]
+- **Target audience:** [who feels the pain — age, gender, situation]
+- **Core pain / tension:** [the emotional or physical problem being agitated]
+- **Funnel stage:** [curiosity-gap | product-led | direct-offer | social-proof | other] — curiosity-gap = problem + mystery CTA, zero product reveal in copy
+- **Product mentioned in copy:** [yes/no] — repeat from above; must match full text scan
+- **Headline rhetorical role:** [e.g. one-word metaphor punch tied to visual ("Deflated"), contrarian hook, etc.]
+- **Copy extrapolation notes:** [1–3 sentences: how an adapter should translate this SAME marketing angle to a different product category — e.g. keep mystery, swap symptoms to match new audience, never insert "[Product] helps you" if reference never did]
+
+**VISUAL METAPHOR (CRITICAL — if hero is symbolic, not literal product):**
+- **Present:** [yes/no]
+- **Visual subject (literal):** [what you see — e.g. shriveled eggplant on white]
+- **Symbolic meaning:** [what it REPRESENTS — e.g. deflated phallic virility / ED metaphor; be explicit if body/sexual innuendo, fitness failure, etc.]
+- **Connection to headline:** [how image + headline work together — e.g. "Deflated" + wilted phallic shape]
+- **Adaptation guidance:** [how to create an ANALOGOUS metaphor for a different product/audience — same symbolic idea, new object; e.g. flat deflated resistance band for weak strength, not random product packshot]
+(If hero is literal product photography with no symbol, write Present: no.)
+
+- **DO NOT COPY when adapting (product-specific data):** List any discount percentages (e.g. "64% OFF"), review numbers (e.g. "4.8/5 From 27,000+"), or other numerical claims in the reference. These must come ONLY from the scraped product page — never copy from reference.
 
 **PROMO / OFFER LINE (REFERENCE AD):**
 - Present: [yes/no]
@@ -566,6 +587,7 @@ ${replaceAdaptProductBlock(ctx)}
 - **When scraped data does NOT have a fact** — omit. Never copy competitor copy or numbers from the reference.
 
 6. **Create Copywriting (SAME TONE + CLEAR, PERFECT COPY — CRITICAL):**
+${marketingAngleExtrapolationBlock(ctx)}
 ${referenceCopyMirroringBlock(ctx)}
 ${textLayoutBlock(ctx)}
 ${subheroCopyPatternBlock(ctx)}
@@ -586,7 +608,9 @@ ${outputRequirementsBlock(ctx)}`;
 
 /** Copy agent — sección 6 de finalPromptGeneration + estructura de texto */
 export function buildCopyAgentInstructions(ctx: AdaptationContext): string {
-  return `${referenceCopyMirroringBlock(ctx)}
+  return `${marketingAngleExtrapolationBlock(ctx)}
+
+${referenceCopyMirroringBlock(ctx)}
 
 ${ctx.copywritingInstructions}
 
@@ -600,7 +624,11 @@ ${ctx.copywritingInstructions}
 
 /** Visual agent — secciones 2 y 4 de finalPromptGeneration */
 export function buildVisualAgentInstructions(ctx: AdaptationContext): string {
-  return `${textLayoutBlock(ctx)}
+  return `${visualMetaphorExtrapolationBlock(ctx)}
+
+${marketingAngleExtrapolationBlock(ctx)}
+
+${textLayoutBlock(ctx)}
 
 ${beforeAfterComparisonBlock(ctx)}
 

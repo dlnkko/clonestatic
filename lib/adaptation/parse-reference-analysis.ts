@@ -2,11 +2,14 @@ import type {
   AdCopyStyle,
   CopywritingProfile,
   Line2CopyPattern,
+  MarketingAngleProfile,
+  MarketingFunnelStage,
   ReferenceComparisonModule,
   ReferenceTextLayout,
   ReferenceTrustBadge,
   ReferenceTypographyHierarchy,
   TypographyHierarchyLine,
+  VisualMetaphorProfile,
 } from './types';
 
 function countWords(text: string): number {
@@ -148,6 +151,8 @@ export function parseTypographyHierarchy(
 
 /** Cap secondary-line word limits from reference text lines (roles), not generic defaults. */
 const LINE2_PATTERN_VALUES: Line2CopyPattern[] = [
+  'curiosity-gap',
+  'pain-agitation',
   'product-helps-you',
   'authority-credential',
   'ingredient-spec',
@@ -157,12 +162,90 @@ const LINE2_PATTERN_VALUES: Line2CopyPattern[] = [
   'other',
 ];
 
+function pickField(block: string, re: RegExp): string {
+  return block.match(re)?.[1]?.trim() ?? '';
+}
+
+export function parseMarketingAngleBlock(analysisText: string): MarketingAngleProfile | null {
+  const blockMatch = analysisText.match(
+    /\*\*MARKETING ANGLE[^*]*\*\*\s*([\s\S]*?)(?=\*\*VISUAL METAPHOR|\*\*PROMO|\*\*TRUST BADGE|\*\*ICON \/ FEATURE|\*\*SOCIAL PROOF|\*\*PRODUCT POSE|\*\*REFERENCE AD PROMPT:\*\*|$)/i
+  );
+  if (!blockMatch) return null;
+  const block = blockMatch[1];
+  const realTopic = pickField(block, /\*\*Real topic:\*\*\s*([\s\S]+?)(?=\n-\s*\*\*|\n\*\*|$)/i);
+  if (!realTopic) return null;
+
+  const funnelRaw = pickField(block, /\*\*Funnel stage:\*\*\s*([\s\S]+?)(?=\n-\s*\*\*|\n\*\*|$)/i).toLowerCase();
+  let funnelStage: MarketingFunnelStage = 'other';
+  if (/curiosity/.test(funnelRaw)) funnelStage = 'curiosity-gap';
+  else if (/product-led|product led/.test(funnelRaw)) funnelStage = 'product-led';
+  else if (/direct-offer|direct offer/.test(funnelRaw)) funnelStage = 'direct-offer';
+  else if (/social-proof|social proof/.test(funnelRaw)) funnelStage = 'social-proof';
+
+  const productMentioned = /Product mentioned in copy:\s*yes/i.test(block);
+
+  return {
+    realTopic,
+    targetAudience: pickField(block, /\*\*Target audience:\*\*\s*([\s\S]+?)(?=\n-\s*\*\*|\n\*\*|$)/i),
+    painPoint: pickField(block, /\*\*Core pain(?:\/ tension)?:\*\*\s*([\s\S]+?)(?=\n-\s*\*\*|\n\*\*|$)/i),
+    funnelStage,
+    productMentionedInCopy: productMentioned,
+    headlineRhetoricalRole: pickField(
+      block,
+      /\*\*Headline rhetorical role:\*\*\s*([\s\S]+?)(?=\n-\s*\*\*|\n\*\*|$)/i
+    ),
+    copyExtrapolationNotes: pickField(
+      block,
+      /\*\*Copy extrapolation notes:\*\*\s*([\s\S]+?)(?=\n-\s*\*\*|\n\*\*|$)/i
+    ),
+  };
+}
+
+export function parseVisualMetaphorBlock(analysisText: string): VisualMetaphorProfile | null {
+  const blockMatch = analysisText.match(
+    /\*\*VISUAL METAPHOR[^*]*\*\*\s*([\s\S]*?)(?=\*\*PROMO|\*\*TRUST BADGE|\*\*ICON \/ FEATURE|\*\*SOCIAL PROOF|\*\*PRODUCT POSE|\*\*REFERENCE AD PROMPT:\*\*|$)/i
+  );
+  if (!blockMatch) return null;
+  const block = blockMatch[1];
+  const present = /Present:\s*yes/i.test(block);
+  if (!present) {
+    return {
+      present: false,
+      visualSubject: '',
+      symbolicMeaning: '',
+      connectionToHeadline: '',
+      adaptationGuidance: '',
+    };
+  }
+  return {
+    present: true,
+    visualSubject: pickField(block, /\*\*Visual subject[^:]*:\*\*\s*([\s\S]+?)(?=\n-\s*\*\*|\n\*\*|$)/i),
+    symbolicMeaning: pickField(block, /\*\*Symbolic meaning:\*\*\s*([\s\S]+?)(?=\n-\s*\*\*|\n\*\*|$)/i),
+    connectionToHeadline: pickField(
+      block,
+      /\*\*Connection to headline:\*\*\s*([\s\S]+?)(?=\n-\s*\*\*|\n\*\*|$)/i
+    ),
+    adaptationGuidance: pickField(
+      block,
+      /\*\*Adaptation guidance:\*\*\s*([\s\S]+?)(?=\n-\s*\*\*|\n\*\*|$)/i
+    ),
+  };
+}
+
+export function parseProductMentionedInCopy(copyBlock: string): boolean | null {
+  const m = copyBlock.match(/Product mentioned in reference copy:\s*(yes|no)/i);
+  if (!m) return null;
+  return m[1].toLowerCase() === 'yes';
+}
+
 export function parseLine2CopyPattern(raw: string | undefined): Line2CopyPattern | null {
   if (!raw?.trim()) return null;
   const n = raw.toLowerCase().replace(/\s+/g, '-');
   for (const p of LINE2_PATTERN_VALUES) {
     if (n.includes(p.replace(/-/g, '')) || n.includes(p)) return p;
   }
+  if (/curiosity-gap|curiosity gap|mystery/.test(n)) return 'curiosity-gap';
+  if (/pain-agitation|pain agitation/.test(n)) return 'pain-agitation';
   if (/benefit-bullet|bullet-list|comma-list|8-hrs/.test(n)) return 'benefit-bullet-list';
   if (/product-helps|helps-you|benefit-bridge|benefit bridge/.test(n)) return 'product-helps-you';
   if (/authority|credential|dermatologist|doctor/.test(n)) return 'authority-credential';
@@ -188,19 +271,64 @@ export function detectSubheroCopyPattern(
   line2Text: string | null | undefined,
   functionOfLine2?: string | null,
   linguisticDevice?: string | null,
-  explicitPattern?: Line2CopyPattern | null
+  explicitPattern?: Line2CopyPattern | null,
+  options?: {
+    productMentionedInCopy?: boolean | null;
+    funnelStage?: MarketingFunnelStage | null;
+    referenceLines?: ParsedTextLine[];
+  }
 ): { pattern: Line2CopyPattern; template: string | null; adCopyStyle: AdCopyStyle } {
   if (explicitPattern) {
     return {
       pattern: explicitPattern,
       template: templateForPattern(explicitPattern),
-      adCopyStyle: explicitPattern === 'product-helps-you' ? 'dtc-benefit-led' : 'other',
+      adCopyStyle: adCopyStyleForPattern(explicitPattern),
     };
   }
 
   const text = (line2Text ?? '').trim();
   const fn = (functionOfLine2 ?? '').toLowerCase();
   const device = (linguisticDevice ?? '').toLowerCase();
+  const allRefText = (options?.referenceLines ?? []).map((l) => l.text).join(' ');
+  const productMentioned =
+    options?.productMentionedInCopy ??
+    (/\bhelps you\b/i.test(allRefText) ? true : null);
+
+  if (
+    options?.funnelStage === 'curiosity-gap' ||
+    productMentioned === false ||
+    (/curiosity|mystery|problem.agitation|symptom|no product/i.test(fn) &&
+      !/\bhelps you\b/i.test(text))
+  ) {
+    if (!/\bhelps you\b/i.test(text) && !/\bhelps you\b/i.test(allRefText)) {
+      if (
+        /see the\s*['"]?why|nobody told you|something feels off|discover the|find out why|learn why/i.test(
+          text + allRefText
+        ) ||
+        options?.funnelStage === 'curiosity-gap' ||
+        productMentioned === false
+      ) {
+        return {
+          pattern: 'curiosity-gap',
+          template:
+            "You're [situation] and [symptom list]. But nobody told you [why/the answer].",
+          adCopyStyle: 'other',
+        };
+      }
+    }
+  }
+
+  if (
+    /pain.agitation|agitate|symptom list|feels off|stuck|underperform/i.test(fn) &&
+    !/\bhelps you\b/i.test(text) &&
+    productMentioned !== true
+  ) {
+    return {
+      pattern: 'pain-agitation',
+      template: '[Situation] + [symptom triad] + tension — no product name',
+      adCopyStyle: 'other',
+    };
+  }
 
   if (
     /\d+\s*hrs?\s+of\b|,?\s*no\s+\w+\s+\w+,/i.test(text) ||
@@ -267,8 +395,17 @@ export function detectSubheroCopyPattern(
   return { pattern: 'other', template: null, adCopyStyle: 'other' };
 }
 
+function adCopyStyleForPattern(pattern: Line2CopyPattern): AdCopyStyle {
+  if (pattern === 'product-helps-you') return 'dtc-benefit-led';
+  return 'other';
+}
+
 function templateForPattern(pattern: Line2CopyPattern): string | null {
   switch (pattern) {
+    case 'curiosity-gap':
+      return "You're [situation]. [Symptom]. [Symptom]. [Symptom]. But nobody told you why.";
+    case 'pain-agitation':
+      return '[Audience situation] + parallel symptoms — product NOT named';
     case 'product-helps-you':
       return '[Product name] helps you [primary benefit] & [secondary benefit]';
     case 'benefit-bullet-list':
@@ -302,14 +439,21 @@ function extractHelpsYouTemplate(text: string): string {
 }
 
 export function enrichCopywritingProfile(
-  profile: CopywritingProfile | null
+  profile: CopywritingProfile | null,
+  marketingAngle?: MarketingAngleProfile | null
 ): CopywritingProfile | null {
   if (!profile) return null;
   const detected = detectSubheroCopyPattern(
     profile.referenceLine2Example,
     profile.functionOfLine2,
     profile.linguisticDeviceLine2,
-    profile.line2Pattern ?? null
+    profile.line2Pattern ?? null,
+    {
+      productMentionedInCopy:
+        profile.productMentionedInCopy ?? marketingAngle?.productMentionedInCopy ?? null,
+      funnelStage: marketingAngle?.funnelStage ?? null,
+      referenceLines: profile.referenceAllTextLines,
+    }
   );
   return {
     ...profile,
