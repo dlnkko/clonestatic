@@ -206,9 +206,8 @@ export function LandingPage() {
               </Reveal>
               <Reveal direction="down" delayMs={160}>
                 <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-white/70 sm:text-lg lg:mx-0">
-                  Performance teams don&apos;t need another image generator. They need a way to turn
-                  what&apos;s already spending on Meta into their product, their copy, and their brand.
-                  admirror is that layer.
+                  Built to scale products on Meta. Mirror what&apos;s already converting into your
+                  catalog, copy, and creatives in one click.
                 </p>
               </Reveal>
               <Reveal direction="up" delayMs={240}>
@@ -294,8 +293,8 @@ export function LandingPage() {
         <section className="relative px-4 py-16 sm:py-20">
           <Reveal direction="up" className="mx-auto max-w-4xl text-center">
             <h2 className="text-2xl font-bold leading-snug sm:text-4xl md:text-[2.5rem]">
-              Same layout that converted.{' '}
-              <span className="landing-gradient-text">Your product inside it.</span>
+              The exact layout that converted.{' '}
+              <span className="landing-gradient-text">Built around your product.</span>
             </h2>
           </Reveal>
         </section>
