@@ -326,9 +326,9 @@ function buildBrandingIntegration(
 
   if (forbidStandaloneLogo) {
     return `**Brand Integration (NO STANDALONE LOGO — match reference layout):**
-The reference ad does NOT use a separate brand logo mark in the layout (no centered wordmark, no corner logo badge, no large logo between headline and product).
-- **Do NOT add** a standalone brand logo, wordmark, or emblem in the design — even if scraped branding includes a logo URL.
-- Brand identity = **headline/copy text only** + logos/labels that already appear **on the product** in the user's product image (packaging print only).
+The reference ad does NOT use a separate brand logo mark in the layout (no centered wordmark, no corner logo badge, no large logo between headline and product, no footer brand name).
+- **Do NOT add** a standalone brand logo, wordmark, footer brand text, or emblem in the design — even if scraped branding includes a logo URL.
+- Brand identity = **headline/copy text only** + logos/labels **printed on the product packaging** in catalog photos (use the exact logotype from the pack — no separate logo upload required).
 ${logoAnalysis.notes ? `- Reference notes: ${logoAnalysis.notes}` : ''}
 ${colorList ? `- Product brand colors (USE FOR BACKGROUND & ACCENTS — not competitor colors): ${colorList}` : ''}
 ${typographyInfo.fontFamilies || fontList ? `- Typography for headlines: ${typographyInfo.fontFamilies || fontList}` : ''}
@@ -346,8 +346,8 @@ Maintain the reference's copy-only brand presentation.`;
     null;
 
   const logoInstruction = logoUrl
-    ? `- **Standalone brand logo (reference has one):** Recreate the product's brand logo in the SAME layout position and style as the reference standalone logo. Logo URL for reference: ${logoUrl}.`
-    : `- **Standalone brand logo:** The reference includes a separate logo in the layout — place the product's brand logo in the same position and style.`;
+    ? `- **Standalone brand logo (reference has one):** Recreate the product's brand logotype **as printed on packaging** in the SAME layout position and style as the reference standalone logo. Packaging photos are the source of truth for logo shape/typeface.`
+    : `- **Standalone brand logo:** The reference includes a separate logo in the layout — place the user's logotype from **packaging photos** in the same position and style.`;
 
   return `**Brand Integration:**
 The reference ad includes a **standalone logo** in the layout (not only on packaging). Replicate that placement with the user's brand.

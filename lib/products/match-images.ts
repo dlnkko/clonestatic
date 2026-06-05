@@ -74,7 +74,7 @@ For EACH reference element, pick the best matching image index. Rules:
 - packaging → MUST pick an image showing retail packaging (pouch, bag, box, tub, bottle WITH user's label). Prefer kind=packaging. NEVER assign a loose gummy flat lay to packaging.
 - product → loose item, gummies, capsules, powder, device (NOT the reference competitor's bottle shape — pick user's actual product photo)
 - lifestyle → prefer kind=lifestyle (model, in-use, on bed, worn correctly) over flat packshots when reference shows a person using the product
-- logo → brand logo image if available
+- logo → dedicated kind=logo if available; otherwise pick packaging/product image where the brand wordmark is clearly printed on the pack (no separate logo upload required)
 - trust_badge → MUST pick an image with kind=trust_badge (award seal, press badge, certification). If several trust_badge images exist, pick the clearest award/press seal. NEVER skip trust_badge when reference needs it.
 - trust_badge images are separate assets — do not use a product photo as the seal
 - Same image index may be reused only if one photo clearly shows both

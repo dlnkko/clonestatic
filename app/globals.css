@@ -1939,7 +1939,7 @@ pre::-webkit-scrollbar-thumb:hover {
 }
 
 .dash-preview-skeleton {
-  aspect-ratio: 9 / 16;
+  aspect-ratio: 1 / 1;
   overflow: hidden;
   border-radius: 0.875rem;
   border: 1px solid var(--dash-border);
@@ -1954,9 +1954,9 @@ pre::-webkit-scrollbar-thumb:hover {
   height: 100%;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   gap: 0.625rem;
-  padding: 1.25rem 1rem 1rem;
+  padding: 1.25rem 1.25rem 1rem;
 }
 
 .dash-preview-skeleton-line {
@@ -1983,14 +1983,13 @@ pre::-webkit-scrollbar-thumb:hover {
 .dash-preview-skeleton-line--xs {
   width: 32%;
   height: 0.5rem;
-  margin-top: auto;
+  margin-top: 0.25rem;
 }
 
 .dash-preview-skeleton-product {
-  margin-top: 0.75rem;
-  flex: 1;
-  width: 58%;
-  min-height: 5rem;
+  width: 72%;
+  aspect-ratio: 1 / 1;
+  flex-shrink: 0;
   border-radius: 0.75rem;
   background: rgba(148, 163, 184, 0.28);
 }

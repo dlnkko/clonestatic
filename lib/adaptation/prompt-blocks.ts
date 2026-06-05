@@ -6,6 +6,7 @@ import {
   noStockPhotoUnlessReferenceBlock,
   packagingMirroringBlock,
   productCatalogFidelityBlock,
+  productThemedEnvironmentBlock,
   referenceCopyMirroringBlock,
   subheroCopyPatternBlock,
   textLayoutBlock,
@@ -117,6 +118,8 @@ ${multiImageNote}
 
 ${productCatalogFidelityBlock(ctx)}
 
+${productThemedEnvironmentBlock(ctx)}
+
 ${illustrativeVisualBlock(ctx)}
 
 ${noStockPhotoUnlessReferenceBlock(ctx)}
@@ -138,7 +141,7 @@ ${beforeAfterComparisonBlock(ctx)}
 RULES (JSON output):
 - visualMediumNotes: state whether final ad is illustration/diagram/3d-render OR real photo — must match reference, never default to stock lifestyle photo when reference is graphic
 - poseAndArrangementParagraph: mirror reference LAYOUT zones only; user's product form comes from catalog photos — if reference had a bottle but user has gummy pouch, describe the pouch in that zone; NEVER describe a bottle/jar unless catalog shows one
-- peopleAndSceneRules: must state how model uses USER product believably; clone reference framing/mood, not competitor product form (e.g. pillowcase on bed, not as head wrap)
+- peopleAndSceneRules: must state on-theme environment/props for user's product category; clone reference framing/mood/aesthetic, NOT competitor-category setting when categories differ
 - compositionRules / brandingNotes / iconRowNotes / trustBadgeNotes
 - compositionRules: visual hierarchy (headline → comparison/table → product row), spacing, shadows, full-bleed; product row with 2–4 units if reference shows multiple; award seal overlaps product per reference; **typography size ladder** — headline largest, subheadline clearly smaller, footer smallest
 ${ctx.referenceTrustBadge.present ? `- trustBadgeNotes: describe placing user's award seal (${ctx.referenceTrustBadge.placement || 'overlap on hero product'})` : ''}
@@ -201,6 +204,8 @@ Rules:
 11. enforceOneMainElement → no packaging as second hero (only when referenceShowsPackaging is false)
 ${ctx.referenceShowsPackaging ? '11b. PACKAGING: Reference had packaging zone — prompt must show USER catalog packaging in same position; FAIL if reference competitor bottle/jar shape or wrong container type (e.g. bottle when catalog has pouch/gummies)' : ''}
 21. PRODUCT FIDELITY: Prompt must render user's product ONLY from catalog photos — FAIL if prompt describes reference competitor product, reskins reference bottle with user brand, or inventing packaging not in catalog
+22. PRODUCT-THEMED ENVIRONMENT: Prompt must describe setting/props on-theme for user's product category — FAIL if competitor environment copied (e.g. bedroom/bedsheets when product is creatine/fitness)
+23. PACKAGING LOGO: FAIL if prompt invents standalone footer/centered brand wordmark when reference was copy-only; logo must come from packaging print unless reference had standalone logo zone
 12. Logo placement rules respected
 13. Copy language: ${ctx.copyLanguageCode} (${ctx.copyLanguageName})
 14. Pricing: ${ctx.allowedPrice ? `only "${ctx.allowedPrice}"` : 'no dollar amounts'}

@@ -77,7 +77,7 @@ export function ProductSourcePicker({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
               </svg>
             </span>
-            <span className="dash-product-picker-value dash-product-picker-placeholder">One-off upload</span>
+            <span className="dash-product-picker-value dash-product-picker-placeholder">Select a product</span>
           </>
         )}
         <svg
@@ -94,33 +94,6 @@ export function ProductSourcePicker({
 
       {open && (
         <ul id={listId} role="listbox" className="dash-product-picker-menu">
-          <li role="presentation">
-            <button
-              type="button"
-              role="option"
-              aria-selected={!value}
-              className={cn('dash-product-picker-option', !value && 'dash-product-picker-option-selected')}
-              onClick={() => {
-                onChange(null);
-                setOpen(false);
-              }}
-            >
-              <span className="dash-product-picker-option-icon dash-product-picker-option-icon-upload" aria-hidden>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0 8-4-4 4m8 12H4a2 2 0 0 1-2-2V6" />
-                </svg>
-              </span>
-              <span className="dash-product-picker-option-text">
-                <span className="dash-product-picker-option-title">One-off upload</span>
-                <span className="dash-product-picker-option-sub">Upload a product image for this run only</span>
-              </span>
-              {!value && (
-                <svg className="dash-combobox-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              )}
-            </button>
-          </li>
           {products.map((p) => {
             const isSelected = p.id === value;
             return (

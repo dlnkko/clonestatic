@@ -32,7 +32,7 @@ const FEATURES = [
   },
   {
     title: 'Your PDP, in the creative',
-    body: 'Paste your product URL. We pull benefits, pricing, and brand colors from the page. The ad reads like your store, not a template pulled from thin air.',
+    body: 'Paste your product URL once. We pull benefits, pricing, and brand colors into your saved product. Every ad reads like your store.',
     gradient: 'from-violet-400 to-purple-600',
     span: '',
     icon: (
@@ -79,7 +79,7 @@ const STEPS = [
   {
     n: '02',
     title: 'Add your product',
-    text: 'Save product images or paste your store URL. Layout and copy adapt to your catalog, not a competitor\'s.',
+    text: 'Save your product once in Products. We sync packaging, copy, and brand colors from your store.',
     icon: (
       <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
     ),

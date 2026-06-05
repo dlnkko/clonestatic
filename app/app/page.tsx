@@ -211,6 +211,22 @@ export type LibraryPeriod = {
 };
 
 const ONBOARDING_STORAGE = 'admirror_onboarding_dismissed';
+const LAST_PLAN_STORAGE = 'admirror_last_plan';
+
+function subscriptionPlanRank(plan: string | null | undefined): number {
+  switch (plan) {
+    case 'owner':
+      return 99;
+    case 'scale':
+      return 3;
+    case 'pro':
+      return 2;
+    case 'standard':
+      return 1;
+    default:
+      return 0;
+  }
+}
 
 function StaticAdAppPage() {
   const { t } = useI18n();
@@ -271,6 +287,7 @@ function StaticAdAppPage() {
   const [libraryFilteredCount, setLibraryFilteredCount] = useState<number | null>(null);
   const [libraryNextCursor, setLibraryNextCursor] = useState<string | null>(null);
   const [onboardingDismissed, setOnboardingDismissed] = useState(true);
+  const [currentPlan, setCurrentPlan] = useState<string | null>(null);
   const [libraryLastRun, setLibraryLastRun] = useState<{
     status: string;
     creditsUsed: number;
@@ -364,6 +381,7 @@ function StaticAdAppPage() {
         const credits = Number(subData?.credits_remaining ?? 0);
         if (Number.isFinite(credits)) setCreditsRemaining(credits);
         setPlanName(typeof subData?.plan_name === 'string' ? subData.plan_name : null);
+        setCurrentPlan(typeof subData?.plan === 'string' ? subData.plan : 'free_trial');
         setProductCount(typeof subData?.product_count === 'number' ? subData.product_count : null);
         setMaxProducts(typeof subData?.max_products === 'number' ? subData.max_products : null);
         setCanAddProduct(subData?.can_add_product !== false);
@@ -418,8 +436,8 @@ function StaticAdAppPage() {
   };
 
   const handleGenerate = async () => {
-    if (!staticAdImage || (!productImage && !selectedProductId)) {
-      setError('Upload a reference ad and select or upload a product.');
+    if (!staticAdImage || !selectedProductId) {
+      setError('Upload a reference ad and select a saved product.');
       return;
     }
     const okToProceed = await gatePaidActionOrShowPricing();
@@ -789,7 +807,7 @@ function StaticAdAppPage() {
     return '1:1';
   }, [imageSize, referenceAdDimensions]);
 
-  const canGenerate = staticAdImage && (productImage || selectedProductId);
+  const canGenerate = staticAdImage && !!selectedProductId;
 
   const handleCloneFromLibraryAd = async (imageUrl: string) => {
     try {
@@ -1155,6 +1173,12 @@ function StaticAdAppPage() {
             /* ignore */
           }
           await fetchSubscription();
+          try {
+            localStorage.removeItem(ONBOARDING_STORAGE);
+            setOnboardingDismissed(false);
+          } catch {
+            /* ignore */
+          }
           return;
         }
       }
@@ -1171,12 +1195,38 @@ function StaticAdAppPage() {
   }, [hasSupabase, loadProducts]);
 
   useEffect(() => {
+    if (products.length === 0) return;
+    if (selectedProductId && products.some((p) => p.id === selectedProductId)) return;
+    const first = products[0];
+    setSelectedProductId(first.id);
+    setProductImage(null);
+    setProductPreview(first.primary_image_url);
+  }, [products, selectedProductId]);
+
+  useEffect(() => {
     try {
       setOnboardingDismissed(localStorage.getItem(ONBOARDING_STORAGE) === '1');
     } catch {
       setOnboardingDismissed(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (!currentPlan || productsLoading) return;
+    try {
+      const lastPlan = localStorage.getItem(LAST_PLAN_STORAGE);
+      const upgraded =
+        lastPlan != null &&
+        subscriptionPlanRank(currentPlan) > subscriptionPlanRank(lastPlan);
+      if (upgraded && products.length === 0) {
+        localStorage.removeItem(ONBOARDING_STORAGE);
+        setOnboardingDismissed(false);
+      }
+      localStorage.setItem(LAST_PLAN_STORAGE, currentPlan);
+    } catch {
+      // ignore
+    }
+  }, [currentPlan, products.length, productsLoading]);
 
   const showOnboarding =
     hasSupabase && !productsLoading && products.length === 0 && !onboardingDismissed;
@@ -1795,10 +1845,10 @@ function StaticAdAppPage() {
         <>
           {/* Clone section header */}
           <header className="dash-animate-in mb-8 max-w-2xl">
-            <h1 className="dash-title">Mirror any static ad with your product</h1>
+            <h1 className="dash-title">{t('mirror', 'title')}</h1>
             <div className="dash-title-accent" aria-hidden />
-            <p className="dash-subtitle mt-3">Upload a reference ad and pick a saved product (or upload a one-off image).</p>
-            {hasSupabase && products.length === 0 && !productsLoading && (
+            <p className="dash-subtitle mt-3">{t('mirror', 'subtitle')}</p>
+            {hasSupabase && products.length === 0 && !productsLoading && !showOnboarding && (
               <div className="dash-onboarding-tip mt-5">
                 <div className="dash-onboarding-tip-icon" aria-hidden>
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
@@ -1806,17 +1856,17 @@ function StaticAdAppPage() {
                   </svg>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-indigo-950">Start here</p>
+                  <p className="text-sm font-semibold text-indigo-950">{t('mirror', 'startHere')}</p>
                   <p className="mt-1 text-sm leading-relaxed text-indigo-900/85">
-                    Add a product in{' '}
+                    {t('mirror', 'startHereBefore')}
                     <button
                       type="button"
                       className="font-semibold text-indigo-600 underline decoration-indigo-300 underline-offset-2 hover:text-indigo-800"
                       onClick={() => setActiveTab('products')}
                     >
-                      Products
+                      {t('nav', 'products')}
                     </button>
-                    {' '}first — we use your packaging, shots, and brand colors when mirroring ads.
+                    {t('mirror', 'startHereAfter')}
                   </p>
                 </div>
               </div>
@@ -1827,57 +1877,77 @@ function StaticAdAppPage() {
           <div className="flex flex-col gap-4 sm:gap-5 dash-workspace-form">
             <section className="space-y-4 dash-card">
               <div className="flex items-center justify-between gap-2">
-                <h2 className="dash-section-title">1. Visual assets</h2>
-                <span className="dash-badge dash-badge-required shrink-0">REQUIRED</span>
+                <h2 className="dash-section-title">{t('mirror', 'visualAssets')}</h2>
+                <span className="dash-badge dash-badge-required shrink-0">{t('common', 'required')}</span>
               </div>
               <div className="grid grid-cols-1 gap-4 xs:grid-cols-2 sm:gap-4">
                 <div className="dash-upload-slot">
-                  <p className="dash-label mb-1">Reference ad</p>
+                  <p className="dash-label mb-1">{t('mirror', 'referenceAd')}</p>
                   <input type="file" accept="image/*" onChange={handleStaticAdUpload} className="hidden" id="static-ad-upload" />
                   <label htmlFor="static-ad-upload" className="dash-upload group">
                     {staticAdPreview ? (
-                      <div className="absolute inset-0 h-full w-full p-2"><img src={staticAdPreview} alt="Reference Ad" className="h-full w-full rounded-lg object-cover shadow-sm" /><div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100"><span className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[var(--dash-fg)] backdrop-blur-sm">Change</span></div></div>
+                      <div className="absolute inset-0 h-full w-full p-2"><img src={staticAdPreview} alt="Reference Ad" className="h-full w-full rounded-lg object-cover shadow-sm" /><div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100"><span className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[var(--dash-fg)] backdrop-blur-sm">{t('mirror', 'change')}</span></div></div>
                     ) : (
                       <div className="flex flex-col items-center gap-2 sm:gap-3 text-center p-2 sm:p-4">
                         <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full border border-[var(--dash-border)] bg-white shadow-sm"><svg className="h-5 w-5 text-[var(--brand-indigo)]" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>
-                        <div><p className="text-xs sm:text-sm font-medium text-[var(--dash-fg)]">Reference ad</p><p className="dash-muted-text mt-0.5">Style to copy</p></div>
+                        <div><p className="text-xs sm:text-sm font-medium text-[var(--dash-fg)]">{t('mirror', 'referenceAd')}</p><p className="dash-muted-text mt-0.5">{t('mirror', 'styleToCopy')}</p></div>
                       </div>
                     )}
                   </label>
                 </div>
                 <div className="dash-upload-slot">
-                  {products.length > 0 && (
+                  {products.length > 0 ? (
                     <>
-                      <label className="dash-label mb-1.5" htmlFor="product-select">Product source</label>
+                      <label className="dash-label mb-1.5" htmlFor="product-select">{t('mirror', 'yourProduct')}</label>
                       <ProductSourcePicker
                         products={products}
                         value={selectedProductId}
                         onChange={(id) => {
                           if (id) handleSelectProduct(id);
-                          else {
-                            setSelectedProductId(null);
-                            setProductPreview(null);
-                          }
                         }}
                       />
-                    </>
-                  )}
-                  <input type="file" accept="image/*" onChange={handleProductUpload} className="hidden" id="product-upload" disabled={!!selectedProductId} />
-                  <label htmlFor="product-upload" className={`dash-upload group mt-1 ${selectedProductId ? 'opacity-90 cursor-default' : ''}`}>
-                    {productPreview ? (
-                      <div className="absolute inset-0 h-full w-full p-2"><img src={productPreview} alt="Your Product" className="h-full w-full rounded-lg object-cover shadow-sm" />{!selectedProductId && <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100"><span className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[var(--dash-fg)] backdrop-blur-sm">Change</span></div>}</div>
-                    ) : (
-                      <div className="flex flex-col items-center gap-2 sm:gap-3 text-center p-2 sm:p-4">
-                        <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full border border-[var(--dash-border)] bg-white shadow-sm"><svg className="h-5 w-5 text-[var(--brand-indigo)]" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></div>
-                        <div><p className="text-xs sm:text-sm font-medium text-[var(--dash-fg)]">Your product</p><p className="dash-muted-text mt-0.5">Select above or upload</p></div>
+                      <div className="dash-upload mt-1 pointer-events-none">
+                        {productPreview ? (
+                          <div className="absolute inset-0 h-full w-full p-2">
+                            <img src={productPreview} alt="Your product" className="h-full w-full rounded-lg object-cover shadow-sm" />
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center gap-2 sm:gap-3 text-center p-2 sm:p-4">
+                            <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full border border-[var(--dash-border)] bg-white shadow-sm">
+                              <svg className="h-5 w-5 text-[var(--brand-indigo)]" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+                            </div>
+                            <div>
+                              <p className="text-xs sm:text-sm font-medium text-[var(--dash-fg)]">{t('mirror', 'savedProduct')}</p>
+                              <p className="dash-muted-text mt-0.5">{t('mirror', 'chooseFromList')}</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </label>
-                  {selectedProduct && <p className="dash-muted-text text-center text-[var(--brand-indigo)]">{selectedProduct.images.length} stored images</p>}
+                      {selectedProduct && (
+                        <p className="dash-muted-text text-center text-[var(--brand-indigo)]">
+                          {t('mirror', 'storedMeta', { count: selectedProduct.images.length })}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex min-h-[180px] flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--dash-border)] bg-slate-50/80 p-6 text-center">
+                      <p className="text-sm font-semibold text-[var(--dash-fg)]">{t('mirror', 'addProductFirst')}</p>
+                      <p className="dash-muted-text mt-1 max-w-[220px] text-xs leading-relaxed">
+                        {t('mirror', 'addProductFirstHint')}
+                      </p>
+                      <button
+                        type="button"
+                        className="dash-btn dash-btn-secondary mt-4 text-xs"
+                        onClick={() => setActiveTab('products')}
+                      >
+                        {t('mirror', 'goToProducts')}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="pt-4 border-t border-[var(--dash-border)]">
-                <label className="dash-label mb-2">Output size</label>
+                <label className="dash-label mb-2">{t('mirror', 'outputSize')}</label>
                 <DashCombobox
                   value={imageSize}
                   onChange={(v) => setImageSize(v as ImageSizeOption)}
@@ -1894,10 +1964,10 @@ function StaticAdAppPage() {
               </div>
             </section>
             <section className="space-y-4 dash-card">
-              <div className="flex items-center justify-between gap-2"><h2 className="dash-section-title">2. Context</h2><span className="dash-badge dash-badge-optional shrink-0">OPTIONAL</span></div>
+              <div className="flex items-center justify-between gap-2"><h2 className="dash-section-title">{t('mirror', 'context')}</h2><span className="dash-badge dash-badge-optional shrink-0">{t('common', 'optional')}</span></div>
               <div className="space-y-4">
                 <div>
-                  <label className="dash-label mb-1.5">Ad copy language</label>
+                  <label className="dash-label mb-1.5">{t('mirror', 'copyLanguage')}</label>
                   <DashCombobox
                     value={copyLanguage}
                     onChange={setCopyLanguage}
@@ -1907,19 +1977,11 @@ function StaticAdAppPage() {
                     }))}
                     aria-label="Ad copy language"
                   />
-                  <p className="dash-muted-text mt-1.5">Headlines and text on the generated ad will be written in this language.</p>
+                  <p className="dash-muted-text mt-1.5">{t('mirror', 'copyLanguageHint')}</p>
                 </div>
-                {!selectedProductId && (
-                <div>
-                  <label className="dash-label mb-1.5">Product URL (one-off, optional)</label>
-                  <div className="dash-link-input-wrap">
-                    <input type="url" value={copywriting} onChange={(e) => setCopywriting(e.target.value)} placeholder="https://your-store.com/product" className="dash-input min-h-[48px]" />
-                    <svg className="dash-link-input-icon h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                  </div>
-                  {copywriting.trim() && isValidUrl(copywriting.trim()) && <p className="mt-2 text-xs font-medium text-[var(--brand-indigo)]">Page will be scraped for copy & branding</p>}
-                </div>
+                {selectedProduct && (
+                  <p className="dash-muted-text text-sm">{t('mirror', 'usingSavedProduct')}</p>
                 )}
-                {selectedProduct && <p className="dash-muted-text text-sm">Using saved product copy & branding from Products.</p>}
                 <div>
                   <label className="dash-label mb-1.5">Creative guidelines</label>
                   <textarea value={guidelines} onChange={(e) => setGuidelines(e.target.value)} placeholder="e.g., Change the background to a sunny beach, remove all text overlays, make it moody..." rows={3} className="dash-input dash-textarea min-h-[88px]" />
@@ -1928,7 +1990,7 @@ function StaticAdAppPage() {
             </section>
             <div className="dash-card">
               <button type="button" onClick={handleGenerate} disabled={!canGenerate || isGenerating} className="dash-btn dash-btn-primary w-full min-h-[52px] touch-manipulation">
-                {isGenerating ? <><svg className="h-4 w-4 animate-spin text-white/90" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>{isScraping ? 'Analyzing URL...' : 'Generating Image...'}</span></> : <><span>Generate Image</span><svg className="h-4 w-4 text-white/90 transition-transform group-hover:translate-x-0.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></>}
+                {isGenerating ? <><svg className="h-4 w-4 animate-spin text-white/90" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>{isScraping ? 'Analyzing URL...' : `${t('mirror', 'generateImage')}…`}</span></> : <><span>{t('mirror', 'generateImage')}</span><svg className="h-4 w-4 text-white/90 transition-transform group-hover:translate-x-0.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></>}
               </button>
               {error && <div className="dash-alert dash-alert-error mt-4"><svg className="mt-0.5 h-4 w-4 shrink-0 text-red-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><p>{error}</p></div>}
             </div>
@@ -1936,15 +1998,15 @@ function StaticAdAppPage() {
           <div className="dash-workspace-preview dash-sticky-preview">
             <div className="dash-preview-panel flex min-h-[280px] sm:min-h-[380px] lg:min-h-[480px]">
               <div className="dash-preview-panel-header">
-                <span className="dash-preview-panel-label">Generated image</span>
+                <span className="dash-preview-panel-label">{t('mirror', 'generatedImage')}</span>
                 {generatedImageUrl && <a href={generatedImageUrl} target="_blank" rel="noopener noreferrer" className="dash-btn dash-btn-secondary !px-3 !py-2 text-xs min-h-[40px] items-center"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>Open</a>}
               </div>
               <div className="dash-preview-panel-body min-h-[240px] sm:min-h-[320px] lg:min-h-[380px]">
                 {!generatedImageUrl && !isPreviewLoading ? (
                   <div className="flex flex-col items-center justify-center text-center px-2">
                     <div className="mb-3 sm:mb-4 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50"><svg className="h-7 w-7 sm:h-8 sm:w-8 text-slate-400" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>
-                    <h3 className="text-sm font-semibold text-slate-800">Your ad will appear here</h3>
-                    <p className="mt-1 max-w-[260px] text-xs text-slate-500">Upload both images and tap Generate Image.</p>
+                    <h3 className="text-sm font-semibold text-slate-800">{t('mirror', 'previewEmpty')}</h3>
+                    <p className="mt-1 max-w-[260px] text-xs text-slate-500">{t('mirror', 'previewHint')}</p>
                   </div>
                 ) : isPreviewLoading ? (
                   <AdPreviewLoading phase={previewLoadingPhase} />

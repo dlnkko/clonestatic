@@ -173,7 +173,7 @@ export function DashboardShell({
         </div>
 
         <nav className="dash-nav">
-          <p className="dash-nav-label">Workspace</p>
+          <p className="dash-nav-label">{t('shell', 'workspace')}</p>
           {NAV.map((item) => (
             <button
               key={item.id}
@@ -192,7 +192,7 @@ export function DashboardShell({
 
         <div className="dash-sidebar-footer">
           <label className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-[var(--dash-muted)]">
-            Language
+            {t('shell', 'language')}
           </label>
           <select
             value={locale}
@@ -226,7 +226,7 @@ export function DashboardShell({
               </div>
               {productCount !== null && maxProducts !== null && (
                 <p className="dash-credits-meta">
-                  Products {productCount}/{maxProducts}
+                  {t('shell', 'productsUsage', { count: productCount, max: maxProducts })}
                 </p>
               )}
             </div>
@@ -236,7 +236,7 @@ export function DashboardShell({
             <div>
               {cancelAtPeriodEnd ? (
                 <p className="rounded-md border border-amber-200/80 bg-amber-50/80 px-2.5 py-1.5 text-[11px] leading-snug text-amber-900">
-                  Cancels at end of billing period
+                  {t('shell', 'cancelsAtPeriodEnd')}
                 </p>
               ) : (
                 <button
@@ -248,7 +248,7 @@ export function DashboardShell({
                   disabled={cancelling}
                   className="dash-cancel-link"
                 >
-                  Cancel subscription
+                  {t('shell', 'cancelSubscription')}
                 </button>
               )}
               {cancelMessage && (

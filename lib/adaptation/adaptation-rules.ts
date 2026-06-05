@@ -117,14 +117,40 @@ export function subheroCopyPatternBlock(ctx: AdaptationContext): string {
   return subheroCopyPatternBlockForProfile(ctx.copywritingProfile, ctx.line2Pattern);
 }
 
-export function resolveLine2Pattern(ctx: AdaptationContext): Line2CopyPattern {
-  if (ctx.line2Pattern && ctx.line2Pattern !== 'other') return ctx.line2Pattern;
-  return detectSubheroCopyPattern(
-    ctx.copywritingProfile?.referenceLine2Example,
-    ctx.copywritingProfile?.functionOfLine2,
-    ctx.copywritingProfile?.linguisticDeviceLine2,
-    ctx.copywritingProfile?.line2Pattern ?? null
-  ).pattern;
+/** Every ad: scene/props must match product category while keeping reference aesthetic. */
+export function productThemedEnvironmentBlock(ctx: AdaptationContext): string {
+  const productHint = ctx.productName ? ` ("${ctx.productName}")` : '';
+  const graphicNote =
+    ctx.isGraphicOnly || ctx.hasIllustrativeVisual
+      ? `- **Graphic/illustration ads:** swap props, motifs, and background graphics to the user's product category while keeping the same visual medium. Do NOT keep competitor-category graphics (bedding, coffee, etc.) when the product is fitness, beauty, etc.`
+      : `- **Photo/environment ads:** replace setting, surfaces, architecture, and props when they belong to a different category than the user's product.`;
+
+  return `**PRODUCT-THEMED ENVIRONMENT (CRITICAL — every ad, every category):**
+Analyze the user's product${productHint} — category, use case, audience — and make the scene **100% on-theme for THAT product**, not the reference competitor's world.
+
+**Keep from reference (always):**
+- Layout structure, text zones, composition grammar, camera angle family, full-bleed framing
+- Production quality and **aesthetic mood**: soft editorial light, high-key minimal, moody premium, etc.
+- Typography placement, color roles, shadow style, depth, premium DTC feel
+
+**Replace when category differs (always):**
+- Physical setting and props must reflect the **user's product world**, not the competitor's
+- Creatine / protein / pre-workout → modern gym, fitness studio, athletic counter, shaker, dumbbells — **same soft light and minimalist aesthetic**, NOT bedroom/bedding/kitchen from reference
+- Bedding / sleep → bedroom, nightstand, soft textiles
+- Skincare / beauty → vanity, bathroom, spa surfaces
+- Food / beverage → kitchen or dining only when the product is actually food
+
+${graphicNote}
+
+**People (when reference has models):** keep headcount and shot framing; shift setting, wardrobe, and interaction to the user's product category.
+
+**Environment still-life (no people):** replace surfaces/props/background to match product theme — preserve reference lighting mood and product placement zones only.
+
+**FORBIDDEN:**
+- Copying competitor category props (sheets, coffee, competitor lifestyle) when the user's product is a different category
+- Keeping a reference bedroom/kitchen scene just because it looks nice when the product is fitness/sports/supplements
+
+**REQUIRED in final prompt:** explicit on-theme environment, surfaces, and contextual props for the user's product category at the same aesthetic quality tier as the reference.`;
 }
 
 export function backgroundColorAdaptationBlock(ctx: AdaptationContext): string {

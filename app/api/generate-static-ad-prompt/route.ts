@@ -714,7 +714,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            'Could not download product images from the store (connection reset or CDN blocked). Try re-saving the product or upload a one-off product image.',
+            'Could not download product images from the store (connection reset or CDN blocked). Try re-saving the product in Products.',
         },
         { status: 502 }
       );

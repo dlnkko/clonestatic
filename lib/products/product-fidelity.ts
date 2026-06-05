@@ -37,7 +37,7 @@ export function catalogMatchDescription(
     case 'trust_badge':
       return `User's trust/award badge from catalog — render EXACTLY as in this photo, overlapping product at ${zone}.`;
     case 'logo':
-      return `User's brand logo from catalog — use this image only, ${zone}.`;
+      return `User's brand logotype from catalog — render EXACTLY as printed on packaging in this photo, ${zone}. Do NOT invent a generic wordmark.`;
     case 'lifestyle':
       return `User's lifestyle photo from catalog — ${kindLabel}, ${zone}.`;
     case 'product':
@@ -82,7 +82,7 @@ ${productLabel} must appear ONLY as shown in the user's product catalog photos �
 Catalog assets (sole source of product appearance):
 ${catalogLines}
 
-**The reference ad is for LAYOUT + COPY structure only** — composition, text placement, lighting mood, background style, and where heroes sit in the frame.
+**The reference ad is for LAYOUT + COPY structure only** — composition, text placement, lighting mood, and where heroes sit in the frame. **Environment/props must match the user's product category** (not the competitor's setting).
 
 **FORBIDDEN (never do this):**
 - Rendering the reference competitor's product (wrong brand, wrong bottle, wrong capsules/pills)
@@ -97,7 +97,9 @@ ${catalogLines}
 
 export const KIE_PRODUCT_FIDELITY_SUFFIX = `CRITICAL — PRODUCT FIDELITY (non-negotiable):
 - The FIRST image(s) in image_input are the user's REAL product from their store catalog. Render THAT product exactly — same packaging type, shape, labels, colors, and contents (e.g. gummy pouch/bag, not a pill bottle).
-- The LAST image (if present) is the reference ad — use ONLY for layout, composition, and text placement. Do NOT copy its product shape.
+- Brand logo/wordmark on the product must match what is printed on the packaging in catalog photos — do NOT invent a separate footer or centered brand mark unless the prompt explicitly describes a standalone logo zone from the reference.
+- The LAST image (if present) is the reference ad — use ONLY for layout, composition, and text placement. Do NOT copy its product shape OR its competitor-category environment (bedroom, kitchen, etc.) when the user's product belongs to a different category.
+- Scene/setting/props must be 100% on-theme for the user's product (e.g. aesthetic gym for creatine) while keeping the reference's lighting mood and premium aesthetic.
 - Never invent or substitute a different product form factor. If catalog shows gummies in a stand-up pouch, show the pouch — NOT a supplement bottle like the reference.`;
 
 export function appendKieProductFidelityPrompt(prompt: string, hasProductImages: boolean): string {

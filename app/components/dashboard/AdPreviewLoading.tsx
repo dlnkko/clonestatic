@@ -37,7 +37,7 @@ export function AdPreviewLoading({ phase = 'generate' }: Props) {
       aria-live="polite"
       aria-busy="true"
     >
-      <div className="dash-preview-skeleton w-full max-w-[280px]" aria-hidden>
+      <div className="dash-preview-skeleton w-full max-w-[300px]" aria-hidden>
         <div className="dash-preview-skeleton-inner">
           <div className="dash-preview-skeleton-line dash-preview-skeleton-line--lg" />
           <div className="dash-preview-skeleton-line dash-preview-skeleton-line--md" />

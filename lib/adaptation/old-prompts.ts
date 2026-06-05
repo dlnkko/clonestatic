@@ -11,6 +11,7 @@ import {
   noStockPhotoUnlessReferenceBlock,
   packagingMirroringBlock,
   productCatalogFidelityBlock,
+  productThemedEnvironmentBlock,
   referenceCopyMirroringBlock,
   subheroCopyPatternBlock,
   textLayoutBlock,
@@ -252,19 +253,31 @@ Write it so the image model renders the user's product in this layout. Example: 
 }
 
 function productUseCaseAdaptationBlock(ctx: AdaptationContext): string {
-  if (!ctx.hasPersonInReference) return '';
-  return `**CRITICAL — AUTHENTIC PRODUCT USE (do not copy the competitor product literally):**
+  if (ctx.hasPersonInReference) {
+    return `**CRITICAL — AUTHENTIC PRODUCT USE (do not copy the competitor product literally):**
 The reference shows a person with the **competitor's** product. Your ad must show a person with the **user's** product from the provided image — in how that product is **actually used**, not by morphing it into the competitor's interaction.
 
 **Keep from reference:** number of people, shot type (portrait / lifestyle / close-up), camera framing, mood, lighting quality, color palette, text layout, premium aesthetic.
 
-**Derive from the user's product:** real use case — bedding on bed/pillow, skincare applied or held near face, apparel worn, supplement in hand, etc.
+**Derive from the user's product:** real use case — bedding on bed/pillow, skincare applied or held near face, apparel worn, supplement in hand, gym/fitness for sports nutrition, etc.
 - **Do NOT** force the user's product into the competitor's pose when it is physically wrong (pillowcase as head wrap, protein tub as phone, etc.).
-- **DO** show the user's product clearly and believably in scene (visible pillowcase, packaging, texture) with a model interaction that matches the product category.
+- **Do NOT** keep the competitor's setting (bedroom for sheets) when the user's product belongs to a different category (creatine → gym/fitness setting with same aesthetic quality).
+- **DO** show the user's product clearly and believably in scene with a model interaction that matches the product category.
 - If reference and user product are the **same category** (both wearable accessories, both held in hand): you may keep similar grip/placement.
 
-**Examples:** Reference model wearing silk head wrap + user sells silk pillowcase → model in soft bedroom/beauty shot with head resting on or beside the pillowcase, product as bedding; NOT wearing the pillowcase on the head. Reference hand-holding serum + user sells serum → similar hand hold is OK.
-`;
+**Examples:** Reference model wearing silk head wrap + user sells silk pillowcase → model in soft bedroom/beauty shot with head resting on or beside the pillowcase, product as bedding; NOT wearing the pillowcase on the head. Reference bedroom still-life + user sells creatine → gym/fitness environment with same soft editorial light, NOT the bed.`;
+  }
+
+  if (ctx.isGraphicOnly && !ctx.hasIllustrativeVisual) {
+    return '';
+  }
+
+  return `**CRITICAL — AUTHENTIC PRODUCT CONTEXT (environment & props — every ad):**
+The reference may show the **competitor's** category setting (bedroom, kitchen, coffee bar, etc.). Your ad must place the user's product in a setting that is **100% on-theme for their product category**, while keeping reference layout, composition, and aesthetic quality.
+
+**Keep from reference:** layout zones, text placement, camera angle, lighting mood, color grading style, premium/editorial feel, product placement zones.
+**Derive from user's product:** correct environment, surfaces, and props — gym/studio for creatine & sports nutrition, bedroom for bedding, vanity for skincare, etc.
+**Do NOT** keep competitor props (bedsheets, coffee cups, competitor lifestyle) when the user's product belongs to a different category.`;
 }
 
 function peopleModelsCriticalBlock(ctx: AdaptationContext): string {
@@ -275,7 +288,7 @@ The reference ad includes one or more **people** using or featuring a product. Y
 - **Do NOT drop** the reference's shot type (portrait, lifestyle, close-up) — keep the same **framing and visual grammar**.
 - **Product interaction is dynamic:** Show the **user's product** in its **authentic use case** (see AUTHENTIC PRODUCT USE above). Clone composition and mood; **do not** clone the competitor's product form (worn on head, wrong grip) when the user's product is used differently.
 - **Avatars / appearance:** You MAY vary faces, hair, skin tone, age for diversity; keep the same **shot energy** and product visibility.
-- **Setting:** Prefer a setting that fits the **user's product use** (bedroom for bedding, bathroom for skincare) while matching the reference's **production quality** and mood. Minor setting shifts are OK when required for believable product use.
+- **Setting:** Shift setting to fit the **user's product category** (gym for creatine, bedroom for bedding, vanity for skincare) while matching the reference's **production quality, lighting mood, and aesthetic**. Do NOT keep competitor-category environments when categories differ.
 `;
 }
 
@@ -292,12 +305,12 @@ function graphicOnlyBlock(ctx: AdaptationContext): string {
   }
   if (!ctx.isGraphicOnly) {
     if (ctx.hasPersonInReference) {
-      return `**Person/Environment (reference has people):** **Priority: keep people + same shot type/framing.** Show the user's product in **authentic use** — adapt pose/setting when the competitor's product interaction does not fit (see AUTHENTIC PRODUCT USE). Optional: refresh avatar diversity.`;
+      return `**Person/Environment (reference has people):** **Priority: keep people + same shot type/framing.** Show the user's product in **authentic use** — adapt pose/setting when the competitor's product interaction or environment does not fit (see AUTHENTIC PRODUCT USE). Optional: refresh avatar diversity.`;
     }
-    return `**Person/Environment (reference has person or setting):** You may adapt the person/action or environment to match the new product context (e.g. creatine → gym) or follow user Guidelines.`;
+    return `**Environment (reference has setting):** Adapt the setting and props to the **user's product category** while keeping reference layout and aesthetic quality (see PRODUCT-THEMED ENVIRONMENT).`;
   }
-  return `**CRITICAL — REFERENCE AD IS GRAPHIC/PRODUCT-ONLY (no people, no gym):**
-The reference ad has NO person and NO gym/sport environment — it is purely product + background/graphics (e.g. product, liquid splashes, fruits, gradients). You MUST keep the same style: do NOT add any person, athlete, gym, or sport environment. Do NOT insert "gym in background", "athletic couple", "person training", etc. Only product, background, and graphic elements. The ONLY exception: if the user explicitly asks for it in the Guidelines section below, then follow their request. Otherwise keep it graphic/product-only.`;
+  return `**REFERENCE AD IS GRAPHIC/PRODUCT-ONLY:**
+The reference uses product + background/graphics (no people). Keep the same graphic style and layout — but **swap props and background motifs** to match the user's product category (see PRODUCT-THEMED ENVIRONMENT). Do NOT add people unless Guidelines request it.`;
 }
 
 function analyzeProductContextBlock(ctx: AdaptationContext): string {
@@ -305,9 +318,9 @@ function analyzeProductContextBlock(ctx: AdaptationContext): string {
   if (isGraphicOnly) {
     return `1. **Analyze Product Context (CRITICAL):**
    - Analyze the product image to understand: product type, category, purpose, target audience, industry
-   - Keep the ad GRAPHIC: product + background/graphics only. Do NOT add people or gym/sport imagery unless the user requested it in Guidelines.
+   - Keep the ad GRAPHIC: product + background/graphics only. Do NOT add people unless Guidelines request it.
+   - **Swap graphic props/motifs** to the user's product category while keeping the same visual medium and layout structure
    - Always maintain the EXACT same design structure, composition, and layout from reference
-   - Keep background and effects graphic only (e.g. liquid splashes, fruits, gradients) — no gym, no people.
    - Keep all visual design principles, effects, and aesthetics consistent`;
   }
   if (hasPersonInReference) {
@@ -317,17 +330,14 @@ function analyzeProductContextBlock(ctx: AdaptationContext): string {
      * **Adapt pose and scene** to match the user's product use while preserving reference **composition, mood, and ad layout**.
      * Do **not** remove models or switch to product-only unless Guidelines require it.
    - Always maintain the EXACT same design structure, composition, and layout from reference (text zones, full-bleed, hierarchy)
-   - Setting may shift to a believable use context (bedroom, bathroom, vanity) if needed for the user's product — keep the same production quality and aesthetic as the reference.
+   - Setting must shift to the **user's product category** when it differs from the reference (gym for creatine, bedroom for bedding, etc.) — keep the same production quality and aesthetic as the reference
    - Keep all visual design principles, effects, and aesthetics consistent`;
   }
   return `1. **Analyze Product Context (CRITICAL):**
    - Analyze the product image to understand: product type, category, purpose, target audience, industry
-   - **Person and Action Adaptation (reference had person/environment):**
-     * The person in the image MUST be performing actions or in poses that are coherent with how the NEW product is actually used
-     * Example: If product is creatine: person could be in gym/sport setting. If reference showed another sport: you may adapt to gym for creatine, or follow Guidelines
-     * **Do NOT copy the person's pose/action from reference if it doesn't match the NEW product's actual use case**
+   - **Environment adaptation (mandatory):** Replace reference setting/props with a scene **100% on-theme for the user's product** (e.g. creatine → aesthetic gym/fitness studio with soft editorial light, NOT the reference competitor's bedroom/kitchen)
    - Always maintain the EXACT same design structure, composition, and layout from reference
-   - Adapt contextual elements (background setting, person styling, actions/pose) to match the product category and use case, or per Guidelines.
+   - Adapt contextual elements (background setting, surfaces, props, styling) to match the product category — preserve reference lighting mood and premium aesthetic
    - Keep all visual design principles, effects, and aesthetics consistent`;
 }
 
@@ -344,7 +354,7 @@ function maintainDesignElementsBlock(ctx: AdaptationContext): string {
    - **Composition and framing (CRITICAL — match reference):** In the reference ad, background elements (e.g. fruits, objects, textures, scenery) fill the ENTIRE frame edge to edge; the product is centered. There are NO blank margins or empty white space around the edges. Your prompt MUST describe this: background and decorative elements must extend to all sides and fill the frame completely; full-bleed composition; no empty borders or white space.
    - Keep the EXACT same layout and positioning of all elements
    - Keep the EXACT same visual effects (lighting style, shadows, effects)
-   ${isGraphicOnly ? '- Do NOT add any person/character or gym — reference ad is product + graphics only.' : hasPersonInReference ? '- **Person/Character:** **Keep the people.** Same count, same framing in frame. **Adapt interaction** so the user\'s product is used authentically (not a literal copy of competitor wear/hold when wrong). You may vary appearance for diversity (avatars) but **not** remove people or replace with product-only mockup.' : "- **Person/Character**: Maintain the same visual style and presentation approach, BUT adapt the person's pose, expression, clothing, and actions to be coherent with the NEW product's actual use case (see section 4 for details)."}
+   ${isGraphicOnly ? '- Keep the ad GRAPHIC (no people unless Guidelines request). Swap background props/motifs to user product category — see PRODUCT-THEMED ENVIRONMENT.' : hasPersonInReference ? '- **Person/Character:** **Keep the people.** Same count, same framing in frame. **Adapt interaction** so the user\'s product is used authentically (not a literal copy of competitor wear/hold when wrong). You may vary appearance for diversity (avatars) but **not** remove people or replace with product-only mockup.' : '- **Environment:** Replace reference setting/props with user product category scene while keeping reference layout, lighting mood, and aesthetic quality.'}
    - Keep the EXACT same buttons/CTAs design and placement (if applicable)
    - **Typography:** COPY reference font styles, weights, placement, effects — AND the **size ladder** (headline largest; subheadline/supporting copy clearly smaller; footer smallest). Never render subheadline at nearly the same size as the headline.`;
 }
@@ -360,7 +370,7 @@ function replaceAdaptProductBlock(ctx: AdaptationContext): string {
   let peopleBlock = '';
   if (isGraphicOnly) {
     peopleBlock =
-      '- Keep the ad graphic: only product(s), background, and graphic elements (splashes, fruits, etc.). No people, no gym, no sport environment.';
+      '- Keep the ad graphic: product(s) + category-themed background/graphics. No people unless Guidelines request. Props must match user product category.';
   } else if (hasPersonInReference) {
     peopleBlock = `- **PEOPLE STAY — AUTHENTIC PRODUCT-IN-USE (CRITICAL):**
      * **Do not remove** people or convert to product-only layout.
@@ -420,7 +430,7 @@ ${hasReferenceReviewModule ? `- **Review module present:** Include the review/te
 ${ctx.referenceShowsPackaging ? '- **Packaging in layout:** User catalog packaging in reference zone — NEVER reference competitor bottle shape or wrong container type.' : ''}
 ${enforceOneMainElement ? '- **One main element only:** The scene must have ONE hero (e.g. the gummy or product item only). Do NOT describe product packaging, pouch, or a second element in the image.' : ''}
 - **PRODUCT CATALOG FIDELITY:** Final image must show ONLY the user product from provided catalog photos — never the reference competitor product or a reskinned reference bottle.
-${isGraphicOnly ? '- Keep the ad GRAPHIC: product + background/graphics only. No person, no gym, no sport environment (unless user requested it in Guidelines).' : hasPersonInReference ? "- **Keep people in the scene.** Same framing/composition as reference; user's product shown in **authentic use** (not literal competitor interaction when wrong). Optional avatar refresh." : "- Adapt contextual elements (person styling, actions/pose, setting) to match the NEW product's use case. Ensure the person is in coherent pose/action (e.g. exercising for fitness products)."}
+${isGraphicOnly ? '- Keep the ad GRAPHIC (no people unless Guidelines). Background props must match user product category — same aesthetic quality as reference.' : hasPersonInReference ? "- **Keep people in the scene.** Same framing/composition as reference; user's product shown in **authentic use** with on-theme setting (not literal competitor environment when categories differ)." : '- **Environment:** Setting, surfaces, and props must be 100% on-theme for user product category while keeping reference layout and aesthetic (e.g. creatine → aesthetic gym, not reference bedroom).'}
 - Feature the NEW product from the provided image in contextually appropriate use
 ${scrapedBranding ? '- Integrate product brand colors and typography where appropriate' : ''}
 - Be ready to use with Kie.ai image generation (Nano Banana Pro for design ads, GPT Image 2 for realistic ads)
@@ -525,7 +535,7 @@ ${ctx.pricingInstructions}
 **Your Task:**
 Adapt the reference prompt above to create a NEW prompt for the product in the provided image. The new prompt must:
 
-${peopleModelsCriticalBlock(ctx)}${productUseCaseAdaptationBlock(ctx)}${oneHeroBlock(ctx)}${productCatalogFidelityBlock(ctx)}${packagingMirroringBlock(ctx)}${graphicOnlyBlock(ctx)}
+${peopleModelsCriticalBlock(ctx)}${productUseCaseAdaptationBlock(ctx)}${oneHeroBlock(ctx)}${productCatalogFidelityBlock(ctx)}${productThemedEnvironmentBlock(ctx)}${packagingMirroringBlock(ctx)}${graphicOnlyBlock(ctx)}
 
 ${illustrativeVisualBlock(ctx)}
 
@@ -601,6 +611,8 @@ ${noStockPhotoUnlessReferenceBlock(ctx)}
 ${packagingMirroringBlock(ctx)}
 
 ${backgroundColorAdaptationBlock(ctx)}
+
+${productThemedEnvironmentBlock(ctx)}
 
 ${productUseCaseAdaptationBlock(ctx)}
 
