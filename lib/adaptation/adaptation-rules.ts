@@ -55,13 +55,19 @@ Headline max ${ctx.headlineWords} words · secondary max ${ctx.mainCopyWords} wo
 /** Extrapolate the reference's real marketing angle to the user's product category. */
 export function marketingAngleExtrapolationBlock(ctx: AdaptationContext): string {
   const angle = ctx.marketingAngle;
+  const productAnchor = ctx.productName
+    ? `**User product:** ${ctx.productName} — symptoms, audience, and metaphor MUST match this category, NOT the reference competitor niche.`
+    : '**User product:** from scrape — anchor symptoms and metaphor to that category.';
+
   if (!angle) {
     return `**MARKETING ANGLE EXTRAPOLATION (CRITICAL):**
+${productAnchor}
 Read ALL reference text lines together — identify the REAL problem being sold (not the literal object in the photo).
 Extrapolate that same persuasive angle to the user's product category. If reference never names a product, adapted copy must NOT name the user's product either.`;
   }
 
   return `**MARKETING ANGLE EXTRAPOLATION (CRITICAL — read before writing any line):**
+${productAnchor}
 - **What this ad is REALLY about:** ${angle.realTopic}
 - **Audience:** ${angle.targetAudience || 'match reference audience, translated to user product buyers'}
 - **Core pain:** ${angle.painPoint || 'same tension, new category'}
@@ -76,12 +82,18 @@ Extrapolate that same persuasive angle to the user's product category. If refere
 /** When reference hero is symbolic, create an analogous visual for the user's audience. */
 export function visualMetaphorExtrapolationBlock(ctx: AdaptationContext): string {
   const meta = ctx.visualMetaphor;
+  const productNote = ctx.productName
+    ? `User product: **${ctx.productName}** — metaphor object must relate to THIS category's failure state (fitness/supplement → gym performance symbol; NOT unrelated organic blobs).`
+    : 'Anchor metaphor to scraped product category.';
+
   if (!meta?.present) {
     return `**VISUAL METAPHOR (check reference):**
-If the reference hero is a symbolic object (not the competitor's product), you MUST invent an **analogous metaphor** for the user's product/audience — same idea, new object. Do NOT drop a generic product packshot when reference used symbolism.`;
+${productNote}
+If the reference hero is a symbolic object (not the competitor's product), you MUST invent an **analogous metaphor** for the user's product/audience — same idea, new object, **clear and literal** (deflated ball, slack band, wilted leaf). Do NOT use abstract pink shapes or brains. Do NOT drop a generic product packshot when reference used symbolism.`;
   }
 
   return `**VISUAL METAPHOR EXTRAPOLATION (CRITICAL):**
+${productNote}
 Reference uses symbolism — NOT a literal product hero.
 - **Literal subject:** ${meta.visualSubject}
 - **What it means:** ${meta.symbolicMeaning}
@@ -94,7 +106,9 @@ Reference uses symbolism — NOT a literal product hero.
 - User's actual product appears ONLY if reference showed product; otherwise omit product image or use tiny CTA-zone placement only
 
 **FORBIDDEN:**
-- Replacing a phallic/body/performance metaphor with unrelated plump gummies
+- Abstract unrecognizable blobs, brain shapes, or random organic forms
+- Copying reference's exact metaphor object when category differs (eggplant → use fitness-appropriate symbol for creatine)
+- Replacing a phallic/body/performance metaphor with unrelated plump gummies or catalog packshots
 - Ignoring symbolic meaning and photographing catalog SKUs as the hero`;
 }
 
@@ -112,7 +126,7 @@ Template: ${template ?? "You're [situation]. [Symptom]. [Symptom]. [Symptom]. Bu
 
 **YOUR body/mainLine MUST:**
 - Mirror reference **structure**: dismissals/strikethroughs (if any) → one-word punch headline → symptom triad in second person → curiosity hook (NOT product benefits)
-- Translate symptoms to the **user's product category audience** (e.g. creatine/fitness: training hard but flat energy, weak lifts, stalled gains — NOT bedroom copy unless that's the product)
+- Translate symptoms to the **user's product category audience** — REQUIRED rewrite, not paraphrase of reference niche (e.g. creatine/fitness: "You're grinding in the gym but progress stalled. Your strength. Your reps. Your recovery." — NOT "night performance" / libido copy from a different ad category)
 - CTA mirrors reference ("See the 'why' →" / "Get the 'fuel' →") — tease, do NOT explain the product
 
 **FORBIDDEN:**

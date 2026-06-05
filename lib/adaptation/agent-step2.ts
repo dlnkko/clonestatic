@@ -3,6 +3,11 @@ import { costFromUsage, mergeStep2Usage } from './cost';
 import { generateText, generateWithProductImages, parseJson } from './gemini';
 import { logoPlacementRulesBlock } from './logo-rules';
 import {
+  findDuplicateCopyIssues,
+  findDuplicateLinesInPrompt,
+  sanitizeAdaptedCopy,
+} from './copy-sanitize';
+import {
   copyAgentPrompt,
   qaRulesBlock,
   synthesisTaskBlock,
@@ -16,30 +21,16 @@ import type {
   VisualAdaptationResult,
 } from './types';
 
-function normalizeCopy(raw: CopyAdaptationResult): CopyAdaptationResult {
-  const textLines =
-    raw.textLines && raw.textLines.length > 0
-      ? raw.textLines
-      : [
-          ...(raw.brandName
-            ? [{ role: 'brand-name', text: raw.brandName }]
-            : []),
-          ...(raw.brandSubtagline
-            ? [{ role: 'brand-subtagline', text: raw.brandSubtagline }]
-            : []),
-          { role: 'headline', text: raw.tagline },
-          ...(raw.specLine
-            ? [{ role: 'spec-line', text: raw.specLine }]
-            : raw.mainLine
-              ? [{ role: 'secondary-line', text: raw.mainLine }]
-              : []),
-        ];
-
-  return {
-    ...raw,
-    textLines,
-    featureIcons: raw.featureIcons ?? [],
-  };
+function normalizeCopy(
+  raw: CopyAdaptationResult,
+  ctx: AdaptationContext
+): CopyAdaptationResult {
+  const copy = sanitizeAdaptedCopy(raw, ctx);
+  const dupes = findDuplicateCopyIssues(copy);
+  if (dupes.length > 0) {
+    console.warn('\n=== COPY SANITIZE: fixed duplicate lines ===', dupes);
+  }
+  return copy;
 }
 
 async function runCopyAgent(
@@ -52,7 +43,7 @@ ${logoPlacementRulesBlock(ctx)}
 ${ctx.copyLanguageInstruction}`;
 
   const { text, usage } = await generateText(ai, prompt, { json: true });
-  const copy = normalizeCopy(parseJson<CopyAdaptationResult>(text));
+  const copy = normalizeCopy(parseJson<CopyAdaptationResult>(text), ctx);
   console.log('\n=== ADAPTATION AGENT: Copy ===', {
     tagline: copy.tagline,
     mainLine: copy.mainLine,
@@ -95,7 +86,13 @@ async function runSynthesis(
       ? `\n**FIX THESE QA ISSUES:**\n${qaFeedback.map((i) => `- ${i}`).join('\n')}\n`
       : '';
 
-  const prompt = synthesisTaskBlock(ctx, copy, visual, feedbackBlock || undefined);
+  const textGuard = `\n**TEXT RENDER GUARD:** Approved copy has exactly ${copy.textLines?.length ?? 0} lines — quote each ONCE in top-to-bottom order. Never repeat strikethrough dismissals or the punch headline.\n`;
+  const prompt = synthesisTaskBlock(
+    ctx,
+    copy,
+    visual,
+    `${textGuard}${feedbackBlock ?? ''}` || undefined
+  );
 
   const { text, usage } = await generateText(ai, prompt);
   if (!text) throw new Error('Synthesis returned empty prompt');
@@ -136,8 +133,14 @@ export async function runAdaptationAgent(
   let { finalPrompt, usage: synthUsage } = await runSynthesis(ai, ctx, copy, visual);
   usages.push(synthUsage);
 
-  const { qa, usage: qaUsage } = await runQa(ai, ctx, copy, finalPrompt);
+  let { qa, usage: qaUsage } = await runQa(ai, ctx, copy, finalPrompt);
   usages.push(qaUsage);
+
+  const copyDupes = findDuplicateCopyIssues(copy);
+  const promptDupes = findDuplicateLinesInPrompt(copy, finalPrompt);
+  if (copyDupes.length > 0 || promptDupes.length > 0) {
+    qa = { pass: false, issues: [...copyDupes, ...promptDupes, ...qa.issues] };
+  }
 
   let retried = false;
   if (!qa.pass && qa.issues.length > 0) {
@@ -146,8 +149,14 @@ export async function runAdaptationAgent(
     const retry = await runSynthesis(ai, ctx, copy, visual, qa.issues);
     finalPrompt = retry.finalPrompt;
     usages.push(retry.usage);
-    const qa2 = await runQa(ai, ctx, copy, finalPrompt);
-    usages.push(qa2.usage);
+    const retryQa = await runQa(ai, ctx, copy, finalPrompt);
+    qa = retryQa.qa;
+    usages.push(retryQa.usage);
+    const promptDupesRetry = findDuplicateLinesInPrompt(copy, finalPrompt);
+    const copyDupesRetry = findDuplicateCopyIssues(copy);
+    if (copyDupesRetry.length > 0 || promptDupesRetry.length > 0) {
+      qa = { pass: false, issues: [...copyDupesRetry, ...promptDupesRetry, ...qa.issues] };
+    }
   }
 
   const usage = mergeStep2Usage(usages);

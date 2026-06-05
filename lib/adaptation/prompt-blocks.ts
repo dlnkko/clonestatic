@@ -1,5 +1,9 @@
 import { contextSummaryForAgent } from './context';
 import {
+  productCategoryAnchorBlock,
+  textArchitectureRulesBlock,
+} from './copy-sanitize';
+import {
   backgroundColorAdaptationBlock,
   beforeAfterComparisonBlock,
   illustrativeVisualBlock,
@@ -61,6 +65,10 @@ export function copyAgentPrompt(ctx: AdaptationContext): string {
 
 Clone the REFERENCE ad's text architecture for the USER's product — same number of lines, same roles (brand name, sub-tagline, headline, spec line, icon labels, etc.), same brevity per line.
 
+${productCategoryAnchorBlock(ctx)}
+
+${textArchitectureRulesBlock(ctx)}
+
 ${marketingAngleExtrapolationBlock(ctx)}
 
 ${referenceCopyMirroringBlock(ctx)}
@@ -119,6 +127,8 @@ export function visualAgentPrompt(ctx: AdaptationContext): string {
 
 Define how the USER's product appears in a CLONED ad — identical layout to reference, new product/brand.
 ${multiImageNote}
+
+${productCategoryAnchorBlock(ctx)}
 
 ${visualMetaphorExtrapolationBlock(ctx)}
 
@@ -227,6 +237,8 @@ ${ctx.typographyHierarchy?.sizeRatioHeadlineToSub ? `    Reference ratio hint: $
 18. Approved mainLine must match pattern: "${copy.mainLine}" — reject if authority-led subhero when line2Pattern is product-helps-you or benefit-bullet-list; reject if product pitch when line2Pattern is curiosity-gap or pain-agitation
 ${ctx.marketingAngle && !ctx.marketingAngle.productMentionedInCopy ? '18b. MARKETING ANGLE: Reference had NO product in copy — FAIL if prompt or copy names user product or "[Brand] helps you"' : ''}
 ${ctx.visualMetaphor?.present ? `19. VISUAL METAPHOR: Reference used symbolic hero (${ctx.visualMetaphor.symbolicMeaning}) — FAIL if prompt uses generic product packshot instead of analogous metaphor; FAIL if headline word contradicts image (e.g. "Flat"/"Deflated" with plump/full product)` : ''}
+24. NO DUPLICATE TEXT: Each approved copy line must appear in the final prompt exactly ONCE — FAIL if any dismissal, headline, or body phrase is repeated (e.g. "Just tired" listed twice)
+25. PRODUCT CATEGORY: Visual + body symptoms must match user product (${ctx.productName ?? 'see scrape'}) — FAIL if abstract unrelated blob OR reference-niche copy (libido) when product is fitness/supplements
 ${ctx.hasReferenceComparisonModule ? `19. BEFORE/AFTER: Prompt must describe natural side-by-side panels — FAIL if "vertical split face", harsh bisect, full portrait when reference was macro crop, or oversized Before/After labels` : ''}
 ${ctx.referenceTextLayout ? `20. TEXT LAYOUT: Top copy must be ${ctx.referenceTextLayout.alignment}-aligned ${ctx.referenceTextLayout.stackDirection} stack — FAIL if subhero same visual size as hero` : ''}
 

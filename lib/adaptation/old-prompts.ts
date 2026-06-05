@@ -58,12 +58,14 @@ export function formatApprovedCopyBlock(
     ? `\n**Text block layout:** ${textLayout.alignment}-aligned ${textLayout.stackDirection} stack (mirror reference).`
     : '';
 
-  return `**Approved copy — use EXACTLY this visible text in the ad:**
+  const lineCount = copy.textLines?.length ?? 0;
+
+  return `**Approved copy — use EXACTLY this visible text in the ad (each line ONCE, ${lineCount} lines total — NEVER repeat any line):**
 ${lines}
 ${subheroRender}
-${copy.brandName ? `- Brand name: "${copy.brandName}"` : ''}
-${copy.brandSubtagline ? `- Brand sub-tagline: "${copy.brandSubtagline}"` : ''}
-${copy.specLine ? `- Spec/credentials line: "${copy.specLine}"` : ''}
+${copy.brandName && !copy.textLines?.some((l) => /brand/i.test(l.role)) ? `- Brand name: "${copy.brandName}"` : ''}
+${copy.brandSubtagline && !copy.textLines?.some((l) => /subtagline|sub-tagline/i.test(l.role)) ? `- Brand sub-tagline: "${copy.brandSubtagline}"` : ''}
+${copy.specLine && !copy.textLines?.some((l) => /spec/i.test(l.role)) ? `- Spec/credentials line: "${copy.specLine}"` : ''}
 ${layoutRender}
 ${copy.reviewText ? `- Review/testimonial: "${copy.reviewText}"` : ''}
 ${copy.reviewNumericClaims ? `- Review numbers (scrape only): "${copy.reviewNumericClaims}"` : ''}
@@ -78,7 +80,7 @@ Your task:
 
 1. **Identify Copywriting Characteristics and BREVITY** (for later adaptation):
     - **Text structure**: Count EVERY visible text element top-to-bottom (brand name, brand sub-tagline, headline, spec/credentials line, CTA, icon labels, etc.) — NOT just two lines. Example: "Brand SILUXE + sub-tagline + serif headline + sans spec line + 4 icon labels". Count words PER LINE separately.
-    - **All text lines (top to bottom):** List each line with its exact reference text and role (brand-name, brand-subtagline, headline, spec-line, icon-label, cta, etc.).
+    - **All text lines (top to bottom):** List each line with its exact reference text and role (dismissal-strikethrough-1, dismissal-strikethrough-2, headline-punch, body, cta, brand-name, spec-line, icon-label, etc.) — **one row per visible line, never duplicate the same text twice**.
     - Count the EXACT number of words in the main headline/tagline (first line) and in the main copy/slogan (second line or main block) separately.
     - Identify the rhetorical figure used (metaphor, personification, hyperbole, analogy, slogan, motivational, aspirational, etc.)
     - Note the tone (friendly, professional, playful, serious, etc.)
@@ -439,7 +441,7 @@ Provide ONLY the final, complete, EXTREMELY DETAILED prompt ready for AI image g
 - **Full-bleed composition (CRITICAL):** Describe the scene so that background and surrounding elements (e.g. fruits, objects, textures, scenery${hasPersonInReference ? ', people' : ''}) fill the ENTIRE image edge to edge like the reference${hasPersonInReference ? '; people-based shots may center on models + product, not only a lone product' : '; the product is centered where the reference centers it'}. There must be NO blank or white margins — the composition must be full-bleed like the reference ad, with elements reaching all sides of the frame.
 - **Product pose, position and placement (CRITICAL):**${hasPersonInReference ? ' For lifestyle/model shots: describe the user\'s product in **authentic use** with the same shot framing as the reference — do NOT copy competitor wear/placement when wrong for the new product. For flat product-row references: use the PRODUCT POSE block.' : ''} Include product pose/arrangement from the "PRODUCT POSE AND ARRANGEMENT" block when it describes layout (row, angles, shadows) — adapted for "the product from the provided image". Product design (colors, branding, shape) comes from the provided image${hasPersonInReference ? '; interaction and scene come from the user\'s real use case' : '; pose and arrangement come from the reference block'}.
 ${scrapedBranding ? "- Where the reference ad shows brand name or logo, specify that the product's brand logo (from the scraped page) appears in the same position and style for a personalized look." : ''}
-- **Copy length and phrasing:** Describe EVERY text line from the reference (brand name, sub-tagline, headline, spec line, icon labels) — not a simplified 2-line layout. Tagline ≤ ${headlineWords} words; main secondary ≤ ${mainCopyWords} words. Same tone as reference; clear, conversion-ready copy. **The second line must fulfill the SAME function as the reference** (wordplay, punchline, sarcasm, metaphor) — never use generic product specs as main copy unless the reference does. Grammatically correct. Never one long sentence as the headline.
+- **Copy length and phrasing:** Use the **Approved copy** block verbatim — **each text line exactly once**, in order. NEVER repeat strikethrough dismissals, headline, or body. Total visible lines = approved count. Tagline ≤ ${headlineWords} words; main secondary ≤ ${mainCopyWords} words. Same tone as reference; clear, conversion-ready copy. **The second line must fulfill the SAME function as the reference** (wordplay, punchline, sarcasm, metaphor) — never use generic product specs as main copy unless the reference does. Grammatically correct. Never one long sentence as the headline.
 - **Typography hierarchy (CRITICAL):** In the image description, specify **relative font sizes per line** — headline visually dominant; subhero clearly smaller (~28–38% of headline height, light/regular weight only) even when it has more words; footer/reviews smallest. FAIL if subhero competes with headline size.
 ${ctx.hasReferenceFeatureRow ? '- **Icon/feature row:** Include the full icon row with same count, style, and placement as reference; use approved icon labels.' : ''}
 - **Promo lines:** ${ctx.referenceHasPromoOfferLine ? 'Only if approved copy includes promo claims from scrape.' : 'Reference had no promo line — final image must NOT include sale/discount/flash-offer text.'}
