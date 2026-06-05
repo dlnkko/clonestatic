@@ -1,6 +1,7 @@
 import type { AdaptationContext, CopywritingProfile, Line2CopyPattern } from './types';
 import { detectSubheroCopyPattern } from './parse-reference-analysis';
 import { productCatalogFidelityBlock as productCatalogFidelityBlockImpl } from '@/lib/products/product-fidelity';
+export { productPlacementOnModelBlock } from './product-placement-rules';
 
 /**
  * Rules for mirroring reference ad copy structure with user product data.

@@ -46,6 +46,8 @@ export async function POST(request: NextRequest) {
       adVisualMode: adVisualModeParam,
       creationId: creationIdParam,
       hasDedicatedLogo: hasDedicatedLogoParam,
+      hasPersonInReference: hasPersonInReferenceParam,
+      productUseProfile: productUseProfileParam,
     } = body as {
       prompt?: string;
       productImageBase64?: string;
@@ -57,6 +59,8 @@ export async function POST(request: NextRequest) {
       adVisualMode?: AdVisualMode;
       creationId?: string;
       hasDedicatedLogo?: boolean;
+      hasPersonInReference?: boolean;
+      productUseProfile?: import('@/lib/products/infer-product-use').ProductUseProfile | null;
     };
 
     const creationId =
@@ -186,6 +190,8 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       admin,
       hasDedicatedLogo: hasDedicatedLogoParam === true,
+      hasPersonInReference: hasPersonInReferenceParam === true,
+      productUseProfile: productUseProfileParam ?? null,
     };
 
     after(async () => {

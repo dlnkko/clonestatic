@@ -206,6 +206,8 @@ export type AdaptationContext = {
   copyLanguageInstruction: string;
   matchedProductVisuals: MatchedProductVisual[];
   productName: string | null;
+  productDescription: string | null;
+  productUseProfile: import('@/lib/products/infer-product-use').ProductUseProfile | null;
   allowedPrice: string | null;
   pricingInstructions: string;
   referenceHasPromoOfferLine: boolean;

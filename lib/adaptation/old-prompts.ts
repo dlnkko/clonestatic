@@ -13,6 +13,7 @@ import {
   noStockPhotoUnlessReferenceBlock,
   packagingMirroringBlock,
   productCatalogFidelityBlock,
+  productPlacementOnModelBlock,
   productThemedEnvironmentBlock,
   referenceCopyMirroringBlock,
   subheroCopyPatternBlock,
@@ -303,7 +304,9 @@ The reference shows a person with the **competitor's** product. Your ad must sho
 - **DO** show the user's product clearly and believably in scene with a model interaction that matches the product category.
 - If reference and user product are the **same category** (both wearable accessories, both held in hand): you may keep similar grip/placement.
 
-**Examples:** Reference model wearing silk head wrap + user sells silk pillowcase → model in soft bedroom/beauty shot with head resting on or beside the pillowcase, product as bedding; NOT wearing the pillowcase on the head. Reference bedroom still-life + user sells creatine → gym/fitness environment with same soft editorial light, NOT the bed.`;
+**Examples:** Reference model wearing silk head wrap + user sells silk pillowcase → model in soft bedroom/beauty shot with head resting on or beside the pillowcase, product as bedding; NOT wearing the pillowcase on the head. Reference bedroom still-life + user sells creatine → gym/fitness environment with same soft editorial light, NOT the bed.
+
+${productPlacementOnModelBlock(ctx)}`;
   }
 
   if (ctx.isGraphicOnly && !ctx.hasIllustrativeVisual) {

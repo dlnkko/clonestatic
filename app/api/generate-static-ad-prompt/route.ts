@@ -52,6 +52,7 @@ import {
   inferProductUnitsFromPose,
 } from '@/lib/products/expand-product-units';
 import { identifyReferenceProductElements } from '@/lib/products/identify-elements';
+import { inferProductUseProfile } from '@/lib/products/infer-product-use';
 import {
   matchProductImagesToReference,
   uploadProductImageUrlsToGemini,
@@ -851,6 +852,8 @@ export async function POST(request: NextRequest) {
           copyLanguage: resolvedCopyLang.code,
           matchedProductVisuals,
           productName: savedProduct?.name ?? null,
+          productDescription: savedProduct?.description ?? null,
+          productTargetAudience: savedProduct?.target_audience ?? null,
           productBrandColors: savedProduct?.color_palette?.colors ?? [],
           allowedPrice,
           pricingDetail,
@@ -934,6 +937,12 @@ export async function POST(request: NextRequest) {
 
     console.log('\n=== REQUEST COMPLETE ===\n');
 
+    const productUseProfile = inferProductUseProfile(
+      savedProduct?.name ?? resolvedProductName,
+      savedProduct?.description,
+      savedProduct?.target_audience
+    );
+
     return NextResponse.json({
       success: true,
       prompt: finalPrompt,
@@ -966,6 +975,8 @@ export async function POST(request: NextRequest) {
         (m) => m.url
       ),
       hasDedicatedLogo: matchedProductVisuals.some((m) => m.role === 'logo'),
+      hasPersonInReference: referenceVisualStyle?.hasPerson === true,
+      productUseProfile,
       usage: {
         step1: step1Usage,
         productMatching: productMatchingUsage,

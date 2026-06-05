@@ -630,6 +630,8 @@ function StaticAdAppPage() {
         error?: string;
         matchedProductImageUrls?: string[];
         hasDedicatedLogo?: boolean;
+        hasPersonInReference?: boolean;
+        productUseProfile?: import('@/lib/products/infer-product-use').ProductUseProfile | null;
       }>(response);
       if (promptErr) {
         throw new Error(promptErr);
@@ -703,6 +705,8 @@ function StaticAdAppPage() {
         else if (productImageUrl) imageBody.productImageUrl = productImageUrl;
         else if (productBase64) imageBody.productImageBase64 = productBase64;
         if (data.hasDedicatedLogo) imageBody.hasDedicatedLogo = true;
+        if (data.hasPersonInReference) imageBody.hasPersonInReference = true;
+        if (data.productUseProfile) imageBody.productUseProfile = data.productUseProfile;
 
         const useKeepalive =
           !imageBody.referenceImageBase64 && !imageBody.productImageBase64;

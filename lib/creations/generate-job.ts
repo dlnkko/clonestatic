@@ -13,6 +13,8 @@ export type AdImageGenerationParams = {
   admin: SupabaseClient;
   aspectRatioHint?: string;
   hasDedicatedLogo?: boolean;
+  hasPersonInReference?: boolean;
+  productUseProfile?: import('@/lib/products/infer-product-use').ProductUseProfile | null;
 };
 
 function appendAspectRatioHint(prompt: string, aspectRatio: string): string {
@@ -57,6 +59,8 @@ export async function runAdImageGenerationJob(params: AdImageGenerationParams): 
       aspectRatio,
       adVisualMode,
       hasDedicatedLogo: params.hasDedicatedLogo,
+      hasPersonInReference: params.hasPersonInReference,
+      productUseProfile: params.productUseProfile,
     });
 
     await admin

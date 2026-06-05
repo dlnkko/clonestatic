@@ -86,6 +86,8 @@ async function generatePrompt(
       adVisualMode: AdVisualMode;
       matchedProductImageUrls: string[];
       hasDedicatedLogo: boolean;
+      hasPersonInReference: boolean;
+      productUseProfile: import('@/lib/products/infer-product-use').ProductUseProfile | null;
     }
   | { error: string }
 > {
@@ -120,6 +122,8 @@ async function generatePrompt(
       adVisualMode: data.adVisualMode === 'realistic' ? 'realistic' : 'design',
       matchedProductImageUrls: data.matchedProductImageUrls?.filter((u) => u.startsWith('http')) ?? [],
       hasDedicatedLogo: (data as { hasDedicatedLogo?: boolean }).hasDedicatedLogo === true,
+      hasPersonInReference: (data as { hasPersonInReference?: boolean }).hasPersonInReference === true,
+      productUseProfile: (data as { productUseProfile?: import('@/lib/products/infer-product-use').ProductUseProfile | null }).productUseProfile ?? null,
     };
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Prompt generation failed' };
@@ -221,6 +225,8 @@ export async function runFullAdGenerationJob(params: FullAdGenerationParams): Pr
       userId,
       admin,
       hasDedicatedLogo: promptResult.hasDedicatedLogo,
+      hasPersonInReference: promptResult.hasPersonInReference,
+      productUseProfile: promptResult.productUseProfile,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Generation failed';

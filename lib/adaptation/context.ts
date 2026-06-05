@@ -3,6 +3,7 @@ import {
   resolveCopyLanguage,
   type CopyLanguageOption,
 } from '@/lib/copy-languages';
+import { inferProductUseProfile } from '@/lib/products/infer-product-use';
 import { buildPricingInstructions } from './pricing-rules';
 import {
   detectSubheroCopyPattern,
@@ -91,6 +92,8 @@ export type BuildContextInput = {
   copyLanguage?: string;
   matchedProductVisuals?: MatchedProductVisual[];
   productName?: string | null;
+  productDescription?: string | null;
+  productTargetAudience?: string | null;
   productBrandColors?: string[];
   allowedPrice?: string | null;
   pricingDetail?: string | null;
@@ -128,6 +131,8 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     copyLanguage,
     matchedProductVisuals = [],
     productName = null,
+    productDescription = null,
+    productTargetAudience = null,
     productBrandColors = [],
     allowedPrice = null,
     pricingDetail = null,
@@ -223,6 +228,12 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     );
   }
 
+  const productUseProfile = inferProductUseProfile(
+    productName ?? '',
+    productDescription,
+    productTargetAudience
+  );
+
   const brandingIntegration = buildBrandingIntegration(
     scrapedBranding,
     referenceLogoAnalysis,
@@ -298,6 +309,8 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     copyLanguageInstruction: langInstruction,
     matchedProductVisuals,
     productName,
+    productDescription,
+    productUseProfile,
     allowedPrice,
     pricingInstructions,
     referenceHasPromoOfferLine,
@@ -538,6 +551,8 @@ export function contextSummaryForAgent(ctx: AdaptationContext): string {
         : null,
       referencePromptPreview: ctx.referencePrompt.slice(0, 3500),
       productName: ctx.productName,
+      productDescription: ctx.productDescription,
+      productUseProfile: ctx.productUseProfile,
       matchedProductVisuals: ctx.matchedProductVisuals,
       allowedPrice: ctx.allowedPrice,
       referenceHasPromoOfferLine: ctx.referenceHasPromoOfferLine,

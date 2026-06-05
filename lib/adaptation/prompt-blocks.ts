@@ -12,6 +12,7 @@ import {
   noStockPhotoUnlessReferenceBlock,
   packagingMirroringBlock,
   productCatalogFidelityBlock,
+  productPlacementOnModelBlock,
   productThemedEnvironmentBlock,
   productVariantMatchingBlock,
   ctaSubscriptionGuardBlock,
@@ -145,6 +146,8 @@ ${productVariantMatchingBlock(ctx)}
 
 ${productThemedEnvironmentBlock(ctx)}
 
+${productPlacementOnModelBlock(ctx)}
+
 ${illustrativeVisualBlock(ctx)}
 
 ${noStockPhotoUnlessReferenceBlock(ctx)}
@@ -167,8 +170,8 @@ ${beforeAfterComparisonBlock(ctx)}
 
 RULES (JSON output):
 - visualMediumNotes: state whether final ad is illustration/diagram/3d-render OR real photo — must match reference, never default to stock lifestyle photo when reference is graphic
-- poseAndArrangementParagraph: mirror reference LAYOUT zones only; user's product form comes from catalog photos — if reference had a bottle but user has gummy pouch, describe the pouch in that zone; NEVER describe a bottle/jar unless catalog shows one
-- peopleAndSceneRules: must state on-theme environment/props for user's product category; clone reference framing/mood/aesthetic, NOT competitor-category setting when categories differ
+- poseAndArrangementParagraph: mirror reference LAYOUT zones only; user's product form comes from catalog photos — if reference had a bottle but user has gummy pouch, describe the pouch in that zone; NEVER describe a bottle/jar unless catalog shows one${ctx.hasPersonInReference && ctx.productUseProfile ? `; **${ctx.productUseProfile.category}:** ${ctx.productUseProfile.placementInstruction}` : ctx.hasPersonInReference ? '; describe correct anatomical placement on model (not floating on wrong body part)' : ''}
+- peopleAndSceneRules: must state on-theme environment/props for user's product category; clone reference framing/mood/aesthetic, NOT competitor-category setting when categories differ${ctx.hasPersonInReference ? '; **specify authentic product-on-body placement** (wear/apply/hold/consume correctly)' : ''}
 - compositionRules / brandingNotes / iconRowNotes / trustBadgeNotes
 - compositionRules: visual hierarchy (headline → icon/feature row → product row → CTA bar); preserve reference **vertical band proportions** and text block geometry; product row with **exact unit count** from reference (use distinct catalog variants when reference shows different flavors/colors); award seal overlaps product per reference; **typography size ladder** — headline largest, subheadline clearly smaller, footer/CTA smallest
 ${ctx.referenceTrustBadge.present ? `- trustBadgeNotes: describe placing user's award seal (${ctx.referenceTrustBadge.placement || 'overlap on hero product'})` : ''}
@@ -222,7 +225,7 @@ Rules:
 2. Tagline must not match referenceVerbatimPhrases (no plagiarized hooks)
 3. Product pose from reference (not upload) — oldprompts §2 product POSE AND ARRANGEMENT
 4. isGraphicOnly or hasIllustrativeVisual → no real photographic people; use illustration/diagram if reference did
-5. hasPersonInReference → real photo people still described; user's product in authentic use
+5. hasPersonInReference → real photo people still described; user's product in authentic use${ctx.productUseProfile && ctx.productUseProfile.confidence !== 'low' ? ` — for ${ctx.productUseProfile.category}, product must be on **${ctx.productUseProfile.bodyZone}**; FAIL if floating on wrong body part (${ctx.productUseProfile.forbiddenPlacements.slice(0, 2).join(', ')})` : ' with correct anatomical placement'}
 6. Line 2 mirrors reference rhetorical device — FAIL if generic authority/trope unrelated to reference (e.g. "Dermatologist recommended" when reference had ingredient transparency)
 7. Headline mirrors reference sentence structure — FAIL if generic category headline when reference had contrarian/comparative hook
 8. Background uses product brand colors — FAIL if competitor category color copied (e.g. coffee brown for non-coffee product)

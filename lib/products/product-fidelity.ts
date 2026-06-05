@@ -131,12 +131,18 @@ export const KIE_DEDICATED_LOGO_SUFFIX = `CRITICAL — STANDALONE BRAND LOGO:
 export function appendKieProductFidelityPrompt(
   prompt: string,
   hasProductImages: boolean,
-  options?: { hasDedicatedLogo?: boolean }
+  options?: { hasDedicatedLogo?: boolean; productUseProfile?: import('@/lib/products/infer-product-use').ProductUseProfile | null; hasPersonInReference?: boolean }
 ): string {
   if (!hasProductImages) return prompt;
   let out = `${prompt.trim()}\n\n${KIE_PRODUCT_FIDELITY_SUFFIX}`;
   if (options?.hasDedicatedLogo) {
     out += `\n\n${KIE_DEDICATED_LOGO_SUFFIX}`;
+  }
+  if (options?.hasPersonInReference && options?.productUseProfile && options.productUseProfile.confidence !== 'low') {
+    const p = options.productUseProfile;
+    out += `\n\nMODEL + PRODUCT PLACEMENT (CRITICAL): Show ${p.category} with authentic use on model — ${p.placementInstruction} Forbidden: ${p.forbiddenPlacements.slice(0, 3).join('; ')}.`;
+  } else if (options?.hasPersonInReference) {
+    out += `\n\nMODEL + PRODUCT PLACEMENT (CRITICAL): Product must be worn/applied/held/consumed correctly on the model — correct anatomical zone, not floating decoratively on wrong body part.`;
   }
   return out;
 }
