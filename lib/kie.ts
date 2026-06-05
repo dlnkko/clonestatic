@@ -1,4 +1,5 @@
 import type { AdVisualMode } from '@/lib/ad-visual-mode';
+import { ensureKieCompatibleUrls } from '@/lib/images/normalize-image';
 import { appendKieProductFidelityPrompt } from '@/lib/products/product-fidelity';
 
 const KIE_API_BASE = 'https://api.kie.ai';
@@ -150,7 +151,8 @@ export async function generateAdImageWithKie(params: {
 }): Promise<{ imageUrl: string; taskId: string; model: string; adVisualMode: AdVisualMode }> {
   const { prompt, productImageUrls, referenceImageUrl, aspectRatio, adVisualMode } = params;
   const ratio = mapAspectRatio(aspectRatio, adVisualMode);
-  const catalogUrls = productImageUrls.filter((u) => u.startsWith('http')).slice(0, 8);
+  const rawCatalogUrls = productImageUrls.filter((u) => u.startsWith('http')).slice(0, 8);
+  const catalogUrls = await ensureKieCompatibleUrls(rawCatalogUrls);
   const fidelityPrompt = appendKieProductFidelityPrompt(prompt, catalogUrls.length > 0);
 
   let taskId: string;
@@ -158,10 +160,14 @@ export async function generateAdImageWithKie(params: {
 
   if (adVisualMode === 'design') {
     model = 'nano-banana-pro';
+    const rawReference = referenceImageUrl?.startsWith('http') ? referenceImageUrl : null;
+    const [referenceConverted] = rawReference
+      ? await ensureKieCompatibleUrls([rawReference])
+      : [null];
     // Product catalog first so the model anchors on user's real product; reference last for layout only.
     const imageInput = [
       ...catalogUrls,
-      ...(referenceImageUrl?.startsWith('http') ? [referenceImageUrl] : []),
+      ...(referenceConverted ? [referenceConverted] : []),
     ].slice(0, 8);
 
     taskId = await createKieTask({
@@ -209,11 +215,12 @@ export async function editImageWithKie(params: {
   aspectRatio?: string;
 }): Promise<{ imageUrl: string; taskId: string }> {
   const ratio = mapAspectRatio(params.aspectRatio ?? 'auto', 'realistic');
+  const [compatibleUrl] = await ensureKieCompatibleUrls([params.imageUrl]);
   const taskId = await createKieTask({
     model: 'gpt-image-2-image-to-image',
     input: {
       prompt: params.prompt,
-      input_urls: [params.imageUrl],
+      input_urls: [compatibleUrl],
       aspect_ratio: ratio,
       // Always force 2K for GPT Image 2 requests.
       resolution: '2K',

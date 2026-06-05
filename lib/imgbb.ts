@@ -1,10 +1,13 @@
-/** Upload base64 data URL to ImgBB and return public URL. */
+import { normalizeBase64DataUrl } from '@/lib/images/normalize-image';
+
+/** Upload base64 data URL to ImgBB and return public URL. Converts webp/avif to JPEG/PNG first. */
 export async function uploadBase64ToImgBB(base64DataUrl: string): Promise<string> {
   const key = process.env.IMGBB_API_KEY;
   if (!key) {
     throw new Error('IMGBB_API_KEY is not set in .env.local');
   }
-  const base64Only = base64DataUrl.replace(/^data:image\/\w+;base64,/, '');
+  const normalized = await normalizeBase64DataUrl(base64DataUrl);
+  const base64Only = normalized.replace(/^data:image\/[^;]+;base64,/, '');
   const form = new FormData();
   form.set('key', key);
   form.set('image', base64Only);
