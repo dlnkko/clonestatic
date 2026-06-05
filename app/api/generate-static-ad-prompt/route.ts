@@ -43,6 +43,11 @@ import { GEMINI_MODEL } from '@/lib/gemini-model';
 import { getProductAllowedPrice, getProductPricingInstructions, productCopywritingPayload, rowToProduct } from '@/lib/products/db';
 import { allowedPriceForAds, extractPricingFromText } from '@/lib/products/extract-pricing';
 import {
+  ensureStandaloneLogoMatch,
+  injectLogoReferenceElement,
+  orderMatchedVisualsForGeneration,
+} from '@/lib/products/ensure-logo-match';
+import {
   expandElementsForProductUnits,
   inferProductUnitsFromPose,
 } from '@/lib/products/expand-product-units';
@@ -708,12 +713,18 @@ export async function POST(request: NextRequest) {
           { uri: staticAdFile.uri!, mimeType: staticAdFile.mimeType },
           referenceVisualStyle,
           referenceProductPoseAndArrangement || referencePrompt.slice(0, 800),
-          referenceProductUnits
+          referenceProductUnits,
+          referenceLogoAnalysis
         );
         if (identified.usage) productMatchingUsages.push(identified.usage);
 
-        const expandedElements = expandElementsForProductUnits(
+        const referenceElements = injectLogoReferenceElement(
           identified.elements,
+          referenceLogoAnalysis
+        );
+
+        const expandedElements = expandElementsForProductUnits(
+          referenceElements,
           referenceProductUnits
         );
 
@@ -726,17 +737,34 @@ export async function POST(request: NextRequest) {
         );
         if (matched.usage) productMatchingUsages.push(matched.usage);
 
-        const matches = matched.matches;
-        matchedProductVisuals = matches.map((m) => ({
-          role: m.role,
+        const matches = ensureStandaloneLogoMatch(
+          matched.matches,
+          catalogImages,
+          referenceLogoAnalysis,
+          savedProduct?.logo_url
+        );
+        matchedProductVisuals = orderMatchedVisualsForGeneration(
+          matches.map((m) => ({
+            role: m.role,
+            url: m.url,
+            description: m.description,
+          }))
+        ).map((m) => ({
+          role: m.role as MatchedProductVisual['role'],
           url: m.url,
           description: m.description,
         }));
         console.log('\n=== PRODUCT IMAGE MATCHING ===', matchedProductVisuals);
 
-        const uniqueUrls = [...new Set(matches.map((m) => m.url))].filter((u) =>
-          u.startsWith('http')
-        );
+        const uniqueUrls = orderMatchedVisualsForGeneration(
+          matches.map((m) => ({
+            role: m.role,
+            url: m.url,
+            description: m.description,
+          }))
+        )
+          .map((m) => m.url)
+          .filter((u) => u.startsWith('http'));
         if (uniqueUrls.length > 0) {
           console.log(
             `\n=== UPLOAD TO GEMINI: ${uniqueUrls.length} agent-selected image(s) (of ${catalogImages.length} in catalog) ===`
@@ -823,6 +851,7 @@ export async function POST(request: NextRequest) {
           copyLanguage: resolvedCopyLang.code,
           matchedProductVisuals,
           productName: savedProduct?.name ?? null,
+          productBrandColors: savedProduct?.color_palette?.colors ?? [],
           allowedPrice,
           pricingDetail,
           referenceHasPromoOfferLine,
@@ -933,7 +962,10 @@ export async function POST(request: NextRequest) {
         matchedProductVisuals,
         productId: savedProduct?.id ?? null,
       },
-      matchedProductImageUrls: matchedProductVisuals.map((m) => m.url),
+      matchedProductImageUrls: orderMatchedVisualsForGeneration(matchedProductVisuals).map(
+        (m) => m.url
+      ),
+      hasDedicatedLogo: matchedProductVisuals.some((m) => m.role === 'logo'),
       usage: {
         step1: step1Usage,
         productMatching: productMatchingUsage,

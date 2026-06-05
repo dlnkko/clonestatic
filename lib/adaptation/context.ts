@@ -91,6 +91,7 @@ export type BuildContextInput = {
   copyLanguage?: string;
   matchedProductVisuals?: MatchedProductVisual[];
   productName?: string | null;
+  productBrandColors?: string[];
   allowedPrice?: string | null;
   pricingDetail?: string | null;
   referenceHasPromoOfferLine?: boolean;
@@ -127,6 +128,7 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     copyLanguage,
     matchedProductVisuals = [],
     productName = null,
+    productBrandColors = [],
     allowedPrice = null,
     pricingDetail = null,
     referenceHasPromoOfferLine = false,
@@ -223,7 +225,10 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
 
   const brandingIntegration = buildBrandingIntegration(
     scrapedBranding,
-    referenceLogoAnalysis
+    referenceLogoAnalysis,
+    matchedProductVisuals,
+    productName,
+    productBrandColors
   );
   const copywritingInstructions =
     buildCopywritingInstructions({
@@ -320,9 +325,18 @@ The reference ad includes a trust/award seal (${badge.description || 'award or p
 
 function buildBrandingIntegration(
   scrapedBranding: Record<string, unknown> | null,
-  logoAnalysis: ReferenceLogoAnalysis
+  logoAnalysis: ReferenceLogoAnalysis,
+  matchedProductVisuals: MatchedProductVisual[] = [],
+  productName: string | null = null,
+  manualBrandColors: string[] = []
 ): string {
+  const dedicatedLogo = matchedProductVisuals.find((m) => m.role === 'logo');
+  const hasDedicatedLogo = !!dedicatedLogo;
   const placement = logoAnalysis.placement;
+  const needsStandaloneLogo =
+    logoAnalysis.standaloneLogoInLayout ||
+    placement === 'standalone-logo' ||
+    placement === 'standalone-and-product';
   const forbidStandaloneLogo =
     placement === 'copy-only' ||
     placement === 'logo-on-product-only' ||
@@ -331,16 +345,18 @@ function buildBrandingIntegration(
   const brandColors = scrapedBranding
     ? ((scrapedBranding.colors as Record<string, unknown>) || {})
     : {};
-  const colorList = Object.entries(brandColors)
-    .map(([key, value]) => {
-      if (typeof value === 'string') return `${key}: ${value}`;
-      if (value && typeof value === 'object' && 'value' in value) {
-        return `${key}: ${(value as { value: string }).value}`;
-      }
-      return `${key}: ${JSON.stringify(value)}`;
-    })
-    .filter(Boolean)
-    .join(', ');
+  const colorList = [
+    ...Object.entries(brandColors)
+      .map(([key, value]) => {
+        if (typeof value === 'string') return `${key}: ${value}`;
+        if (value && typeof value === 'object' && 'value' in value) {
+          return `${key}: ${(value as { value: string }).value}`;
+        }
+        return `${key}: ${JSON.stringify(value)}`;
+      })
+      .filter(Boolean),
+    ...(manualBrandColors.length ? [`manual palette: ${manualBrandColors.join(', ')}`] : []),
+  ].join(', ');
 
   const typographyInfo = scrapedBranding
     ? ((scrapedBranding.typography as Record<string, unknown>) || {})
@@ -365,27 +381,29 @@ ${typographyInfo.fontFamilies || fontList ? `- Typography for headlines: ${typog
 Maintain the reference's copy-only brand presentation.`;
   }
 
-  if (!scrapedBranding) return '';
+  if (needsStandaloneLogo) {
+    const logoInstruction = hasDedicatedLogo
+      ? `- **Standalone brand logo (CRITICAL):** Reproduce the attached **dedicated logo catalog image** EXACTLY in the same layout position as the reference standalone logo (${logoAnalysis.notes || 'top center'}). Same letterforms, colors, stroke weight — do NOT render as plain text or a generic font. Asset: ${dedicatedLogo!.description}`
+      : productName
+        ? `- **Standalone brand logo:** The reference includes a separate logo in the layout — place "${productName}" logotype from **packaging photos** in the same position. Match typography on the pack exactly.`
+        : `- **Standalone brand logo:** The reference includes a separate logo in the layout — place the user's logotype from **packaging photos** in the same position and style.`;
 
-  const logoRaw = scrapedBranding.logo;
-  const logoUrl =
-    (logoRaw as { url?: string })?.url ??
-    (typeof logoRaw === 'string' ? logoRaw : null) ??
-    (scrapedBranding.logoUrl as string | undefined) ??
-    null;
-
-  const logoInstruction = logoUrl
-    ? `- **Standalone brand logo (reference has one):** Recreate the product's brand logotype **as printed on packaging** in the SAME layout position and style as the reference standalone logo. Packaging photos are the source of truth for logo shape/typeface.`
-    : `- **Standalone brand logo:** The reference includes a separate logo in the layout — place the user's logotype from **packaging photos** in the same position and style.`;
-
-  return `**Brand Integration:**
+    return `**Brand Integration:**
 The reference ad includes a **standalone logo** in the layout (not only on packaging). Replicate that placement with the user's brand.
 ${logoInstruction}
 ${colorList ? `- Product Brand Colors (USE FOR BACKGROUND & ACCENTS): ${colorList}` : ''}
 ${typographyInfo.fontFamilies || fontList ? `- Product Brand Typography: ${typographyInfo.fontFamilies || fontList}` : ''}
 ${typographyInfo.fontSizes ? `- Brand Font Sizes: ${JSON.stringify(typographyInfo.fontSizes)}` : ''}
-- **Background rule:** Do not keep competitor category colors (e.g. coffee brown). Use product brand palette for backgrounds/gradients while preserving reference color roles.
+- **Background rule:** Do not keep competitor category colors. Use product brand palette for backgrounds/gradients while preserving reference color roles.
 Integrate while maintaining the reference ad's overall design structure.`;
+  }
+
+  if (!scrapedBranding) return '';
+
+  return `**Brand Integration:**
+${colorList ? `- Product Brand Colors (USE FOR BACKGROUND & ACCENTS): ${colorList}` : ''}
+${typographyInfo.fontFamilies || fontList ? `- Product Brand Typography: ${typographyInfo.fontFamilies || fontList}` : ''}
+- Use product brand palette for backgrounds/accents while preserving reference layout structure.`;
 }
 
 function buildCopywritingInstructions(opts: {

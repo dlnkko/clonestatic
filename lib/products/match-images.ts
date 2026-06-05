@@ -10,6 +10,7 @@ import type {
   ReferenceProductUnitsProfile,
 } from './types';
 import { anchorMatchedDescriptions, catalogMatchDescription } from './product-fidelity';
+import { ensureLogoCatalogMatches } from './ensure-logo-match';
 
 export type MatchProductImagesResult = {
   matches: MatchedProductImage[];
@@ -83,7 +84,7 @@ ${variantRule}
 - packaging → MUST pick an image showing retail packaging (pouch, bag, box, tub, bottle WITH user's label). Prefer kind=packaging. NEVER assign a loose gummy flat lay to packaging.
 - product → loose item, gummies, capsules, powder, device (NOT the reference competitor's bottle shape — pick user's actual product photo)
 - lifestyle → prefer kind=lifestyle (model, in-use, on bed, worn correctly) over flat packshots when reference shows a person using the product
-- logo → dedicated kind=logo if available; otherwise pick packaging/product image where the brand wordmark is clearly printed on the pack (no separate logo upload required)
+- logo → MUST pick kind=logo when available (dedicated logo upload). Reproduce that exact graphic in the standalone logo zone — never substitute plain text.
 - trust_badge → MUST pick an image with kind=trust_badge (award seal, press badge, certification). If several trust_badge images exist, pick the clearest award/press seal. NEVER skip trust_badge when reference needs it.
 - trust_badge images are separate assets — do not use a product photo as the seal
 - When matching variant slots, use alt text and URL hints (flavor, color, strawberry, vanilla, etc.) to align with slot descriptions
@@ -154,6 +155,8 @@ Output JSON only:
       });
     }
   }
+
+  ensureLogoCatalogMatches(matches, referenceElements, productImages);
 
   // Ensure packaging slots use packaging photos, not lifestyle scenes
   for (let i = 0; i < referenceElements.length; i++) {
@@ -236,6 +239,10 @@ function pickFallbackIndex(
   usedDistinct: Set<number>,
   preferUnused: boolean
 ): number {
+  if (el.role === 'logo') {
+    const logoIdx = productImages.findIndex((img) => img.kind === 'logo');
+    if (logoIdx >= 0) return logoIdx;
+  }
   const productLike = productImages.filter(
     (img) => img.kind === 'product' || img.kind === 'packaging' || img.kind === 'other'
   );

@@ -37,7 +37,10 @@ export function catalogMatchDescription(
     case 'trust_badge':
       return `User's trust/award badge from catalog — render EXACTLY as in this photo, overlapping product at ${zone}.`;
     case 'logo':
-      return `User's brand logotype from catalog — render EXACTLY as printed on packaging in this photo, ${zone}. Do NOT invent a generic wordmark.`;
+      if (img.kind === 'logo') {
+        return `User's DEDICATED brand logo file — reproduce this exact logotype graphic (letterforms, colors, proportions) in ${zone}. Do NOT redraw as plain text or substitute a generic font.`;
+      }
+      return `User's brand logotype — render EXACTLY as printed on packaging in this photo, ${zone}. Do NOT invent a generic wordmark.`;
     case 'lifestyle':
       return `User's lifestyle photo from catalog — ${kindLabel}, ${zone}.`;
     case 'product':
@@ -88,9 +91,14 @@ export function productCatalogFidelityBlock(ctx: AdaptationContext): string {
 
   const productLabel = ctx.productName ? `"${ctx.productName}"` : "the user's product";
 
+  const dedicatedLogo = ctx.matchedProductVisuals.find((m) => m.role === 'logo');
+  const logoRule = dedicatedLogo
+    ? `\n**STANDALONE LOGO:** Reference has a standalone logo zone — reproduce the **dedicated logo catalog image** exactly (${dedicatedLogo.description}). Do NOT substitute plain text.`
+    : '';
+
   return `**PRODUCT CATALOG FIDELITY (CRITICAL — non-negotiable):**
 ${productLabel} must appear ONLY as shown in the user's product catalog photos — NEVER as the reference ad's competitor product.
-${variantRule}
+${variantRule}${logoRule}
 
 Catalog assets (sole source of product appearance — one row per visible unit/slot):
 ${catalogLines}
@@ -115,7 +123,20 @@ export const KIE_PRODUCT_FIDELITY_SUFFIX = `CRITICAL — PRODUCT FIDELITY (non-n
 - Scene/setting/props must be 100% on-theme for the user's product (e.g. aesthetic gym for creatine) while keeping the reference's lighting mood and premium aesthetic.
 - Never invent or substitute a different product form factor. If catalog shows gummies in a stand-up pouch, show the pouch — NOT a supplement bottle like the reference.`;
 
-export function appendKieProductFidelityPrompt(prompt: string, hasProductImages: boolean): string {
+export const KIE_DEDICATED_LOGO_SUFFIX = `CRITICAL — STANDALONE BRAND LOGO:
+- When a dedicated logo image is included in image_input, reproduce that EXACT logo graphic in the standalone logo zone described in the prompt (same letterforms, colors, stroke weight, and proportions).
+- Do NOT replace the logo with plain typed text, a generic sans-serif wordmark, or a re-drawn approximation.
+- The standalone logo is separate from text headlines — render it as the actual brand mark from the provided logo file.`;
+
+export function appendKieProductFidelityPrompt(
+  prompt: string,
+  hasProductImages: boolean,
+  options?: { hasDedicatedLogo?: boolean }
+): string {
   if (!hasProductImages) return prompt;
-  return `${prompt.trim()}\n\n${KIE_PRODUCT_FIDELITY_SUFFIX}`;
+  let out = `${prompt.trim()}\n\n${KIE_PRODUCT_FIDELITY_SUFFIX}`;
+  if (options?.hasDedicatedLogo) {
+    out += `\n\n${KIE_DEDICATED_LOGO_SUFFIX}`;
+  }
+  return out;
 }

@@ -629,6 +629,7 @@ function StaticAdAppPage() {
         adVisualMode?: AdVisualMode;
         error?: string;
         matchedProductImageUrls?: string[];
+        hasDedicatedLogo?: boolean;
       }>(response);
       if (promptErr) {
         throw new Error(promptErr);
@@ -701,6 +702,7 @@ function StaticAdAppPage() {
         if (productImageUrls.length > 1) imageBody.productImageUrls = productImageUrls;
         else if (productImageUrl) imageBody.productImageUrl = productImageUrl;
         else if (productBase64) imageBody.productImageBase64 = productBase64;
+        if (data.hasDedicatedLogo) imageBody.hasDedicatedLogo = true;
 
         const useKeepalive =
           !imageBody.referenceImageBase64 && !imageBody.productImageBase64;

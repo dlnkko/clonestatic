@@ -1,6 +1,7 @@
 import type { GoogleGenAI } from '@google/genai';
 import { extractUsage, parseJson } from '@/lib/adaptation/gemini';
-import type { ReferenceVisualStyle, Step2Usage } from '@/lib/adaptation/types';
+import type { ReferenceLogoAnalysis, ReferenceVisualStyle, Step2Usage } from '@/lib/adaptation/types';
+import { referenceNeedsStandaloneLogo } from './ensure-logo-match';
 import { GEMINI_MODEL } from '@/lib/gemini-model';
 import type { ReferenceProductElement, ReferenceProductUnitsProfile } from './types';
 
@@ -18,7 +19,8 @@ export async function identifyReferenceProductElements(
   staticAdFile: { uri: string; mimeType?: string },
   referenceVisualStyle: ReferenceVisualStyle | null,
   referenceProductPose: string,
-  referenceProductUnits?: ReferenceProductUnitsProfile | null
+  referenceProductUnits?: ReferenceProductUnitsProfile | null,
+  referenceLogoAnalysis?: ReferenceLogoAnalysis | null
 ): Promise<IdentifyReferenceElementsResult> {
   const styleHint = referenceVisualStyle
     ? `oneHeroOnly: ${referenceVisualStyle.oneHeroOnly ?? false}, mainElements: ${referenceVisualStyle.oneHeroOnly ? 'one' : 'possibly multiple'}`
@@ -26,8 +28,12 @@ export async function identifyReferenceProductElements(
   const unitsHint = referenceProductUnits
     ? `Visible product units in reference: ${referenceProductUnits.unitCount} (${referenceProductUnits.distinctVariants ? 'distinct variants/flavors/colors' : 'same SKU repeated'})`
     : 'Count visible product units/packs in the image';
+  const logoHint = referenceNeedsStandaloneLogo(referenceLogoAnalysis)
+    ? `\nIMPORTANT: This reference has a STANDALONE brand logo/wordmark in the layout (not only on packaging). You MUST include a separate element with role "logo" describing its placement (e.g. centered above headline).`
+    : '';
 
   const prompt = `Analyze this REFERENCE static ad image.
+${logoHint}
 
 Identify each DISTINCT product-related visual element shown that would need a separate source photo when cloning for another brand.
 

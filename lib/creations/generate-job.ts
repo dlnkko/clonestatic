@@ -12,6 +12,7 @@ export type AdImageGenerationParams = {
   userId: string;
   admin: SupabaseClient;
   aspectRatioHint?: string;
+  hasDedicatedLogo?: boolean;
 };
 
 function appendAspectRatioHint(prompt: string, aspectRatio: string): string {
@@ -55,6 +56,7 @@ export async function runAdImageGenerationJob(params: AdImageGenerationParams): 
       referenceImageUrl,
       aspectRatio,
       adVisualMode,
+      hasDedicatedLogo: params.hasDedicatedLogo,
     });
 
     await admin

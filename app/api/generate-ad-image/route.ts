@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
       aspectRatio: aspectRatioParam,
       adVisualMode: adVisualModeParam,
       creationId: creationIdParam,
+      hasDedicatedLogo: hasDedicatedLogoParam,
     } = body as {
       prompt?: string;
       productImageBase64?: string;
@@ -55,6 +56,7 @@ export async function POST(request: NextRequest) {
       aspectRatio?: string;
       adVisualMode?: AdVisualMode;
       creationId?: string;
+      hasDedicatedLogo?: boolean;
     };
 
     const creationId =
@@ -183,6 +185,7 @@ export async function POST(request: NextRequest) {
       creationId: jobCreationId,
       userId: user.id,
       admin,
+      hasDedicatedLogo: hasDedicatedLogoParam === true,
     };
 
     after(async () => {

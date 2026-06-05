@@ -6,12 +6,12 @@ export function packagingLogoRulesBlock(ctx: AdaptationContext): string {
   const productLabel = ctx.productName ?? "the user's product";
 
   return `**LOGO FROM PRODUCT PACKAGING (CRITICAL — every ad):**
-Brand identity often lives **on the product packaging** in catalog photos. A separate logo upload is NOT required.
+Brand identity often lives **on the product packaging** in catalog photos. A separate logo upload is NOT required unless the reference has a standalone logo zone.
 
 **REQUIRED:**
 - Render the brand logotype/wordmark **exactly as printed on the user's packaging** in catalog photos (pouch, box, tub, label)
 - Typography, colors, and logo placement on the pack must match the attached product images — not a generic re-draw of the brand name
-${hasDedicatedLogo ? '- A dedicated logo catalog image is also attached — use it when the reference had a standalone logo zone in the layout.' : '- No separate logo image was uploaded — derive the brand mark ONLY from packaging photos. Do NOT invent a new wordmark from scraped website assets or guess a font.'}
+${hasDedicatedLogo ? `- **DEDICATED LOGO IMAGE ATTACHED (CRITICAL):** A standalone logo catalog file is provided. When the reference has a standalone logo zone (top center, corner, footer), reproduce that **exact logo graphic** from the dedicated file — same letterforms, colors, proportions. Do NOT substitute plain text or a generic font rendering of the brand name.` : '- No separate logo image was uploaded — derive the brand mark ONLY from packaging photos. Do NOT invent a new wordmark from scraped website assets or guess a font.'}
 
 **Standalone logo in layout (only when reference had one):**
 - If the reference includes a separate brand mark (footer, center, corner), recreate the user's brand using the **logotype visible on their packaging** in that position
@@ -31,6 +31,7 @@ ${hasDedicatedLogo ? '- A dedicated logo catalog image is also attached — use 
 export function logoPlacementRulesBlock(ctx: AdaptationContext): string {
   const { placement, standaloneLogoInLayout, logoOnProductOnly, notes } =
     ctx.referenceLogoAnalysis;
+  const hasDedicatedLogo = ctx.matchedProductVisuals.some((m) => m.role === 'logo');
 
   let placementRule: string;
 
@@ -48,7 +49,8 @@ Reference brand presentation = ${placement === 'copy-only' ? 'COPY/TEXT ONLY at 
 ${notes ? `Reference: ${notes}` : ''}`;
   } else if (placement === 'standalone-logo' || placement === 'standalone-and-product') {
     placementRule = `**LOGO PLACEMENT:**
-Reference includes a STANDALONE brand logo in the layout — replicate that placement using the user's logotype **from packaging photos** (or dedicated logo catalog image if provided).
+Reference includes a STANDALONE brand logo in the layout — replicate that placement using the user's **dedicated logo catalog image** when provided (exact graphic), otherwise the logotype from packaging photos.
+${hasDedicatedLogo ? '- **Use the attached dedicated logo file exactly** — do NOT redraw as plain text.' : ''}
 ${logoOnProductOnly ? 'Logo also appears on product packaging — keep both if reference had both.' : ''}
 ${notes ? `Reference: ${notes}` : ''}`;
   } else {

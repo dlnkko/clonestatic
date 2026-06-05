@@ -85,6 +85,7 @@ async function generatePrompt(
       prompt: string;
       adVisualMode: AdVisualMode;
       matchedProductImageUrls: string[];
+      hasDedicatedLogo: boolean;
     }
   | { error: string }
 > {
@@ -118,6 +119,7 @@ async function generatePrompt(
       prompt: data.prompt,
       adVisualMode: data.adVisualMode === 'realistic' ? 'realistic' : 'design',
       matchedProductImageUrls: data.matchedProductImageUrls?.filter((u) => u.startsWith('http')) ?? [],
+      hasDedicatedLogo: (data as { hasDedicatedLogo?: boolean }).hasDedicatedLogo === true,
     };
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Prompt generation failed' };
@@ -218,6 +220,7 @@ export async function runFullAdGenerationJob(params: FullAdGenerationParams): Pr
       creationId,
       userId,
       admin,
+      hasDedicatedLogo: promptResult.hasDedicatedLogo,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Generation failed';
