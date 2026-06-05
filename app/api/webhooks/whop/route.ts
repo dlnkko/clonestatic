@@ -37,6 +37,21 @@ export async function POST(request: NextRequest) {
     }
     try {
       const supabase = createAdminClient();
+      const { data: sub } = await supabase
+        .from('subscriptions')
+        .select('plan')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (sub?.plan === 'pack_10') {
+        return NextResponse.json({
+          received: true,
+          skipped: true,
+          event,
+          reason: 'one_time_plan_preserved',
+        });
+      }
+
       await supabase.from('subscriptions').delete().eq('email', email);
       return NextResponse.json({ received: true, deactivated: true, email });
     } catch (err) {
@@ -85,6 +100,7 @@ export async function POST(request: NextRequest) {
     const supabase = createAdminClient();
     const { row, error } = await upsertWhopSubscription(supabase, parsed, {
       grantFreshCredits: isPayment,
+      incrementOneTimeCredits: isPayment,
     });
     if (error) {
       console.error('Whop webhook Supabase upsert error:', error);

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveOwnerEmail } from '@/lib/subscription-limits';
-import { maxProductsForPlan, PAID_PLAN_BY_KEY, isPaidPlan } from '@/lib/plans';
+import { maxProductsForPlan, planDisplayName, isEntitledPlan, isPaidPlan } from '@/lib/plans';
 import { syncWhopSubscriptionForEmailWithRetries } from '@/lib/whop';
 import {
   clearPendingWhopCheckoutCookie,
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
 
     let { data, error } = await loadSubscriptionRow(admin, email);
 
-    if (error || !data || !isPaidPlan(data.plan)) {
+    if (error || !data || !isEntitledPlan(data.plan)) {
       const syncAttempts = pendingCheckout ? 3 : 1;
       const syncResult = await syncWhopSubscriptionForEmailWithRetries(email, {
         maxAttempts: syncAttempts,
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
 
       if (syncResult.ok) {
         const refreshed = await loadSubscriptionRow(admin, email);
-        if (refreshed.data && isPaidPlan(refreshed.data.plan)) {
+        if (refreshed.data && isEntitledPlan(refreshed.data.plan)) {
           data = refreshed.data;
           error = refreshed.error;
         }
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
 
     const count = productCount ?? 0;
 
-    if (error || !data || !isPaidPlan(data.plan)) {
+    if (error || !data || !isEntitledPlan(data.plan)) {
       if (pendingCheckout) {
         const response = NextResponse.json(
           {
@@ -105,12 +105,11 @@ export async function GET(request: NextRequest) {
 
     const credits = Math.max(0, data.credits_remaining ?? 0);
     const maxProducts = maxProductsForPlan(data.plan);
-    const planMeta = PAID_PLAN_BY_KEY[data.plan];
 
     const response = NextResponse.json({
       ok: true,
       plan: data.plan,
-      plan_name: planMeta?.name ?? data.plan,
+      plan_name: planDisplayName(data.plan),
       credits_remaining: credits,
       max_products: maxProducts,
       product_count: count,
@@ -118,6 +117,7 @@ export async function GET(request: NextRequest) {
       period_end: data.period_end,
       cancel_at_period_end: data.cancel_at_period_end === true,
       has_whop_membership: Boolean(data.whop_membership_id),
+      is_one_time: !isPaidPlan(data.plan),
     });
     clearPendingWhopCheckoutCookie(response);
     return response;

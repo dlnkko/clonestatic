@@ -1,9 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   creditsForPlan,
+  isOneTimePlan,
+  isOneTimeWhopPlanId,
+  isPaidPlan,
   isYearlyWhopPlanId,
   resolveWhopPlanKey,
-  type PaidPlanKey,
+  type BillingPlanKey,
 } from '@/lib/plans';
 
 export type WhopSubscriptionInput = {
@@ -112,7 +115,9 @@ export function normalizeWhopEvent(body: Record<string, unknown>): string {
   return String(body.action ?? body.event ?? body.type ?? '').toLowerCase();
 }
 
-export function periodEndFromWhop(planId: string | undefined, renewalPeriodEnd?: string | null): string {
+export function periodEndFromWhop(planId: string | undefined, renewalPeriodEnd?: string | null): string | null {
+  if (planId && isOneTimeWhopPlanId(planId)) return null;
+
   if (renewalPeriodEnd) {
     const d = new Date(renewalPeriodEnd);
     if (!Number.isNaN(d.getTime())) {
@@ -129,26 +134,30 @@ export function periodEndFromWhop(planId: string | undefined, renewalPeriodEnd?:
 }
 
 export function subscriptionRowFromWhop(input: WhopSubscriptionInput) {
-  const plan: PaidPlanKey = resolveWhopPlanKey(input.planId);
+  const plan: BillingPlanKey = resolveWhopPlanKey(input.planId);
   const credits = creditsForPlan(plan);
+  const oneTime = isOneTimePlan(plan);
+
   return {
     email: input.email,
     plan,
     credits_remaining: credits,
     period_end: periodEndFromWhop(input.planId, input.renewalPeriodEnd),
     whop_member_id: input.memberId ?? null,
-    whop_membership_id: input.membershipId ?? null,
-    cancel_at_period_end: input.cancelAtPeriodEnd === true,
+    whop_membership_id: oneTime ? null : input.membershipId ?? null,
+    cancel_at_period_end: oneTime ? false : input.cancelAtPeriodEnd === true,
     updated_at: new Date().toISOString(),
   };
 }
 
 export type UpsertWhopSubscriptionOptions = {
   /**
-   * true = payment / new checkout / manual sync → grant full monthly credits for the plan.
+   * true = payment / new checkout / manual sync → grant credits for the plan.
    * false = metadata-only webhook (e.g. cancel flag) → keep current credit balance.
    */
   grantFreshCredits?: boolean;
+  /** When true, one-time pack purchases stack credits (+10). Use on payment webhooks only. */
+  incrementOneTimeCredits?: boolean;
 };
 
 export async function upsertWhopSubscription(
@@ -157,17 +166,33 @@ export async function upsertWhopSubscription(
   options: UpsertWhopSubscriptionOptions = {}
 ) {
   const grantFreshCredits = options.grantFreshCredits !== false;
+  const incrementOneTimeCredits = options.incrementOneTimeCredits === true;
+  const planKey = resolveWhopPlanKey(input.planId);
   const row = subscriptionRowFromWhop(input);
 
-  if (!grantFreshCredits) {
-    const { data: existing } = await supabase
-      .from('subscriptions')
-      .select('credits_remaining')
-      .eq('email', input.email)
-      .maybeSingle();
+  const { data: existing } = await supabase
+    .from('subscriptions')
+    .select('credits_remaining, plan, period_end, whop_membership_id, cancel_at_period_end')
+    .eq('email', input.email)
+    .maybeSingle();
 
-    if (existing) {
+  if (isOneTimePlan(planKey) && grantFreshCredits) {
+    const addCredits = creditsForPlan(planKey);
+    if (incrementOneTimeCredits) {
+      row.credits_remaining = Math.max(0, existing?.credits_remaining ?? 0) + addCredits;
+    } else if (existing) {
       row.credits_remaining = Math.max(0, existing.credits_remaining ?? 0);
+    }
+    if (existing?.plan && isPaidPlan(existing.plan)) {
+      row.plan = existing.plan;
+      row.period_end = existing.period_end ?? row.period_end;
+      row.whop_membership_id = existing.whop_membership_id ?? row.whop_membership_id;
+      row.cancel_at_period_end = existing.cancel_at_period_end === true;
+    }
+  } else if (!grantFreshCredits && existing) {
+    row.credits_remaining = Math.max(0, existing.credits_remaining ?? 0);
+    if (existing.plan && isPaidPlan(existing.plan) && isOneTimePlan(planKey)) {
+      row.plan = existing.plan;
     }
   }
 

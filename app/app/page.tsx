@@ -12,7 +12,7 @@ import { ProductDetailPanel } from '../components/ProductDetailPanel';
 import { ProductModal } from '../components/ProductModal';
 import { AppProviders } from './providers';
 import { useI18n } from '@/lib/i18n/LocaleProvider';
-import { isPaidPlan } from '@/lib/plans';
+import { formatMaxProductsLabel, isEntitledPlan, isPaidPlan } from '@/lib/plans';
 import { COPY_LANGUAGES } from '@/lib/copy-languages';
 import type { ProductRecord } from '@/lib/products/types';
 import type { AdVisualMode } from '@/lib/ad-visual-mode';
@@ -1113,17 +1113,17 @@ function StaticAdAppPage() {
       const subData = subRes.ok ? await subRes.json() : null;
       const pendingFromServer =
         subRes.status === 428 || subData?.pending_checkout === true;
-      const hasPaidPlan =
+      const hasEntitlement =
         subRes.ok &&
         subData?.ok &&
-        isPaidPlan(subData.plan);
+        isEntitledPlan(subData.plan);
 
       const paidCredits = Number(subData?.credits_remaining ?? 0);
       const needsSync =
         pendingCheckout ||
         pendingFromServer ||
-        !hasPaidPlan ||
-        (hasPaidPlan && (!Number.isFinite(paidCredits) || paidCredits <= 0));
+        !hasEntitlement ||
+        (hasEntitlement && (!Number.isFinite(paidCredits) || paidCredits <= 0));
 
       if (!needsSync) return;
 
@@ -1159,7 +1159,7 @@ function StaticAdAppPage() {
         const checkData = await checkRes.json();
         if (
           checkData?.ok &&
-          isPaidPlan(checkData.plan) &&
+          isEntitledPlan(checkData.plan) &&
           Number(checkData.credits_remaining) > 0
         ) {
           try {
@@ -1770,7 +1770,7 @@ function StaticAdAppPage() {
           </header>
           {maxProducts !== null && productCount !== null && (
             <p className="text-sm text-slate-500">
-              {productCount}/{maxProducts} products saved
+              {productCount}/{formatMaxProductsLabel(maxProducts)} products saved
               {!canAddProduct && ' — upgrade to add more'}
             </p>
           )}

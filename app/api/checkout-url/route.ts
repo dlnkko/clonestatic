@@ -6,6 +6,7 @@ import { setPendingWhopCheckoutCookie } from '@/lib/pending-checkout';
 export const dynamic = 'force-dynamic';
 
 const PLAN_URLS: Record<string, string> = {
+  pack_10: process.env.NEXT_PUBLIC_WHOP_CHECKOUT_PACK_10 || WHOP_CHECKOUT_URLS.pack_10,
   standard_monthly:
     process.env.NEXT_PUBLIC_WHOP_CHECKOUT_STANDARD_MONTHLY || WHOP_CHECKOUT_URLS.standard_monthly,
   standard_yearly:

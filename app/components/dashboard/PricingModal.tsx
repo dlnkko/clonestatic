@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/cn';
-import { AGENCY_PLAN_DISPLAY, PAID_PLANS, planDisplayPrice, planFeatureList, type BillingPeriod } from '@/lib/plans';
+import { AGENCY_PLAN_DISPLAY, ONE_TIME_PACK, PAID_PLANS, oneTimePlanFeatureList, planDisplayPrice, planFeatureList, type BillingPeriod } from '@/lib/plans';
 
 type Props = {
   open: boolean;
@@ -33,7 +33,36 @@ export function PricingModal({ open, onClose, billing, onBillingChange }: Props)
         </div>
 
         <div className="dash-modal-body">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="rounded-2xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50/90 to-white p-4 sm:p-5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="font-semibold text-[var(--dash-fg)]">{ONE_TIME_PACK.name}</h3>
+                  <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-700">
+                    One-time
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-[var(--dash-muted)]">{ONE_TIME_PACK.tagline}</p>
+                <p className="mt-3 flex items-baseline gap-1 text-[var(--dash-fg)]">
+                  <span className="text-2xl font-bold">${ONE_TIME_PACK.priceUsd}</span>
+                  <span className="text-sm text-[var(--dash-muted)]">once</span>
+                </p>
+                <ul className="mt-3 grid gap-1.5 text-xs text-[var(--dash-muted)] sm:grid-cols-2">
+                  {oneTimePlanFeatureList().slice(0, 4).map((f) => (
+                    <li key={f} className="dash-check-item">{f}</li>
+                  ))}
+                </ul>
+              </div>
+              <a
+                href={`/checkout-redirect?plan=${ONE_TIME_PACK.checkoutKey}`}
+                className="dash-btn shrink-0 bg-emerald-600 text-white hover:bg-emerald-700"
+              >
+                Buy 10 ads
+              </a>
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
             <div className="dash-segmented">
               <button
                 type="button"

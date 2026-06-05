@@ -1,7 +1,12 @@
-/** Paid plan keys stored in Supabase `subscriptions.plan`. */
+/** Recurring subscription keys stored in Supabase `subscriptions.plan`. */
 export type PaidPlanKey = 'standard' | 'pro' | 'scale';
 
-export type SubscriptionPlan = PaidPlanKey | 'free_trial' | 'owner';
+/** One-time purchase keys (Whop single payment, no renewal). */
+export type OneTimePlanKey = 'pack_10';
+
+export type BillingPlanKey = PaidPlanKey | OneTimePlanKey;
+
+export type SubscriptionPlan = BillingPlanKey | 'free_trial' | 'owner';
 
 export type PlanBadge = 'popular' | 'best_value';
 
@@ -22,8 +27,32 @@ export type PlanLimits = {
   checkoutYearly: string;
 };
 
+export type OneTimePlanLimits = {
+  key: OneTimePlanKey;
+  name: string;
+  tagline: string;
+  credits: number;
+  maxProducts: number;
+  priceUsd: number;
+  checkoutKey: string;
+  whopPlanId: string;
+};
+
 export const FREE_TRIAL_MAX_PRODUCTS = 1;
 export const FREE_TRIAL_CREDITS = 2;
+/** Practical unlimited cap (same as owner). */
+export const UNLIMITED_MAX_PRODUCTS = 9999;
+
+export const ONE_TIME_PACK: OneTimePlanLimits = {
+  key: 'pack_10',
+  name: '10 Ads Pack',
+  tagline: 'Pay once, mirror 10 static ads',
+  credits: 10,
+  maxProducts: 3,
+  priceUsd: 9.99,
+  checkoutKey: 'pack_10',
+  whopPlanId: 'plan_J9fyEIeUSVd8d',
+};
 
 export const PAID_PLANS: PlanLimits[] = [
   {
@@ -31,7 +60,7 @@ export const PAID_PLANS: PlanLimits[] = [
     name: 'Starter',
     tagline: 'Explore and validate your first AI ads',
     credits: 40,
-    maxProducts: 3,
+    maxProducts: 10,
     monthlyPriceUsd: 29,
     yearlyTotalUsd: 279,
     annualMonthlyDisplayUsd: 23,
@@ -43,7 +72,7 @@ export const PAID_PLANS: PlanLimits[] = [
     name: 'Creator',
     tagline: 'For creators scaling content consistently',
     credits: 100,
-    maxProducts: 8,
+    maxProducts: 25,
     monthlyPriceUsd: 59,
     yearlyTotalUsd: 569,
     annualMonthlyDisplayUsd: 47,
@@ -55,7 +84,7 @@ export const PAID_PLANS: PlanLimits[] = [
     name: 'Pro',
     tagline: 'For active brands producing ads at volume',
     credits: 200,
-    maxProducts: 20,
+    maxProducts: UNLIMITED_MAX_PRODUCTS,
     monthlyPriceUsd: 99,
     yearlyTotalUsd: 950,
     annualMonthlyDisplayUsd: 79,
@@ -84,8 +113,9 @@ export const AGENCY_PLAN_DISPLAY = {
   ],
 } as const;
 
-/** Whop plan IDs → internal plan key (monthly + yearly per tier). */
-export const WHOP_PLAN_ID_MAP: Record<string, PaidPlanKey> = {
+/** Whop plan IDs → internal plan key (monthly + yearly + one-time). */
+export const WHOP_PLAN_ID_MAP: Record<string, BillingPlanKey> = {
+  plan_J9fyEIeUSVd8d: 'pack_10',
   plan_tNyLmHA6Ecbve: 'standard',
   plan_o5L5Qt9SceSYe: 'standard',
   plan_3kuJzf26hKZk4: 'pro',
@@ -99,17 +129,19 @@ export const WHOP_PLAN_ID_MAP: Record<string, PaidPlanKey> = {
   plan_CNk2XegENVQGM: 'pro',
 };
 
-const PAID_PLAN_RANK: Record<PaidPlanKey, number> = {
+const PLAN_RANK: Record<BillingPlanKey, number> = {
+  pack_10: 0,
   standard: 1,
   pro: 2,
   scale: 3,
 };
 
-export function paidPlanRank(plan: PaidPlanKey): number {
-  return PAID_PLAN_RANK[plan] ?? 0;
+export function paidPlanRank(plan: BillingPlanKey): number {
+  return PLAN_RANK[plan] ?? 0;
 }
 
 export const WHOP_CHECKOUT_URLS = {
+  pack_10: 'https://whop.com/checkout/plan_J9fyEIeUSVd8d',
   standard_monthly: 'https://whop.com/checkout/plan_tNyLmHA6Ecbve',
   standard_yearly: 'https://whop.com/checkout/plan_o5L5Qt9SceSYe',
   pro_monthly: 'https://whop.com/checkout/plan_3kuJzf26hKZk4',
@@ -135,11 +167,10 @@ export function planDisplayPrice(plan: PlanLimits, billing: BillingPeriod): {
   };
 }
 
-export function registerWhopPlanId(planId: string, key: PaidPlanKey) {
+export function registerWhopPlanId(planId: string, key: BillingPlanKey) {
   WHOP_PLAN_ID_MAP[planId] = key;
 }
 
-/** Load optional Pro tier (scale key) plan IDs from env at runtime (server). */
 /** Whop yearly plan IDs (annual billing). */
 const WHOP_YEARLY_PLAN_IDS = new Set([
   'plan_o5L5Qt9SceSYe',
@@ -156,9 +187,19 @@ export function isYearlyWhopPlanId(planId: string | undefined): boolean {
   return Boolean(yearlyEnv && planId === yearlyEnv);
 }
 
-export function resolveWhopPlanKey(planId: string | undefined): PaidPlanKey {
+export function isOneTimeWhopPlanId(planId: string | undefined): boolean {
+  if (!planId) return false;
+  if (planId === ONE_TIME_PACK.whopPlanId) return true;
+  const fromEnv = process.env.NEXT_PUBLIC_WHOP_PLAN_PACK_10?.trim();
+  return Boolean(fromEnv && planId === fromEnv);
+}
+
+export function resolveWhopPlanKey(planId: string | undefined): BillingPlanKey {
   if (!planId) return 'standard';
   if (WHOP_PLAN_ID_MAP[planId]) return WHOP_PLAN_ID_MAP[planId];
+
+  const packEnv = process.env.NEXT_PUBLIC_WHOP_PLAN_PACK_10?.trim();
+  if (packEnv && planId === packEnv) return 'pack_10';
 
   const scaleMonthly = process.env.NEXT_PUBLIC_WHOP_PLAN_SCALE_MONTHLY;
   const scaleYearly = process.env.NEXT_PUBLIC_WHOP_PLAN_SCALE_YEARLY;
@@ -168,31 +209,65 @@ export function resolveWhopPlanKey(planId: string | undefined): PaidPlanKey {
   return 'standard';
 }
 
-export function creditsForPlan(plan: PaidPlanKey): number {
+export function creditsForPlan(plan: BillingPlanKey): number {
+  if (plan === 'pack_10') return ONE_TIME_PACK.credits;
   return PAID_PLAN_BY_KEY[plan]?.credits ?? PAID_PLAN_BY_KEY.standard.credits;
 }
 
 export function maxProductsForPlan(plan: SubscriptionPlan): number {
-  if (plan === 'owner') return 9999;
+  if (plan === 'owner') return UNLIMITED_MAX_PRODUCTS;
   if (plan === 'free_trial') return FREE_TRIAL_MAX_PRODUCTS;
+  if (plan === 'pack_10') return ONE_TIME_PACK.maxProducts;
   return PAID_PLAN_BY_KEY[plan as PaidPlanKey]?.maxProducts ?? FREE_TRIAL_MAX_PRODUCTS;
+}
+
+export function isUnlimitedProducts(maxProducts: number): boolean {
+  return maxProducts >= UNLIMITED_MAX_PRODUCTS;
+}
+
+export function formatMaxProductsLabel(maxProducts: number): string {
+  return isUnlimitedProducts(maxProducts) ? 'Unlimited' : String(maxProducts);
 }
 
 export function isPaidPlan(plan: string | null | undefined): plan is PaidPlanKey {
   return plan === 'standard' || plan === 'pro' || plan === 'scale';
 }
 
+export function isOneTimePlan(plan: string | null | undefined): plan is OneTimePlanKey {
+  return plan === 'pack_10';
+}
+
+/** Active billing entitlement: recurring subscription or one-time pack purchase. */
+export function isEntitledPlan(plan: string | null | undefined): plan is BillingPlanKey {
+  return isPaidPlan(plan) || isOneTimePlan(plan);
+}
+
 export function planDisplayName(plan: SubscriptionPlan | string): string {
   if (plan === 'free_trial') return 'Free trial';
   if (plan === 'owner') return 'Owner';
+  if (isOneTimePlan(plan)) return ONE_TIME_PACK.name;
   if (isPaidPlan(plan)) return PAID_PLAN_BY_KEY[plan].name;
   return String(plan);
 }
 
+export function oneTimePlanFeatureList(plan: OneTimePlanLimits = ONE_TIME_PACK): string[] {
+  return [
+    `${plan.credits} AI image generations`,
+    `${plan.maxProducts} saved products`,
+    'Ad library',
+    'History',
+    'HD export',
+    'One-time payment · no subscription',
+  ];
+}
+
 export function planFeatureList(plan: PlanLimits): string[] {
+  const productLabel = isUnlimitedProducts(plan.maxProducts)
+    ? 'Unlimited saved products'
+    : `Up to ${plan.maxProducts} saved products`;
   const features = [
     `${plan.credits} images / month`,
-    `Up to ${plan.maxProducts} saved products`,
+    productLabel,
     'Ad library',
     'History',
     'HD export',

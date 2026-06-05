@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
-  isPaidPlan,
+  isEntitledPlan,
   maxProductsForPlan,
   planDisplayName,
   type SubscriptionPlan,
@@ -60,7 +60,7 @@ export async function getUserSubscriptionContext(
 
   let activeSub = sub;
 
-  if (!activeSub || !isPaidPlan(activeSub.plan)) {
+  if (!activeSub || !isEntitledPlan(activeSub.plan)) {
     const { syncWhopSubscriptionForEmailWithRetries } = await import('@/lib/whop');
     const syncResult = await syncWhopSubscriptionForEmailWithRetries(normalizedEmail, {
       maxAttempts: 3,
@@ -72,13 +72,13 @@ export async function getUserSubscriptionContext(
         .select('plan, credits_remaining, period_end, whop_membership_id, cancel_at_period_end')
         .eq('email', normalizedEmail)
         .maybeSingle();
-      if (refreshed.data && isPaidPlan(refreshed.data.plan)) {
+      if (refreshed.data && isEntitledPlan(refreshed.data.plan)) {
         activeSub = refreshed.data;
       }
     }
   }
 
-  if (activeSub && isPaidPlan(activeSub.plan)) {
+  if (activeSub && isEntitledPlan(activeSub.plan)) {
     const maxProducts = maxProductsForPlan(activeSub.plan);
     return {
       plan: activeSub.plan,

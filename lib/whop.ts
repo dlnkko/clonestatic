@@ -1,6 +1,6 @@
 import { getWhopClient, getWhopClientOrNull } from '@/lib/whop-sdk';
-import { paidPlanRank, resolveWhopPlanKey, type PaidPlanKey } from '@/lib/plans';
-import type { WhopSubscriptionInput } from '@/lib/whop-subscription';
+import { paidPlanRank, resolveWhopPlanKey, type BillingPlanKey } from '@/lib/plans';
+import type { WhopSubscriptionInput, UpsertWhopSubscriptionOptions } from '@/lib/whop-subscription';
 import type Whop from '@whop/sdk';
 
 type MembershipStatus = NonNullable<
@@ -111,7 +111,7 @@ function inputFromMembership(
 }
 
 type MembershipCandidate = WhopSubscriptionInput & {
-  planKey: PaidPlanKey;
+  planKey: BillingPlanKey;
   sortKey: number;
 };
 
@@ -151,11 +151,17 @@ function addMembershipCandidate(
   });
 }
 
-async function upsertFromWhopData(input: WhopSubscriptionInput) {
+async function upsertFromWhopData(
+  input: WhopSubscriptionInput,
+  options?: UpsertWhopSubscriptionOptions
+) {
   const { createAdminClient } = await import('@/lib/supabase/admin');
   const { upsertWhopSubscription } = await import('@/lib/whop-subscription');
   const supabase = createAdminClient();
-  return upsertWhopSubscription(supabase, input, { grantFreshCredits: true });
+  return upsertWhopSubscription(supabase, input, {
+    grantFreshCredits: true,
+    ...options,
+  });
 }
 
 function inputFromWhopPayment(
@@ -211,7 +217,7 @@ export async function activateWhopSubscriptionFromPaymentId(
       return { ok: false, error: 'Payment not successful or missing plan' };
     }
 
-    const { row, error } = await upsertFromWhopData(input);
+    const { row, error } = await upsertFromWhopData(input, { incrementOneTimeCredits: true });
     if (error) return { ok: false, error: error.message };
     return { ok: true, plan: row.plan, credits: row.credits_remaining };
   } catch (err) {

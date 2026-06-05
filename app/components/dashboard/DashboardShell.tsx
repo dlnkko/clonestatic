@@ -6,6 +6,7 @@ import { cn } from '@/lib/cn';
 import { AdmirrorLogo } from '@/app/components/AdmirrorLogo';
 import { CancelSubscriptionModal } from '@/app/components/dashboard/CancelSubscriptionModal';
 import { LOCALE_LABELS, useI18n, type Locale } from '@/lib/i18n/LocaleProvider';
+import { formatMaxProductsLabel } from '@/lib/plans';
 
 export type DashboardTab =
   | 'new'
@@ -226,7 +227,7 @@ export function DashboardShell({
               </div>
               {productCount !== null && maxProducts !== null && (
                 <p className="dash-credits-meta">
-                  {t('shell', 'productsUsage', { count: productCount, max: maxProducts })}
+                  {t('shell', 'productsUsage', { count: productCount, max: formatMaxProductsLabel(maxProducts) })}
                 </p>
               )}
             </div>

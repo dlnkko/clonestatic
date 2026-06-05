@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { cn } from '@/lib/cn';
 import { Reveal } from './Reveal';
 import {
+  ONE_TIME_PACK,
   PAID_PLANS,
+  oneTimePlanFeatureList,
   planDisplayPrice,
   planFeatureList,
   type BillingPeriod,
@@ -77,6 +79,34 @@ export function LandingPricing() {
         </p>
       </Reveal>
 
+      <Reveal direction="up" delayMs={60} className="mt-10 flex justify-center">
+        <article className="landing-pricing-card relative w-full max-w-md rounded-3xl border-2 border-emerald-300/70 bg-gradient-to-b from-emerald-50/90 to-white p-7 shadow-lg shadow-emerald-100/40">
+          <span className="absolute right-5 top-5 rounded-full bg-emerald-500 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
+            One-time
+          </span>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{ONE_TIME_PACK.name}</p>
+          <p className="mt-2 text-sm leading-snug text-slate-500">{ONE_TIME_PACK.tagline}</p>
+          <p className="mt-6 flex items-baseline gap-1">
+            <span className="text-4xl font-bold tracking-tight text-slate-900">${ONE_TIME_PACK.priceUsd}</span>
+            <span className="text-slate-500">once</span>
+          </p>
+          <ul className="mt-5 space-y-2.5 text-sm text-slate-600">
+            {oneTimePlanFeatureList().map((f) => (
+              <li key={f} className="flex items-start gap-2.5">
+                <Check />
+                <span>{f}</span>
+              </li>
+            ))}
+          </ul>
+          <a
+            href={`/login?next=checkout&plan=${ONE_TIME_PACK.checkoutKey}`}
+            className="mt-8 inline-flex w-full items-center justify-center rounded-xl border-2 border-emerald-600 bg-emerald-600 py-3.5 text-sm font-semibold text-white transition-all hover:bg-emerald-700"
+          >
+            Buy 10 ads
+          </a>
+        </article>
+      </Reveal>
+
       <Reveal direction="up" delayMs={80} className="mt-10 flex justify-center">
         <BillingToggle billing={billing} onChange={setBilling} />
       </Reveal>
@@ -137,7 +167,7 @@ export function LandingPricing() {
       </div>
 
       <Reveal direction="up" delayMs={100} className="mt-6 text-center">
-        <p className="text-xs text-slate-400">1 credit = 1 image · Cancel anytime</p>
+        <p className="text-xs text-slate-400">1 credit = 1 image · Subscriptions cancel anytime</p>
       </Reveal>
     </div>
   );

@@ -3,7 +3,7 @@
 import { Suspense, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { isPaidPlan } from '@/lib/plans';
+import { isEntitledPlan } from '@/lib/plans';
 
 function readWhopPaymentId(searchParams: URLSearchParams): string | null {
   for (const key of ['payment_id', 'receipt_id']) {
@@ -46,7 +46,7 @@ async function tryActivate(paymentId: string | null): Promise<boolean> {
     const subRes = await fetch('/api/subscription', { credentials: 'include' });
     if (subRes.ok) {
       const subData = await subRes.json();
-      if (subData?.ok && isPaidPlan(subData.plan) && Number(subData.credits_remaining) > 0) {
+      if (subData?.ok && isEntitledPlan(subData.plan) && Number(subData.credits_remaining) > 0) {
         return true;
       }
     }
