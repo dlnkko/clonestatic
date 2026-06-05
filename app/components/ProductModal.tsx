@@ -182,10 +182,6 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
       setError('Product description is required');
       return;
     }
-    if (!targetAudience.trim()) {
-      setError('Target audience is required');
-      return;
-    }
     if (paletteColors.length < 1) {
       setError('Select at least one brand color');
       return;
@@ -248,7 +244,6 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     try {
       if (!name.trim()) throw new Error('Product name is required');
       if (!description.trim()) throw new Error('Product description is required');
-      if (!targetAudience.trim()) throw new Error('Target audience is required');
       if (paletteColors.length < 1) throw new Error('Select at least one brand color');
       if (imageFiles.length < 1) throw new Error('Upload at least one product image');
 
@@ -338,7 +333,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
           <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} className="dash-input" />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600">Target audience</label>
+          <label className="mb-1 block text-xs font-medium text-slate-600">Target audience (optional)</label>
           <input value={targetAudience} onChange={(e) => setTargetAudience(e.target.value)} className="dash-input" />
         </div>
         <BrandColorPicker colors={paletteColors} onChange={setPaletteColors} />
@@ -370,7 +365,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="dash-input" />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-600">Target audience</label>
+        <label className="mb-1 block text-xs font-medium text-slate-600">Target audience (optional)</label>
         <input type="text" value={targetAudience} onChange={(e) => setTargetAudience(e.target.value)} className="dash-input" />
       </div>
       <BrandColorPicker colors={paletteColors} onChange={setPaletteColors} />
