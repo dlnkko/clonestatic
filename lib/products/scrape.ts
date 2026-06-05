@@ -128,13 +128,24 @@ export type ProductPageScrapeResult = {
   extractedPricing: ExtractedPricing;
 };
 
-export async function scrapeProductPage(url: string): Promise<ProductPageScrapeResult> {
+export type ScrapeProductPageOptions = {
+  /** Skip collecting/downloading page images (copy/branding/pricing only). */
+  skipImages?: boolean;
+};
+
+export async function scrapeProductPage(
+  url: string,
+  options?: ScrapeProductPageOptions
+): Promise<ProductPageScrapeResult> {
+  const skipImages = options?.skipImages === true;
   const firecrawl = getFirecrawlInstance();
   const fc = firecrawl as {
     scrape?: (u: string, o: object) => Promise<unknown>;
     scrapeUrl?: (u: string, o: object) => Promise<unknown>;
   };
-  const formats = { formats: ['summary', 'branding', 'markdown', 'links', 'html'] };
+  const formats = skipImages
+    ? { formats: ['summary', 'branding', 'markdown'] }
+    : { formats: ['summary', 'branding', 'markdown', 'links', 'html'] };
   let doc: Record<string, unknown>;
   try {
     if (fc.scrape) {
@@ -185,6 +196,26 @@ export async function scrapeProductPage(url: string): Promise<ProductPageScrapeR
       ? markdown.slice(0, 12000) + '\n\n[...truncated]'
       : markdown
     : null;
+
+  const extractedPricing = extractProductPricing({
+    summary,
+    markdown: markdownForPrompt ?? markdown,
+    html: skipImages ? null : html,
+    metadata,
+    productUrl: url,
+  });
+
+  if (skipImages) {
+    return {
+      summary,
+      branding,
+      markdown: markdownForPrompt ?? markdown,
+      metadata,
+      images: [],
+      logoUrl: null,
+      extractedPricing,
+    };
+  }
 
   const productUrlSet = new Set<string>();
   const logoUrlSet = new Set<string>();
@@ -250,14 +281,6 @@ export async function scrapeProductPage(url: string): Promise<ProductPageScrapeR
 
   const images = orderProductImages(rawImages);
   const logoUrl = images.find((i) => i.kind === 'logo')?.url ?? [...logoUrlSet][0] ?? null;
-
-  const extractedPricing = extractProductPricing({
-    summary,
-    markdown: markdownForPrompt ?? markdown,
-    html,
-    metadata,
-    productUrl: url,
-  });
 
   return {
     summary,

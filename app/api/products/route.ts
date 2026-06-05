@@ -69,10 +69,9 @@ type CreateUrlFromPreviewBody = {
   priceDisplay?: string;
   pricingConfig?: ProductScrapeCache['pricingConfig'];
   logoBase64List?: string[];
+  imageBase64List: string[];
   branding?: Record<string, unknown> | null;
   extractedPricing?: ProductScrapeCache['extractedPricing'];
-  images: ProductImage[];
-  logoUrl?: string | null;
 };
 
 export async function POST(request: NextRequest) {
@@ -110,54 +109,42 @@ export async function POST(request: NextRequest) {
 
     if (source === 'url' && body.saveFromPreview) {
       const b = body as CreateUrlFromPreviewBody;
-      if (!b.productUrl?.trim() || !b.name?.trim() || !Array.isArray(b.images) || b.images.length < 1) {
+      if (
+        !b.productUrl?.trim() ||
+        !b.name?.trim() ||
+        !Array.isArray(b.imageBase64List) ||
+        b.imageBase64List.length < 1
+      ) {
         return NextResponse.json({ error: 'Invalid preview save payload' }, { status: 400 });
       }
-
-      const imageUrls: ProductImage[] = [];
-      for (const img of b.images.slice(0, 12)) {
-        try {
-          const res = await fetch(img.url, { signal: AbortSignal.timeout(20000) });
-          if (!res.ok) continue;
-          const buf = Buffer.from(await res.arrayBuffer());
-          const b64 = `data:${res.headers.get('content-type')?.split(';')[0] || 'image/jpeg'};base64,${buf.toString('base64')}`;
-          const hosted = await uploadBase64ToImgBB(b64);
-          imageUrls.push({ ...img, url: hosted });
-        } catch {
-          imageUrls.push(img);
-        }
+      if (b.imageBase64List.length > 10) {
+        return NextResponse.json({ error: 'Maximum 10 product images' }, { status: 400 });
       }
 
-      const classifiedImages = classifyProductImagesHeuristic(imageUrls);
-      const productImages = classifiedImages.filter((i) => i.kind !== 'logo');
-      const scrapedLogos = classifiedImages.filter((i) => i.kind === 'logo');
-
-      const primary = productImages[0]?.url ?? classifiedImages[0]?.url;
-      if (!primary) {
-        return NextResponse.json({ error: 'No images to save' }, { status: 400 });
+      const images: ProductImage[] = [];
+      for (let i = 0; i < b.imageBase64List.length; i++) {
+        const url = await uploadBase64ToImgBB(b.imageBase64List[i]);
+        images.push({
+          url,
+          kind: i === 0 ? 'product' : 'other',
+          alt: `${b.name.trim()} image ${i + 1}`,
+        });
       }
 
       const logoUrls: string[] = [];
-      for (const logoImg of scrapedLogos.slice(0, 2)) {
-        try {
-          const res = await fetch(logoImg.url, { signal: AbortSignal.timeout(20000) });
-          if (!res.ok) continue;
-          const buf = Buffer.from(await res.arrayBuffer());
-          const b64 = `data:${res.headers.get('content-type')?.split(';')[0] || 'image/png'};base64,${buf.toString('base64')}`;
-          logoUrls.push(await uploadBase64ToImgBB(b64));
-        } catch {
-          logoUrls.push(logoImg.url);
-        }
-      }
       if (Array.isArray(b.logoBase64List)) {
         for (const base64 of b.logoBase64List.slice(0, 2)) {
           if (!base64) continue;
-          try {
-            logoUrls.push(await uploadBase64ToImgBB(base64));
-          } catch {
-            /* ignore */
-          }
+          const url = await uploadBase64ToImgBB(base64);
+          logoUrls.push(url);
+          images.push({ url, kind: 'logo', alt: `${b.name.trim()} logo` });
         }
+      }
+
+      const classifiedImages = classifyProductImagesHeuristic(images);
+      const primary = classifiedImages.find((i) => i.kind !== 'logo')?.url ?? classifiedImages[0]?.url;
+      if (!primary) {
+        return NextResponse.json({ error: 'No images to save' }, { status: 400 });
       }
 
       const colors = b.colorPalette
@@ -166,17 +153,7 @@ export async function POST(request: NextRequest) {
         .filter(Boolean)
         .slice(0, 8);
 
-      const mergedImages: ProductImage[] = [
-        ...productImages,
-        ...scrapedLogos,
-        ...logoUrls
-          .filter((url) => !scrapedLogos.some((l) => l.url === url))
-          .map((url, i) => ({
-            url,
-            kind: 'logo' as const,
-            alt: `${b.name.trim()} logo ${i + 1}`,
-          })),
-      ];
+      const mergedImages = classifiedImages;
 
       const scrapeCache: ProductScrapeCache = {
         summary: (b.description || b.name).trim(),
@@ -199,7 +176,7 @@ export async function POST(request: NextRequest) {
           description: (b.description || b.name).trim().slice(0, 4000),
           target_audience: b.targetAudience?.trim().slice(0, 1000) || null,
           color_palette: colors?.length ? { colors } : null,
-          logo_url: logoUrls[0] ?? b.logoUrl ?? scrapedLogos[0]?.url ?? null,
+          logo_url: logoUrls[0] ?? null,
           primary_image_url: primary,
           images: mergedImages,
           scrape_cache: scrapeCache,

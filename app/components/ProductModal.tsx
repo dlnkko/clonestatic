@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { ExtractedPricing, ProductImage, ProductPricingConfig, ProductRecord } from '@/lib/products/types';
+import type { ExtractedPricing, ProductPricingConfig, ProductRecord } from '@/lib/products/types';
 import { BrandColorPicker } from '@/app/components/products/BrandColorPicker';
 import { ImageUploadSlots } from '@/app/components/products/ImageUploadSlots';
 import { ProductPricingEditor } from '@/app/components/products/ProductPricingEditor';
@@ -17,7 +17,7 @@ import {
 } from '@/lib/products/pricing-config';
 
 type Mode = 'url' | 'manual';
-type UrlStep = 'input' | 'review';
+type UrlStep = 'input' | 'info' | 'assets';
 
 type ScrapePreview = {
   productUrl: string;
@@ -26,11 +26,9 @@ type ScrapePreview = {
   targetAudience: string;
   colorPalette: string;
   branding: Record<string, unknown> | null;
-  images: ProductImage[];
   extractedPricing: ExtractedPricing;
   priceDisplay: string;
   pricingConfig: ProductPricingConfig;
-  logoUrl?: string | null;
 };
 
 type Props = {
@@ -167,7 +165,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
       setTargetAudience(p.targetAudience);
       setPaletteColors(parsePalette(p.colorPalette));
       applyScrapedPricing(p);
-      setUrlStep('review');
+      setUrlStep('info');
     } catch {
       setError(USER_MESSAGES.scrapeFailed);
     } finally {
@@ -175,11 +173,37 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     }
   };
 
+  const handleContinueToAssets = () => {
+    if (!name.trim()) {
+      setError('Product name is required');
+      return;
+    }
+    if (!description.trim()) {
+      setError('Product description is required');
+      return;
+    }
+    if (!targetAudience.trim()) {
+      setError('Target audience is required');
+      return;
+    }
+    if (paletteColors.length < 1) {
+      setError('Select at least one brand color');
+      return;
+    }
+    setError(null);
+    setUrlStep('assets');
+  };
+
   const handleSaveFromPreview = async () => {
     if (!preview) return;
+    if (imageFiles.length < 1) {
+      setError('Upload at least one product image');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
+      const imageBase64List = await Promise.all(imageFiles.map(readFileAsDataUrl));
       const logoBase64List =
         logoFiles.length > 0 ? await Promise.all(logoFiles.map(readFileAsDataUrl)) : undefined;
       const syncedPricing = syncPricingConfigDefaults(pricingConfig);
@@ -197,11 +221,10 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
           colorPalette: paletteColors.join(', '),
           priceDisplay: syncedPricing.priceDisplay,
           pricingConfig: syncedPricing,
+          imageBase64List,
           logoBase64List,
           branding: preview.branding,
           extractedPricing: preview.extractedPricing,
-          images: preview.images,
-          logoUrl: preview.logoUrl ?? null,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -299,10 +322,10 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     />
   );
 
-  const reviewFields = (
+  const infoFields = (
     <div className="product-modal-scroll space-y-5 max-h-[58vh] overflow-y-auto pr-1">
       <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-4 py-3 text-xs leading-relaxed text-indigo-900">
-        Review scraped data before saving. Page markdown is not stored.
+        Review scraped copy, pricing, and brand colors. On the next step you will upload logo and product images.
       </div>
       <div className="product-modal-section space-y-4">
         <div>
@@ -319,28 +342,19 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
           <input value={targetAudience} onChange={(e) => setTargetAudience(e.target.value)} className="dash-input" />
         </div>
         <BrandColorPicker colors={paletteColors} onChange={setPaletteColors} />
-        {logoUpload}
       </div>
-      {preview && preview.images.length > 0 && (
-        <div className="product-modal-section">
-          <p className="mb-2 text-xs font-medium text-slate-600">Images found on page</p>
-          <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-            {preview.images.slice(0, 12).map((img, i) => (
-              <div key={i} className="relative">
-                <img src={img.url} alt="" className="aspect-square rounded-lg object-cover ring-1 ring-slate-200" />
-                {img.kind === 'logo' && (
-                  <span className="absolute left-1 top-1 rounded bg-black/70 px-1 py-0.5 text-[9px] text-white">
-                    Logo
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-          <p className="mt-2 text-[10px] text-slate-500">
-            Product shots, trust badges, and logo (when found) are stored separately for ad matching.
-          </p>
-        </div>
-      )}
+    </div>
+  );
+
+  const assetFields = (
+    <div className="product-modal-scroll space-y-5 max-h-[58vh] overflow-y-auto pr-1">
+      <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-4 py-3 text-xs leading-relaxed text-indigo-900">
+        Upload your logo and product shots. We do not scrape images from the page — use the best assets you have on hand.
+      </div>
+      <div className="product-modal-section space-y-4">
+        {logoUpload}
+        {productImageUpload}
+      </div>
     </div>
   );
 
@@ -378,13 +392,25 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
         </div>
         <div className="dash-modal-body flex-1 overflow-y-auto">
 
-        {mode === 'url' && urlStep === 'review' ? (
+        {mode === 'url' && urlStep === 'info' ? (
           <>
             <h3 className="mb-3 text-sm font-semibold text-slate-800">Review scraped data</h3>
-            {reviewFields}
+            {infoFields}
             {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
             <div className="mt-5 flex gap-2">
               <button type="button" onClick={() => setUrlStep('input')} className="dash-btn dash-btn-secondary">Back</button>
+              <button type="button" onClick={handleContinueToAssets} className="dash-btn dash-btn-primary flex-1">
+                Continue
+              </button>
+            </div>
+          </>
+        ) : mode === 'url' && urlStep === 'assets' ? (
+          <>
+            <h3 className="mb-3 text-sm font-semibold text-slate-800">Upload images</h3>
+            {assetFields}
+            {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+            <div className="mt-5 flex gap-2">
+              <button type="button" onClick={() => setUrlStep('info')} className="dash-btn dash-btn-secondary">Back</button>
               <button type="button" onClick={handleSaveFromPreview} disabled={loading} className="dash-btn dash-btn-primary flex-1">
                 {loading ? 'Saving…' : 'Save product'}
               </button>
@@ -400,7 +426,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
             {mode === 'url' ? (
               <div className="product-modal-section space-y-3">
                 <p className="text-xs leading-relaxed text-slate-500">
-                  Paste a product page URL. We scrape copy, branding, price, currency, and images — you review before saving.
+                  Paste a product page URL. We scrape copy, branding, and pricing — then you upload logo and product images yourself.
                 </p>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-slate-600">Product page URL</label>
@@ -419,7 +445,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
               disabled={loading}
               className="dash-btn dash-btn-primary mt-5 w-full"
             >
-              {loading ? (mode === 'url' ? 'Scraping…' : 'Saving…') : mode === 'url' ? 'Scrape & review' : 'Save product'}
+              {loading ? (mode === 'url' ? 'Scraping…' : 'Saving…') : mode === 'url' ? 'Scrape product info' : 'Save product'}
             </button>
           </>
         )}
