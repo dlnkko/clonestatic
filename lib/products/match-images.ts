@@ -152,37 +152,61 @@ Output JSON only:
     }
   }
 
-  // Ensure packaging slots use packaging photos, not loose product shots
+  // Ensure packaging slots use packaging photos, not lifestyle scenes
   for (let i = 0; i < referenceElements.length; i++) {
     const el = referenceElements[i];
     if (el.role !== 'packaging') continue;
 
     const existingIdx = matches.findIndex((m) => m.role === 'packaging');
     const packagingIdx = productImages.findIndex((img) => img.kind === 'packaging');
+    const labelIdx =
+      packagingIdx >= 0
+        ? packagingIdx
+        : productImages.findIndex((img) =>
+            /label|wrap|sleeve|carton|packaging|pack-shot|bar-soap|soap-bar/i.test(
+              `${img.url} ${img.alt || ''}`
+            )
+          );
 
-    if (packagingIdx >= 0) {
-      const packagingUrl = productImages[packagingIdx].url;
-      if (existingIdx >= 0) {
-        matches[existingIdx] = {
-          role: 'packaging',
-          url: packagingUrl,
-          description: catalogMatchDescription(
-            'packaging',
-            productImages[packagingIdx],
-            el.description
-          ),
-        };
-      } else if (matches.length < referenceElements.length) {
-        matches.push({
-          role: 'packaging',
-          url: packagingUrl,
-          description: catalogMatchDescription(
-            'packaging',
-            productImages[packagingIdx],
-            el.description
-          ),
-        });
-      }
+    if (labelIdx >= 0) {
+      const img = productImages[labelIdx];
+      const entry = {
+        role: 'packaging' as const,
+        url: img.url,
+        description: catalogMatchDescription('packaging', img, el.description),
+      };
+      if (existingIdx >= 0) matches[existingIdx] = entry;
+      else if (matches.length < referenceElements.length) matches.push(entry);
+      used.add(labelIdx);
+    }
+  }
+
+  // When reference hero is packaging but was labeled "product", still prefer packaging catalog photo
+  for (let i = 0; i < matches.length; i++) {
+    const el = referenceElements[i];
+    if (!el) continue;
+    const needsPackaging =
+      el.role === 'packaging' ||
+      (el.role === 'product' &&
+        /bottle|tube|jar|labeled|label|box|container|packaging|canister/i.test(el.description));
+    if (!needsPackaging) continue;
+    const packagingIdx = productImages.findIndex(
+      (img, idx) =>
+        !used.has(idx) &&
+        (img.kind === 'packaging' ||
+          /label|wrap|sleeve|carton|packaging|pack-shot/i.test(`${img.url} ${img.alt || ''}`))
+    );
+    if (packagingIdx >= 0 && matches[i].role !== 'packaging') {
+      matches[i] = {
+        role: 'packaging',
+        url: productImages[packagingIdx].url,
+        description: catalogMatchDescription(
+          'packaging',
+          productImages[packagingIdx],
+          el.description
+        ),
+      };
+      used.add(packagingIdx);
     }
   }
 

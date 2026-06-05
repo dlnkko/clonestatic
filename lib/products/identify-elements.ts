@@ -41,7 +41,10 @@ Context from prior analysis:
 - Visual style: ${styleHint}
 - Product pose/arrangement notes: ${referenceProductPose.slice(0, 1500)}
 
-If the ad shows only ONE hero product element (no separate bottle/box/pouch shot), return a single element with role "product".
+If the ad shows only ONE hero product element (no separate bottle/box/pouch shot), return a single element:
+- role **packaging** when the hero is a retail container with label (bottle, tube, jar, labeled box, wrapped bar with sleeve) — common in beauty/supplement top bands
+- role **product** when the hero is loose units/items without retail packaging visible
+
 If it shows loose units/items AND separate retail packaging, return TWO elements: role "product" for the units/stack, role "packaging" for the user's packaging zone.
 Describe each element's **layout zone only** (e.g. "lower right hero zone", "beside main stack") — do NOT name the reference competitor's container type (avoid "supplement bottle" — say "packaging in lower right").
 If packaging is visible, you MUST include role "packaging" — never merge packaging into "product" only.

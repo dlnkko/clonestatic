@@ -32,6 +32,7 @@ import type {
   VisualMetaphorProfile,
 } from '@/lib/adaptation/types';
 import { refineProductImageKinds } from '@/lib/products/classify-images';
+import { filterCatalogProductImages } from '@/lib/products/filter-catalog-images';
 import { resolveCopyLanguage } from '@/lib/copy-languages';
 import { GEMINI_MODEL } from '@/lib/gemini-model';
 import { getProductAllowedPrice, getProductPricingInstructions, productCopywritingPayload, rowToProduct } from '@/lib/products/db';
@@ -442,6 +443,7 @@ export async function POST(request: NextRequest) {
     let referenceVerbatimPhrases: string[] = [];
     let referenceTextLayoutBlock = '';
     let referenceComparisonModule = '';
+    let referenceLayoutZonesBlock = '';
     let hasReferenceComparisonModule = false;
     let marketingAngle: MarketingAngleProfile | null = null;
     let visualMetaphor: VisualMetaphorProfile | null = null;
@@ -473,13 +475,21 @@ export async function POST(request: NextRequest) {
         }
 
         const comparisonMatch = analysisText.match(
-          /\*\*BEFORE \/ AFTER COMPARISON \(REFERENCE AD\):\*\*\s*([\s\S]*?)(?=\*\*VISUAL STYLE|\*\*BRAND|\*\*COPYWRITING ANALYSIS:\*\*|\*\*PROMO|\*\*TRUST BADGE|\*\*ICON \/ FEATURE|\*\*SOCIAL PROOF|\*\*PRODUCT POSE|\*\*REFERENCE AD PROMPT:\*\*|$)/i
+          /\*\*BEFORE \/ AFTER COMPARISON \(REFERENCE AD\):\*\*\s*([\s\S]*?)(?=\*\*LAYOUT ZONES|\*\*VISUAL STYLE|\*\*BRAND|\*\*COPYWRITING ANALYSIS:\*\*|\*\*PROMO|\*\*TRUST BADGE|\*\*ICON \/ FEATURE|\*\*SOCIAL PROOF|\*\*PRODUCT POSE|\*\*REFERENCE AD PROMPT:\*\*|$)/i
         );
         if (comparisonMatch) {
           referenceComparisonModule = comparisonMatch[1].trim();
           hasReferenceComparisonModule =
             referenceComparisonModule.length > 0 && /Present:\s*yes/i.test(referenceComparisonModule);
           console.log('\n=== REFERENCE BEFORE/AFTER MODULE ===', hasReferenceComparisonModule);
+        }
+
+        const layoutZonesMatch = analysisText.match(
+          /\*\*LAYOUT ZONES \(REFERENCE AD\):\*\*\s*([\s\S]*?)(?=\*\*VISUAL STYLE|\*\*BRAND|\*\*COPYWRITING ANALYSIS:\*\*|\*\*MARKETING|\*\*PROMO|\*\*TRUST BADGE|\*\*ICON \/ FEATURE|\*\*SOCIAL PROOF|\*\*PRODUCT POSE|\*\*REFERENCE AD PROMPT:\*\*|$)/i
+        );
+        if (layoutZonesMatch) {
+          referenceLayoutZonesBlock = layoutZonesMatch[1].trim();
+          console.log('\n=== REFERENCE LAYOUT ZONES ===', referenceLayoutZonesBlock.substring(0, 200));
         }
 
         // Extract visual style (graphic vs person/environment) — do not add gym/person if reference is graphic-only
@@ -662,7 +672,7 @@ export async function POST(request: NextRequest) {
       const classified = await refineProductImageKinds(ai, catalogImages, {
         needTrustBadge: referenceTrustBadge.present,
       });
-      catalogImages = classified.images;
+      catalogImages = filterCatalogProductImages(classified.images, 10);
       if (classified.usage) productMatchingUsages.push(classified.usage);
       console.log(
         '\n=== PRODUCT IMAGE CLASSIFICATION ===',
@@ -790,6 +800,7 @@ export async function POST(request: NextRequest) {
           referenceTextLayoutBlock,
           referenceComparisonModule,
           hasReferenceComparisonModule,
+          referenceLayoutZonesBlock,
           marketingAngle,
           visualMetaphor,
         },

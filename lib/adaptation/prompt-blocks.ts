@@ -7,6 +7,7 @@ import {
   backgroundColorAdaptationBlock,
   beforeAfterComparisonBlock,
   illustrativeVisualBlock,
+  layoutProportionsBlock,
   marketingAngleExtrapolationBlock,
   noStockPhotoUnlessReferenceBlock,
   packagingMirroringBlock,
@@ -154,6 +155,8 @@ ${typographyHierarchyBlock(ctx)}
 
 ${textLayoutBlock(ctx)}
 
+${layoutProportionsBlock(ctx)}
+
 ${beforeAfterComparisonBlock(ctx)}
 
 RULES (JSON output):
@@ -238,7 +241,8 @@ ${ctx.typographyHierarchy?.sizeRatioHeadlineToSub ? `    Reference ratio hint: $
 ${ctx.marketingAngle && !ctx.marketingAngle.productMentionedInCopy ? '18b. MARKETING ANGLE: Reference had NO product in copy — FAIL if prompt or copy names user product or "[Brand] helps you"' : ''}
 ${ctx.visualMetaphor?.present ? `19. VISUAL METAPHOR: Reference used symbolic hero (${ctx.visualMetaphor.symbolicMeaning}) — FAIL if prompt uses generic product packshot instead of analogous metaphor; FAIL if headline word contradicts image (e.g. "Flat"/"Deflated" with plump/full product)` : ''}
 24. NO DUPLICATE TEXT: Each approved copy line must appear in the final prompt exactly ONCE — FAIL if any dismissal, headline, or body phrase is repeated (e.g. "Just tired" listed twice)
-25. PRODUCT CATEGORY: Visual + body symptoms must match user product (${ctx.productName ?? 'see scrape'}) — FAIL if abstract unrelated blob OR reference-niche copy (libido) when product is fitness/supplements
+${ctx.hasReferenceComparisonModule ? `26. LAYOUT PROPORTIONS: FAIL if prompt splits frame ~50/50 when reference has small header band (${ctx.referenceLayoutZones?.headerBandPercent ?? '~30%'}) + large comparison (${ctx.referenceLayoutZones?.mainModulePercent ?? '~70%'})` : ctx.referenceLayoutZones ? `26. LAYOUT PROPORTIONS: FAIL if equal halves when reference bands are ${ctx.referenceLayoutZones.headerBandPercent} / ${ctx.referenceLayoutZones.mainModulePercent}` : ''}
+27. PACKAGING PHOTO: When reference top band shows labeled bottle/box/tube, prompt must use user packaging catalog photo — FAIL if lifestyle grass/scene photo used as hero
 ${ctx.hasReferenceComparisonModule ? `19. BEFORE/AFTER: Prompt must describe natural side-by-side panels — FAIL if "vertical split face", harsh bisect, full portrait when reference was macro crop, or oversized Before/After labels` : ''}
 ${ctx.referenceTextLayout ? `20. TEXT LAYOUT: Top copy must be ${ctx.referenceTextLayout.alignment}-aligned ${ctx.referenceTextLayout.stackDirection} stack — FAIL if subhero same visual size as hero` : ''}
 

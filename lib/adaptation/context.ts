@@ -9,6 +9,8 @@ import {
   enrichCopywritingProfile,
   inferSecondaryWordLimitFromReferenceLines,
   parseReferenceComparisonModule,
+  parseReferenceLayoutZones,
+  parseReferenceLayoutZonesFromAnalysis,
   parseReferenceTextLayout,
   parseTypographyHierarchy,
 } from './parse-reference-analysis';
@@ -96,6 +98,7 @@ export type BuildContextInput = {
   referenceTextLayoutBlock?: string;
   referenceComparisonModule?: string;
   hasReferenceComparisonModule?: boolean;
+  referenceLayoutZonesBlock?: string;
   marketingAngle?: import('./types').MarketingAngleProfile | null;
   visualMetaphor?: import('./types').VisualMetaphorProfile | null;
 };
@@ -130,6 +133,7 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     referenceTextLayoutBlock = '',
     referenceComparisonModule = '',
     hasReferenceComparisonModule = false,
+    referenceLayoutZonesBlock = '',
     marketingAngle: marketingAngleInput = null,
     visualMetaphor: visualMetaphorInput = null,
   } = input;
@@ -139,6 +143,9 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     : null;
   const referenceComparisonParsed = referenceComparisonModule
     ? parseReferenceComparisonModule(referenceComparisonModule)
+    : null;
+  const referenceLayoutZones = referenceLayoutZonesBlock
+    ? parseReferenceLayoutZones(referenceLayoutZonesBlock)
     : null;
 
   const pricingInstructions = buildPricingInstructions(allowedPrice, pricingDetail);
@@ -247,6 +254,7 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     referenceComparisonModule,
     referenceComparisonParsed,
     hasReferenceComparisonModule,
+    referenceLayoutZones,
     referenceProductPoseAndArrangement,
     referenceReviewModule,
     hasReferenceReviewModule,

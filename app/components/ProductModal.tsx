@@ -6,6 +6,11 @@ import { BrandColorPicker } from '@/app/components/products/BrandColorPicker';
 import { ImageUploadSlots } from '@/app/components/products/ImageUploadSlots';
 import { ProductPricingEditor } from '@/app/components/products/ProductPricingEditor';
 import {
+  USER_MESSAGES,
+  userMessageForProductSave,
+  userMessageForProductScrape,
+} from '@/lib/api-error-message';
+import {
   emptyPricingConfig,
   pricingConfigFromExtracted,
   syncPricingConfigDefaults,
@@ -132,7 +137,13 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
 
   const handleScrapePreview = async () => {
     if (!productUrl.trim()) {
-      setError('Product page URL is required');
+      setError(USER_MESSAGES.urlRequired);
+      return;
+    }
+    try {
+      new URL(productUrl.trim());
+    } catch {
+      setError(USER_MESSAGES.invalidUrl);
       return;
     }
     setLoading(true);
@@ -144,8 +155,11 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
         credentials: 'include',
         body: JSON.stringify({ productUrl: productUrl.trim() }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Scrape failed');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(userMessageForProductScrape(res.status));
+        return;
+      }
       const p = data.preview as ScrapePreview;
       setPreview(p);
       setName(p.name);
@@ -154,8 +168,8 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
       setPaletteColors(parsePalette(p.colorPalette));
       applyScrapedPricing(p);
       setUrlStep('review');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Scrape failed');
+    } catch {
+      setError(USER_MESSAGES.scrapeFailed);
     } finally {
       setLoading(false);
     }
@@ -190,13 +204,16 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
           logoUrl: preview.logoUrl ?? null,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to save product');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(userMessageForProductSave(res.status));
+        return;
+      }
       onCreated(data.product);
       resetForm();
       onClose();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Save failed');
+    } catch {
+      setError(USER_MESSAGES.saveProductFailed);
     } finally {
       setLoading(false);
     }
@@ -232,13 +249,20 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
           logoBase64List,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to create product');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(userMessageForProductSave(res.status));
+        return;
+      }
       onCreated(data.product);
       resetForm();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong');
+      if (e instanceof Error && e.message.includes('required')) {
+        setError(e.message);
+      } else {
+        setError(USER_MESSAGES.tryAgain);
+      }
     } finally {
       setLoading(false);
     }

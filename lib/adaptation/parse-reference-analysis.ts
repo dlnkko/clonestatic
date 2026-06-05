@@ -5,6 +5,7 @@ import type {
   MarketingAngleProfile,
   MarketingFunnelStage,
   ReferenceComparisonModule,
+  ReferenceLayoutZones,
   ReferenceTextLayout,
   ReferenceTrustBadge,
   ReferenceTypographyHierarchy,
@@ -498,6 +499,31 @@ export function parseReferenceTextLayout(block: string): ReferenceTextLayout | n
     subheroStyle: subStyle?.[1]?.trim() ?? null,
     layoutNotes: notesMatch?.[1]?.trim() ?? '',
   };
+}
+
+export function parseReferenceLayoutZones(block: string): ReferenceLayoutZones | null {
+  if (!block?.trim()) return null;
+  const header =
+    pickField(block, /\*\*Header(?:\/product)? band height:\*\*\s*([\s\S]+?)(?=\n-\s|\n\*\*|$)/i) ||
+    pickField(block, /Header band[^:]*:\s*([\s\S]+?)(?=\n-\s|\n\*\*|$)/i);
+  const main =
+    pickField(block, /\*\*Primary module height:\*\*\s*([\s\S]+?)(?=\n-\s|\n\*\*|$)/i) ||
+    pickField(block, /Main module[^:]*:\s*([\s\S]+?)(?=\n-\s|\n\*\*|$)/i);
+  const notes = pickField(block, /\*\*Layout zone notes:\*\*\s*([\s\S]+?)(?=\n-\s|\n\*\*|$)/i);
+  if (!header && !main && !notes) return null;
+  return {
+    headerBandPercent: header || '~25-35% of frame',
+    mainModulePercent: main || '~65-75% of frame',
+    layoutNotes: notes,
+  };
+}
+
+export function parseReferenceLayoutZonesFromAnalysis(analysisText: string): ReferenceLayoutZones | null {
+  const block = analysisText.match(
+    /\*\*LAYOUT ZONES \(REFERENCE AD\):\*\*\s*([\s\S]*?)(?=\*\*COPYWRITING|\*\*MARKETING|\*\*VISUAL METAPHOR|\*\*PROMO|\*\*TRUST BADGE|\*\*ICON \/ FEATURE|\*\*SOCIAL PROOF|\*\*PRODUCT POSE|\*\*REFERENCE AD PROMPT:\*\*|$)/i
+  );
+  if (!block) return null;
+  return parseReferenceLayoutZones(block[1]);
 }
 
 export function parseReferenceComparisonModule(block: string): ReferenceComparisonModule {

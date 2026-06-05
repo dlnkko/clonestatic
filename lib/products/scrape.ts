@@ -1,5 +1,7 @@
+import { errorMessageFromUnknown } from '@/lib/api-error-message';
 import getFirecrawlInstance from '@/lib/firecrawl';
 import { classifyProductImagesHeuristic } from './classify-images';
+import { filterCatalogProductImages } from './filter-catalog-images';
 import { extractProductPricing } from './extract-pricing';
 import type { ExtractedPricing, ProductImage } from './types';
 
@@ -7,7 +9,7 @@ const IMAGE_EXT = /\.(jpe?g|png|webp|gif|avif)(\?|$)/i;
 const LOGO_EXT = /\.(jpe?g|png|webp|gif|avif|svg)(\?|$)/i;
 /** Skip UI chrome only — do NOT skip award/trust badge assets (often contain "badge" in URL). */
 const SKIP_PATTERNS =
-  /(favicon|sprite|logo-small|pixel|tracking|arrow|chevron|social|facebook|twitter|instagram|\/icons?\/|icon-\d+)/i;
+  /(favicon|sprite|logo-small|pixel|tracking|arrow|chevron|social|facebook|twitter|instagram|\/icons?\/|icon-\d+|star|rating|review-icon|trustpilot|payment|paypal|visa|mastercard)/i;
 
 function isLikelyProductImage(url: string): boolean {
   if (!IMAGE_EXT.test(url)) return false;
@@ -113,22 +115,7 @@ function collectFromUnknown(obj: unknown, out: Set<string>, depth = 0): void {
 
 function orderProductImages(images: ProductImage[]): ProductImage[] {
   const classified = classifyProductImagesHeuristic(images);
-  const productLike = classified.filter(
-    (i) => i.kind === 'product' || i.kind === 'packaging' || i.kind === 'lifestyle'
-  );
-  const trust = classified.filter((i) => i.kind === 'trust_badge' || i.kind === 'ingredient');
-  const logos = classified.filter((i) => i.kind === 'logo');
-  const other = classified.filter(
-    (i) =>
-      i.kind !== 'product' &&
-      i.kind !== 'packaging' &&
-      i.kind !== 'lifestyle' &&
-      i.kind !== 'trust_badge' &&
-      i.kind !== 'ingredient' &&
-      i.kind !== 'logo'
-  );
-  const ordered = [...productLike, ...other, ...trust, ...logos];
-  return ordered.length > 0 ? ordered.slice(0, 24) : classified.slice(0, 24);
+  return filterCatalogProductImages(classified, 10);
 }
 
 export type ProductPageScrapeResult = {
@@ -159,14 +146,24 @@ export async function scrapeProductPage(url: string): Promise<ProductPageScrapeR
     }
   } catch (firstErr) {
     if (fc.scrapeUrl && fc.scrape) {
-      doc = (await fc.scrapeUrl(url, formats)) as Record<string, unknown>;
+      try {
+        doc = (await fc.scrapeUrl(url, formats)) as Record<string, unknown>;
+      } catch (secondErr) {
+        throw new Error(
+          errorMessageFromUnknown(secondErr, errorMessageFromUnknown(firstErr, 'Firecrawl request failed'))
+        );
+      }
     } else {
-      throw firstErr;
+      throw new Error(errorMessageFromUnknown(firstErr, 'Firecrawl request failed'));
     }
   }
 
-  if (doc && 'error' in doc) {
-    throw new Error(String(doc.error));
+  if (doc && 'error' in doc && doc.error != null) {
+    throw new Error(errorMessageFromUnknown(doc.error, 'Firecrawl scrape failed'));
+  }
+
+  if (doc && doc.success === false) {
+    throw new Error(errorMessageFromUnknown(doc.error ?? doc, 'Firecrawl scrape failed'));
   }
 
   const data = (doc.data ?? doc) as Record<string, unknown>;

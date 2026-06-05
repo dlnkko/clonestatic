@@ -336,6 +336,24 @@ ${layout?.layoutNotes ? `- Reference notes: ${layout.layoutNotes}` : ''}
 /**
  * Before/after comparison — natural side-by-side, not weird split-face.
  */
+export function layoutProportionsBlock(ctx: AdaptationContext): string {
+  const zones = ctx.referenceLayoutZones;
+  const comp = ctx.referenceComparisonParsed;
+  if (!zones && !ctx.hasReferenceComparisonModule) return '';
+
+  const header = zones?.headerBandPercent ?? '~25-35% of frame height';
+  const main = zones?.mainModulePercent ?? '~65-75% of frame height';
+  const notes = zones?.layoutNotes || comp?.placement || '';
+
+  return `**LAYOUT PROPORTIONS (CRITICAL — match reference bands, NOT equal halves):**
+- **Top band (headline + product/packaging hero):** ${header} — compact header zone only
+- **Main module band (comparison / large visual):** ${main} — dominant area below header
+${notes ? `- Reference notes: ${notes}` : ''}
+- **FORBIDDEN:** Splitting the ad 50/50 top/bottom when reference has a **small header + large comparison** module
+- **FORBIDDEN:** Enlarging the top product zone to half the frame when reference keeps product+text in a narrow upper band
+- Product/packaging hero uses **catalog packaging photo** in the top band when reference shows a labeled bottle/box/tube — NOT a random lifestyle scene on grass`;
+}
+
 export function beforeAfterComparisonBlock(ctx: AdaptationContext): string {
   if (!ctx.hasReferenceComparisonModule) return '';
 
@@ -347,6 +365,8 @@ The reference includes a comparison visual. Recreate the **same module type** wi
 
 Reference blueprint:
 ${blueprint || '(see reference analysis)'}
+
+${layoutProportionsBlock(ctx)}
 
 **MANDATORY rules (every comparison ad):**
 - **Layout:** ${mod?.layoutType || 'Two equal side-by-side panels (left Before, right After)'} — clean vertical gutter or soft blend between panels. **NEVER** a harsh single-photo vertical slice bisecting one face down the middle (common failure — looks uncanny).

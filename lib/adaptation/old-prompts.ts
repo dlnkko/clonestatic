@@ -8,11 +8,12 @@ import {
   backgroundColorAdaptationBlock,
   beforeAfterComparisonBlock,
   illustrativeVisualBlock,
+  layoutProportionsBlock,
+  marketingAngleExtrapolationBlock,
   noStockPhotoUnlessReferenceBlock,
   packagingMirroringBlock,
   productCatalogFidelityBlock,
   productThemedEnvironmentBlock,
-  marketingAngleExtrapolationBlock,
   referenceCopyMirroringBlock,
   subheroCopyPatternBlock,
   textLayoutBlock,
@@ -177,6 +178,12 @@ Format your response EXACTLY as:
 - Placement in ad: [e.g. middle band between headline and product shot]
 - Comparison notes: [lighting, realism, what makes it look natural vs uncanny]
 (If no before/after module, write "Present: no".)
+
+**LAYOUT ZONES (REFERENCE AD) — vertical band proportions (CRITICAL):**
+- **Header/product band height:** [e.g. ~25-35% of frame — headline + product hero on gradient/sky]
+- **Primary module height:** [e.g. ~65-75% of frame — before/after comparison, large hero, etc.]
+- **Layout zone notes:** [one sentence: e.g. "Small top band with product bottle + copy; large bottom band is comparison module — NOT 50/50 split"]
+(Do NOT default to equal halves unless reference is truly 50/50.)
 
 **VISUAL STYLE (REFERENCE AD):**
 - Has real photographic person/model: [yes/no]
@@ -629,6 +636,8 @@ export function buildVisualAgentInstructions(ctx: AdaptationContext): string {
   return `${visualMetaphorExtrapolationBlock(ctx)}
 
 ${marketingAngleExtrapolationBlock(ctx)}
+
+${layoutProportionsBlock(ctx)}
 
 ${textLayoutBlock(ctx)}
 

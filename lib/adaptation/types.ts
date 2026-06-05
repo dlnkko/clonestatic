@@ -37,6 +37,13 @@ export type ReferenceComparisonModule = {
   notes: string;
 };
 
+/** Vertical band proportions (header vs main module) from reference layout. */
+export type ReferenceLayoutZones = {
+  headerBandPercent: string;
+  mainModulePercent: string;
+  layoutNotes: string;
+};
+
 /** Relative text sizes from reference ad (headline vs subheadline vs footer). */
 export type ReferenceTypographyHierarchy = {
   headlineTier: string;
@@ -162,6 +169,7 @@ export type AdaptationContext = {
   referenceComparisonModule: string;
   referenceComparisonParsed: ReferenceComparisonModule | null;
   hasReferenceComparisonModule: boolean;
+  referenceLayoutZones: ReferenceLayoutZones | null;
   referenceProductPoseAndArrangement: string;
   referenceReviewModule: string;
   hasReferenceReviewModule: boolean;
