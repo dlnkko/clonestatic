@@ -26,5 +26,7 @@ export async function runLegacyStep2(
     usage,
     cost: costFromUsage(usage),
     mode: 'legacy',
+    creativeBridge: ctx.creativeBridge,
+    whyThisWorks: ctx.creativeBridge?.whyThisWorks ?? null,
   };
 }

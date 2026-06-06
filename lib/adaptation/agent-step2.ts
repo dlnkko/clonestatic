@@ -169,6 +169,8 @@ export async function runAdaptationAgent(
     usage,
     cost: costFromUsage(usage),
     mode: 'agent',
+    creativeBridge: ctx.creativeBridge,
+    whyThisWorks: ctx.creativeBridge?.whyThisWorks ?? null,
     agentDebug: {
       copy,
       visual,

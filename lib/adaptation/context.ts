@@ -4,6 +4,7 @@ import {
   type CopyLanguageOption,
 } from '@/lib/copy-languages';
 import { inferProductUseProfile } from '@/lib/products/infer-product-use';
+import { buildCreativeBridge } from './creative-bridge';
 import { buildPricingInstructions } from './pricing-rules';
 import {
   detectSubheroCopyPattern,
@@ -106,6 +107,8 @@ export type BuildContextInput = {
   referenceLayoutZonesBlock?: string;
   marketingAngle?: import('./types').MarketingAngleProfile | null;
   visualMetaphor?: import('./types').VisualMetaphorProfile | null;
+  creativeDeconstruction?: import('./types').ReferenceCreativeDeconstruction | null;
+  productCreativeProfile?: import('./types').ProductCreativeProfile | null;
 };
 
 export function buildAdaptationContext(input: BuildContextInput): AdaptationContext {
@@ -145,6 +148,8 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     referenceLayoutZonesBlock = '',
     marketingAngle: marketingAngleInput = null,
     visualMetaphor: visualMetaphorInput = null,
+    creativeDeconstruction: creativeDeconstructionInput = null,
+    productCreativeProfile: productCreativeProfileInput = null,
   } = input;
 
   const referenceTextLayout = referenceTextLayoutBlock
@@ -234,6 +239,13 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     productTargetAudience
   );
 
+  const creativeBridge = buildCreativeBridge(
+    creativeDeconstructionInput,
+    marketingAngleInput,
+    productCreativeProfileInput,
+    productName
+  );
+
   const brandingIntegration = buildBrandingIntegration(
     scrapedBranding,
     referenceLogoAnalysis,
@@ -319,6 +331,9 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     trustBadgeInstructions,
     marketingAngle: marketingAngleInput,
     visualMetaphor: visualMetaphorInput,
+    creativeDeconstruction: creativeDeconstructionInput,
+    productCreativeProfile: productCreativeProfileInput,
+    creativeBridge,
   };
 }
 
@@ -553,6 +568,8 @@ export function contextSummaryForAgent(ctx: AdaptationContext): string {
       productName: ctx.productName,
       productDescription: ctx.productDescription,
       productUseProfile: ctx.productUseProfile,
+      productCreativeProfile: ctx.productCreativeProfile,
+      creativeBridge: ctx.creativeBridge,
       matchedProductVisuals: ctx.matchedProductVisuals,
       allowedPrice: ctx.allowedPrice,
       referenceHasPromoOfferLine: ctx.referenceHasPromoOfferLine,

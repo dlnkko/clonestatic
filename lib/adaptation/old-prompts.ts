@@ -13,6 +13,7 @@ import {
   noStockPhotoUnlessReferenceBlock,
   packagingMirroringBlock,
   productCatalogFidelityBlock,
+  productCreativeProfileBlock,
   productPlacementOnModelBlock,
   productThemedEnvironmentBlock,
   referenceCopyMirroringBlock,
@@ -21,6 +22,7 @@ import {
   typographyHierarchyBlock,
   visualMetaphorExtrapolationBlock,
 } from './adaptation-rules';
+import { creativeBridgeBlock } from './creative-bridge';
 import type { CopywritingProfile, ReferenceTextLayout } from './types';
 
 export function featureRowInstructionsBlock(ctx: AdaptationContext): string {
@@ -76,7 +78,9 @@ ${icons}`;
 
 /** Step 1 — staticAdAnalysisPrompt (+ detección iconos y logo en layout) */
 export function getStaticAdAnalysisPrompt(): string {
-  return `You are an expert prompt engineer for AI image generation. Analyze the provided static ad image and generate a COMPREHENSIVE, DETAILED prompt that would recreate this EXACT image.
+  return `You are an expert direct-response advertising strategist AND prompt engineer. Your job is NOT to do a visual swap of the reference ad — extract the underlying **creative concept** and document it so another system can rebuild it natively for a new product.
+
+Analyze the provided static ad image. Produce a structured deconstruction FIRST, then a detailed layout prompt for replication reference.
 
 Your task:
 
@@ -221,6 +225,14 @@ If "graphic-product-only" or "illustration-led": do NOT add real photographic pe
 - **Product mentioned in reference copy:** [yes/no] — "no" if ad never names competitor product/brand in text (curiosity/problem ads)
 - **Line 2 sentence template:** [abstract pattern — e.g. "You're [age/situation] and [symptom list]. But nobody told you why." for curiosity-gap; "[Product] helps you [benefit]" ONLY if reference used product-helps-you]
 - **Promo / offer line in layout:** Does the reference have a SEPARATE line for sales/discounts (e.g. "30% OFF", "FLASH SALE", "FREE SHIPPING") distinct from the main headline? (yes/no). If no, adaptation must NOT add promo lines even if the product page has discounts.
+
+**CREATIVE DECONSTRUCTION (CRITICAL — concept before pixels):**
+Name the transferable idea underneath the ad — NOT a visual swap checklist.
+- **Surface elements:** [layout format, color roles, UI modules, copy style — one sentence]
+- **Emotional hook:** [tension, fear, desire, or aspiration being triggered — be specific]
+- **Core concept:** [the transferable psychological idea that makes the ad work — NOT the competitor product name]
+- **Resolution mechanism:** [how the product is positioned as the answer to the hook]
+- **Target moment:** [when/where this tension happens — sleep, workout, morning routine, social context, etc.]
 
 **MARKETING ANGLE (CRITICAL — read ALL copy + image together):**
 - **Real topic:** [What is this ad ACTUALLY about? e.g. erectile dysfunction / low libido in men 30+, NOT "eggplant" or "vegetable". Read strikethroughs, headline, body, CTA as one story.]
@@ -547,7 +559,7 @@ ${options.visual.iconRowNotes ? `- Icon row: ${options.visual.iconRowNotes}` : '
 ${options.visual.trustBadgeNotes ? `- Trust badge: ${options.visual.trustBadgeNotes}` : ''}`
     : '';
 
-  return `${options.preamble ?? 'You are an expert prompt engineer for AI static ad image generation (Kie.ai).'}
+  return `${options.preamble ?? 'You are a senior direct-response creative director writing image-generation prompts (Kie.ai). Rebuild the reference **concept** natively for the user product — not a visual swap.'}
 
 You have been given:
 
@@ -568,6 +580,8 @@ ${approvedCopyBlock}
 ${visualBlock}
 
 ${logoPlacementRulesBlock(ctx)}
+${creativeBridgeBlock(ctx.creativeBridge)}
+${productCreativeProfileBlock(ctx)}
 ${ctx.copyLanguageInstruction}
 ${ctx.pricingInstructions}
 

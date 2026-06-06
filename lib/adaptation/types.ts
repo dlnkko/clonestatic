@@ -83,6 +83,29 @@ export type MarketingAngleProfile = {
   copyExtrapolationNotes: string;
 };
 
+/** Step 1 — concept layer beneath surface layout/copy. */
+export type ReferenceCreativeDeconstruction = {
+  surfaceElements: string;
+  emotionalHook: string;
+  coreConcept: string;
+  resolutionMechanism: string;
+  targetMoment: string;
+};
+
+/** Step 2 — explicit hook map before copy/visual generation. */
+export type CreativeBridge = {
+  referenceHook: string;
+  coreConcept: string;
+  resolutionMechanism: string;
+  targetMoment: string;
+  adaptedHook: string;
+  hookTransferValid: boolean;
+  changeReason?: string;
+  whyThisWorks: string;
+};
+
+export type ProductCreativeProfile = import('@/lib/products/infer-product-creative').ProductCreativeProfile;
+
 export type VisualMetaphorProfile = {
   present: boolean;
   visualSubject: string;
@@ -216,6 +239,9 @@ export type AdaptationContext = {
   trustBadgeInstructions: string;
   marketingAngle: MarketingAngleProfile | null;
   visualMetaphor: VisualMetaphorProfile | null;
+  creativeDeconstruction: ReferenceCreativeDeconstruction | null;
+  productCreativeProfile: ProductCreativeProfile | null;
+  creativeBridge: CreativeBridge | null;
 };
 
 export type CopyAdaptationResult = {
@@ -300,6 +326,8 @@ export type Step2Result = {
   usage: Step2Usage | null;
   cost: Step2Cost | null;
   mode: 'agent' | 'legacy';
+  creativeBridge?: CreativeBridge | null;
+  whyThisWorks?: string | null;
   agentDebug?: {
     copy?: CopyAdaptationResult;
     visual?: VisualAdaptationResult;

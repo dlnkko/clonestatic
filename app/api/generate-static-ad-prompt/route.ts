@@ -12,6 +12,7 @@ import {
 } from '@/lib/adaptation';
 import {
   parseAdCopyStyle,
+  parseCreativeDeconstructionBlock,
   parseHasPromoOfferLine,
   parseLine2CopyPattern,
   parseMarketingAngleBlock,
@@ -27,6 +28,7 @@ import { getStaticAdAnalysisPrompt } from '@/lib/adaptation/old-prompts';
 import type {
   MarketingAngleProfile,
   MatchedProductVisual,
+  ReferenceCreativeDeconstruction,
   ReferenceTrustBadge,
   ReferenceVisualStyle,
   Step2Usage,
@@ -52,6 +54,7 @@ import {
   inferProductUnitsFromPose,
 } from '@/lib/products/expand-product-units';
 import { identifyReferenceProductElements } from '@/lib/products/identify-elements';
+import { inferProductCreativeProfile } from '@/lib/products/infer-product-creative';
 import { inferProductUseProfile } from '@/lib/products/infer-product-use';
 import {
   matchProductImagesToReference,
@@ -464,6 +467,7 @@ export async function POST(request: NextRequest) {
     let hasReferenceComparisonModule = false;
     let marketingAngle: MarketingAngleProfile | null = null;
     let visualMetaphor: VisualMetaphorProfile | null = null;
+    let creativeDeconstruction: ReferenceCreativeDeconstruction | null = null;
     let step1Usage: Step2Usage | null = null;
     const productMatchingUsages: Step2Usage[] = [];
     try {
@@ -527,6 +531,10 @@ export async function POST(request: NextRequest) {
         // Extract copywriting analysis
         marketingAngle = parseMarketingAngleBlock(analysisText);
         visualMetaphor = parseVisualMetaphorBlock(analysisText);
+        creativeDeconstruction = parseCreativeDeconstructionBlock(analysisText);
+        if (creativeDeconstruction) {
+          console.log('\n=== CREATIVE DECONSTRUCTION ===', creativeDeconstruction);
+        }
         if (marketingAngle) {
           console.log('\n=== MARKETING ANGLE EXTRACTED ===', marketingAngle);
         }
@@ -826,6 +834,13 @@ export async function POST(request: NextRequest) {
     console.log('- Reference prompt length:', referencePrompt.length);
     console.log('- Product images for step 2:', productFilesForStep2.length);
 
+    const productCreativeProfile = inferProductCreativeProfile(
+      savedProduct?.name ?? resolvedProductName,
+      savedProduct?.description,
+      savedProduct?.target_audience,
+      savedProduct?.scrape_cache?.summary ?? scrapedSummary
+    );
+
     let step2Result;
     try {
       step2Result = await runStep2Adaptation(
@@ -866,6 +881,8 @@ export async function POST(request: NextRequest) {
           referenceLayoutZonesBlock,
           marketingAngle,
           visualMetaphor,
+          creativeDeconstruction,
+          productCreativeProfile,
         },
         productFilesForStep2
       );
@@ -970,6 +987,8 @@ export async function POST(request: NextRequest) {
           : null,
         matchedProductVisuals,
         productId: savedProduct?.id ?? null,
+        creativeDeconstruction,
+        creativeBridge: step2Result.creativeBridge ?? null,
       },
       matchedProductImageUrls: orderMatchedVisualsForGeneration(matchedProductVisuals).map(
         (m) => m.url
@@ -977,6 +996,8 @@ export async function POST(request: NextRequest) {
       hasDedicatedLogo: matchedProductVisuals.some((m) => m.role === 'logo'),
       hasPersonInReference: referenceVisualStyle?.hasPerson === true,
       productUseProfile,
+      whyThisWorks: step2Result.whyThisWorks ?? step2Result.creativeBridge?.whyThisWorks ?? null,
+      creativeBridge: step2Result.creativeBridge ?? null,
       usage: {
         step1: step1Usage,
         productMatching: productMatchingUsage,

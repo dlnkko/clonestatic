@@ -2,6 +2,7 @@ import type { AdaptationContext, CopywritingProfile, Line2CopyPattern } from './
 import { detectSubheroCopyPattern } from './parse-reference-analysis';
 import { productCatalogFidelityBlock as productCatalogFidelityBlockImpl } from '@/lib/products/product-fidelity';
 export { productPlacementOnModelBlock } from './product-placement-rules';
+export { creativeBridgeBlock } from './creative-bridge';
 
 /**
  * Rules for mirroring reference ad copy structure with user product data.
@@ -53,6 +54,23 @@ Headline max ${ctx.headlineWords} words · secondary max ${ctx.mainCopyWords} wo
 /**
  * Subhero / line-2 copy rules — especially DTC "product helps you [benefit]" pattern.
  */
+export function productCreativeProfileBlock(ctx: AdaptationContext): string {
+  const p = ctx.productCreativeProfile;
+  if (!p) {
+    return `**TARGET PRODUCT ANALYSIS:**
+Infer from product name, description, and catalog images: primary use cases, who uses it and when, the tension it resolves, and proof points (guarantee, clinical, price). Write natively for THIS product — not the reference competitor.`;
+  }
+  return `**TARGET PRODUCT ANALYSIS (user product — native concept rebuild):**
+- **Use cases:** ${p.primaryUseCases}
+- **Audience / when:** ${p.audience}
+- **Core tension:** ${p.tension}
+- **Resolution:** ${p.resolution}
+- **Proof points:** ${p.proofPoints.length ? p.proofPoints.join('; ') : 'use only verified product/scrape data'}
+- **Brand tone:** ${p.brandTone}
+
+Use this to rebuild the reference **concept** for the user's product — not a visual swap.`;
+}
+
 /** Extrapolate the reference's real marketing angle to the user's product category. */
 export function marketingAngleExtrapolationBlock(ctx: AdaptationContext): string {
   const angle = ctx.marketingAngle;

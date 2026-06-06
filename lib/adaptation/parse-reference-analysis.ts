@@ -5,6 +5,7 @@ import type {
   MarketingAngleProfile,
   MarketingFunnelStage,
   ReferenceComparisonModule,
+  ReferenceCreativeDeconstruction,
   ReferenceLayoutZones,
   ReferenceTextLayout,
   ReferenceTrustBadge,
@@ -166,6 +167,38 @@ const LINE2_PATTERN_VALUES: Line2CopyPattern[] = [
 
 function pickField(block: string, re: RegExp): string {
   return block.match(re)?.[1]?.trim() ?? '';
+}
+
+export function parseCreativeDeconstructionBlock(
+  analysisText: string
+): ReferenceCreativeDeconstruction | null {
+  const blockMatch = analysisText.match(
+    /\*\*CREATIVE DECONSTRUCTION[^*]*\*\*\s*([\s\S]*?)(?=\*\*MARKETING ANGLE|\*\*VISUAL METAPHOR|\*\*PROMO|\*\*TRUST BADGE|\*\*ICON \/ FEATURE|\*\*SOCIAL PROOF|\*\*PRODUCT POSE|\*\*REFERENCE AD PROMPT:\*\*|$)/i
+  );
+  if (!blockMatch) return null;
+  const block = blockMatch[1];
+  const coreConcept = pickField(block, /\*\*Core concept:\*\*\s*([\s\S]+?)(?=\n-\s*\*\*|\n\*\*|$)/i);
+  if (!coreConcept) return null;
+
+  return {
+    surfaceElements: pickField(
+      block,
+      /\*\*Surface elements:\*\*\s*([\s\S]+?)(?=\n-\s*\*\*|\n\*\*|$)/i
+    ),
+    emotionalHook: pickField(
+      block,
+      /\*\*Emotional hook:\*\*\s*([\s\S]+?)(?=\n-\s*\*\*|\n\*\*|$)/i
+    ),
+    coreConcept,
+    resolutionMechanism: pickField(
+      block,
+      /\*\*Resolution mechanism:\*\*\s*([\s\S]+?)(?=\n-\s*\*\*|\n\*\*|$)/i
+    ),
+    targetMoment: pickField(
+      block,
+      /\*\*Target moment:\*\*\s*([\s\S]+?)(?=\n-\s*\*\*|\n\*\*|$)/i
+    ),
+  };
 }
 
 export function parseMarketingAngleBlock(analysisText: string): MarketingAngleProfile | null {

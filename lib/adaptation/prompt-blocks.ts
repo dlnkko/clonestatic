@@ -3,6 +3,7 @@ import {
   productCategoryAnchorBlock,
   textArchitectureRulesBlock,
 } from './copy-sanitize';
+import { creativeBridgeBlock } from './creative-bridge';
 import {
   backgroundColorAdaptationBlock,
   beforeAfterComparisonBlock,
@@ -12,6 +13,7 @@ import {
   noStockPhotoUnlessReferenceBlock,
   packagingMirroringBlock,
   productCatalogFidelityBlock,
+  productCreativeProfileBlock,
   productPlacementOnModelBlock,
   productThemedEnvironmentBlock,
   productVariantMatchingBlock,
@@ -70,6 +72,10 @@ export function copyAgentPrompt(ctx: AdaptationContext): string {
 Clone the REFERENCE ad's text architecture for the USER's product — same number of lines, same roles (brand name, sub-tagline, headline, spec line, icon labels, etc.), same brevity per line.
 
 ${productCategoryAnchorBlock(ctx)}
+
+${creativeBridgeBlock(ctx.creativeBridge)}
+
+${productCreativeProfileBlock(ctx)}
 
 ${textArchitectureRulesBlock(ctx)}
 
@@ -135,6 +141,10 @@ Define how the USER's product appears in a CLONED ad — identical layout to ref
 ${multiImageNote}
 
 ${productCategoryAnchorBlock(ctx)}
+
+${creativeBridgeBlock(ctx.creativeBridge)}
+
+${productCreativeProfileBlock(ctx)}
 
 ${visualMetaphorExtrapolationBlock(ctx)}
 
@@ -226,6 +236,7 @@ Rules:
 3. Product pose from reference (not upload) — oldprompts §2 product POSE AND ARRANGEMENT
 4. isGraphicOnly or hasIllustrativeVisual → no real photographic people; use illustration/diagram if reference did
 5. hasPersonInReference → real photo people still described; user's product in authentic use${ctx.productUseProfile && ctx.productUseProfile.confidence !== 'low' ? ` — for ${ctx.productUseProfile.category}, product must be on **${ctx.productUseProfile.bodyZone}**; FAIL if floating on wrong body part (${ctx.productUseProfile.forbiddenPlacements.slice(0, 2).join(', ')})` : ' with correct anatomical placement'}
+${ctx.creativeBridge ? `5b. CREATIVE BRIDGE: Prompt must reflect adapted hook "${ctx.creativeBridge.adaptedHook.slice(0, 120)}" — FAIL if generic template copy ignores reference emotional structure; FAIL if visual-swap of competitor scene without native product concept` : ''}
 6. Line 2 mirrors reference rhetorical device — FAIL if generic authority/trope unrelated to reference (e.g. "Dermatologist recommended" when reference had ingredient transparency)
 7. Headline mirrors reference sentence structure — FAIL if generic category headline when reference had contrarian/comparative hook
 8. Background uses product brand colors — FAIL if competitor category color copied (e.g. coffee brown for non-coffee product)
