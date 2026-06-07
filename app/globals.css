@@ -1908,7 +1908,51 @@ pre::-webkit-scrollbar-thumb:hover {
 
 @media (min-width: 1024px) {
   .dash-preview-panel {
-    min-height: 480px;
+    min-height: 280px;
+    max-height: calc(100dvh - 2.5rem);
+  }
+}
+
+.dash-preview-panel--mirror {
+  min-height: 240px;
+}
+
+@media (min-width: 1024px) {
+  .dash-sticky-preview .dash-preview-panel--mirror {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 2.5rem);
+  }
+
+  .dash-sticky-preview .dash-preview-panel--mirror .dash-preview-panel-body {
+    min-height: 0;
+    flex: 1;
+    overflow: hidden;
+    padding: 1rem 1.25rem;
+  }
+}
+
+.dash-preview-generated-wrap {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+}
+
+.dash-preview-generated-image {
+  display: block;
+  max-width: 100%;
+  max-height: min(72vh, calc(100dvh - 14rem));
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+@media (min-width: 1024px) {
+  .dash-preview-generated-image {
+    max-height: min(78vh, calc(100dvh - 12rem));
   }
 }
 
