@@ -45,6 +45,9 @@ export async function POST(request: NextRequest) {
       creationId: creationIdParam,
       hasDedicatedLogo: hasDedicatedLogoParam,
       hasPersonInReference: hasPersonInReferenceParam,
+      hasIllustrativeVisual: hasIllustrativeVisualParam,
+      visualMedium: visualMediumParam,
+      illustrationNotes: illustrationNotesParam,
       productUseProfile: productUseProfileParam,
     } = body as {
       prompt?: string;
@@ -56,6 +59,9 @@ export async function POST(request: NextRequest) {
       creationId?: string;
       hasDedicatedLogo?: boolean;
       hasPersonInReference?: boolean;
+      hasIllustrativeVisual?: boolean;
+      visualMedium?: string;
+      illustrationNotes?: string;
       productUseProfile?: import('@/lib/products/infer-product-use').ProductUseProfile | null;
     };
 
@@ -175,6 +181,15 @@ export async function POST(request: NextRequest) {
       admin,
       hasDedicatedLogo: hasDedicatedLogoParam === true,
       hasPersonInReference: hasPersonInReferenceParam === true,
+      hasIllustrativeVisual: hasIllustrativeVisualParam === true,
+      visualMedium:
+        typeof visualMediumParam === 'string' && visualMediumParam.trim()
+          ? visualMediumParam.trim()
+          : undefined,
+      illustrationNotes:
+        typeof illustrationNotesParam === 'string' && illustrationNotesParam.trim()
+          ? illustrationNotesParam.trim()
+          : undefined,
       productUseProfile: productUseProfileParam ?? null,
     };
 

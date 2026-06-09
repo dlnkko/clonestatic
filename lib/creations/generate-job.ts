@@ -13,6 +13,9 @@ export type AdImageGenerationParams = {
   aspectRatioHint?: string;
   hasDedicatedLogo?: boolean;
   hasPersonInReference?: boolean;
+  hasIllustrativeVisual?: boolean;
+  visualMedium?: string;
+  illustrationNotes?: string;
   productUseProfile?: import('@/lib/products/infer-product-use').ProductUseProfile | null;
 };
 
@@ -57,6 +60,9 @@ export async function runAdImageGenerationJob(params: AdImageGenerationParams): 
       adVisualMode,
       hasDedicatedLogo: params.hasDedicatedLogo,
       hasPersonInReference: params.hasPersonInReference,
+      hasIllustrativeVisual: params.hasIllustrativeVisual,
+      visualMedium: params.visualMedium,
+      illustrationNotes: params.illustrationNotes,
       productUseProfile: params.productUseProfile,
     });
 

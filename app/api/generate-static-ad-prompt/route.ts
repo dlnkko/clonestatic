@@ -66,7 +66,11 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isInternalServerJob } from '@/lib/internal-job';
 import { checkRateLimit } from '@/lib/rate-limit';
-import { classifyAdVisualMode } from '@/lib/ad-visual-mode';
+import {
+  classifyAdVisualMode,
+  effectiveHasPersonInReference,
+  isIllustrativeVisualStyle,
+} from '@/lib/ad-visual-mode';
 import { fetchImageAsDataUrl } from '@/lib/images/fetch-as-data-url';
 
 export const maxDuration = 300;
@@ -997,7 +1001,10 @@ export async function POST(request: NextRequest) {
         useFullCatalog: savedProduct ? isUserUploadedProduct(savedProduct) : false,
       }),
       hasDedicatedLogo: matchedProductVisuals.some((m) => m.role === 'logo'),
-      hasPersonInReference: referenceVisualStyle?.hasPerson === true,
+      hasPersonInReference: effectiveHasPersonInReference(referenceVisualStyle),
+      hasIllustrativeVisual: isIllustrativeVisualStyle(referenceVisualStyle),
+      visualMedium: referenceVisualStyle?.visualMedium ?? null,
+      illustrationNotes: referenceVisualStyle?.illustrationNotes?.trim() || null,
       productUseProfile,
       whyThisWorks: step2Result.whyThisWorks ?? step2Result.creativeBridge?.whyThisWorks ?? null,
       creativeBridge: step2Result.creativeBridge ?? null,

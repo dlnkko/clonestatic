@@ -624,6 +624,9 @@ function StaticAdAppPage() {
         matchedProductImageUrls?: string[];
         hasDedicatedLogo?: boolean;
         hasPersonInReference?: boolean;
+        hasIllustrativeVisual?: boolean;
+        visualMedium?: string | null;
+        illustrationNotes?: string | null;
         productUseProfile?: import('@/lib/products/infer-product-use').ProductUseProfile | null;
       }>(response);
       if (promptErr) {
@@ -691,6 +694,9 @@ function StaticAdAppPage() {
         else if (productBase64) imageBody.productImageBase64 = productBase64;
         if (data.hasDedicatedLogo) imageBody.hasDedicatedLogo = true;
         if (data.hasPersonInReference) imageBody.hasPersonInReference = true;
+        if (data.hasIllustrativeVisual) imageBody.hasIllustrativeVisual = true;
+        if (data.visualMedium) imageBody.visualMedium = data.visualMedium;
+        if (data.illustrationNotes) imageBody.illustrationNotes = data.illustrationNotes;
         if (data.productUseProfile) imageBody.productUseProfile = data.productUseProfile;
 
         const useKeepalive = !imageBody.productImageBase64;

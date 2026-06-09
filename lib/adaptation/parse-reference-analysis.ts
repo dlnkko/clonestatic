@@ -623,9 +623,13 @@ export function parseReferenceVisualStyle(vsText: string): import('./types').Ref
   );
   const mainElementsMatch = vsText.match(/Main elements:\s*(one-hero-only|multiple)/i);
 
+  const illustrativeMedium = ['illustration', 'diagram', '3d-render', 'mixed', 'product-graphic-only'].includes(
+    visualMedium
+  );
   const hasPerson =
-    hasRealPhotoPerson ||
-    (legacyPerson && !hasIllustration && visualMedium === 'photo');
+    (hasRealPhotoPerson || (legacyPerson && visualMedium === 'photo')) &&
+    !hasIllustration &&
+    !illustrativeMedium;
 
   let designType = designMatch?.[1]?.toLowerCase() ?? '';
   if (!designType) {

@@ -128,13 +128,36 @@ export const KIE_DEDICATED_LOGO_SUFFIX = `CRITICAL — STANDALONE BRAND LOGO:
 - Do NOT replace the logo with plain typed text, a generic sans-serif wordmark, or a re-drawn approximation.
 - The standalone logo is separate from text headlines — render it as the actual brand mark from the provided logo file.`;
 
+export const KIE_ILLUSTRATIVE_MEDIUM_SUFFIX = `CRITICAL — VISUAL MEDIUM (non-negotiable):
+- Match the reference ad's visual medium described in the prompt: illustration, diagram, stylized/animated graphic, 3D render, or mixed layout — NOT hyperrealistic photography.
+- If the reference body/anatomy is illustrated, soft-rendered, educational, or stylized: reproduce that SAME treatment (simplified shading, clean edges, animated/educational aesthetic) — NEVER convert to glossy hyperreal muscle photography, sweaty skin macro, or stock fitness model realism.
+- In mixed layouts, catalog product packaging may stay photorealistic when composited — but human/body elements remain illustrated/stylized like the reference.
+- FORBIDDEN: upgrading a stylized anatomical arm or educational body graphic into a photoreal gym/lifestyle shot.`;
+
 export function appendKieProductFidelityPrompt(
   prompt: string,
   hasProductImages: boolean,
-  options?: { hasDedicatedLogo?: boolean; productUseProfile?: import('@/lib/products/infer-product-use').ProductUseProfile | null; hasPersonInReference?: boolean }
+  options?: {
+    hasDedicatedLogo?: boolean;
+    productUseProfile?: import('@/lib/products/infer-product-use').ProductUseProfile | null;
+    hasPersonInReference?: boolean;
+    hasIllustrativeVisual?: boolean;
+    visualMedium?: string;
+    illustrationNotes?: string;
+  }
 ): string {
   if (!hasProductImages) return prompt;
   let out = `${prompt.trim()}\n\n${KIE_PRODUCT_FIDELITY_SUFFIX}`;
+  if (options?.hasIllustrativeVisual) {
+    let mediumBlock = KIE_ILLUSTRATIVE_MEDIUM_SUFFIX;
+    if (options.visualMedium) {
+      mediumBlock += `\n- Reference visual medium: **${options.visualMedium}**.`;
+    }
+    if (options.illustrationNotes?.trim()) {
+      mediumBlock += `\n- Reference illustration style to preserve: ${options.illustrationNotes.trim()}`;
+    }
+    out += `\n\n${mediumBlock}`;
+  }
   if (options?.hasDedicatedLogo) {
     out += `\n\n${KIE_DEDICATED_LOGO_SUFFIX}`;
   }

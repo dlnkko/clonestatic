@@ -149,6 +149,9 @@ export async function generateAdImageWithKie(params: {
   adVisualMode: AdVisualMode;
   hasDedicatedLogo?: boolean;
   hasPersonInReference?: boolean;
+  hasIllustrativeVisual?: boolean;
+  visualMedium?: string;
+  illustrationNotes?: string;
   productUseProfile?: import('@/lib/products/infer-product-use').ProductUseProfile | null;
 }): Promise<{ imageUrl: string; taskId: string; model: string; adVisualMode: AdVisualMode }> {
   const {
@@ -158,6 +161,9 @@ export async function generateAdImageWithKie(params: {
     adVisualMode,
     hasDedicatedLogo,
     hasPersonInReference,
+    hasIllustrativeVisual,
+    visualMedium,
+    illustrationNotes,
     productUseProfile,
   } = params;
   const ratio = mapAspectRatio(aspectRatio, adVisualMode);
@@ -168,6 +174,9 @@ export async function generateAdImageWithKie(params: {
   const fidelityPrompt = appendKieProductFidelityPrompt(prompt, catalogUrls.length > 0, {
     hasDedicatedLogo,
     hasPersonInReference,
+    hasIllustrativeVisual,
+    visualMedium,
+    illustrationNotes,
     productUseProfile,
   });
 

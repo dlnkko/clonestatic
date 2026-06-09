@@ -182,12 +182,15 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
   const multiUnitLayout = (referenceProductUnits?.unitCount ?? 1) > 1;
   const enforceOneMainElement =
     (oneHeroOnly || guidelinesAskSingleHero) && !referenceShowsPackaging && !multiUnitLayout;
-  const hasPersonInReference = referenceVisualStyle?.hasPerson === true;
   const hasIllustrativeVisual =
     referenceVisualStyle?.hasIllustrationOrDiagram === true ||
-    ['illustration', 'diagram', '3d-render', 'mixed'].includes(
+    ['illustration', 'diagram', '3d-render', 'mixed', 'product-graphic-only'].includes(
       referenceVisualStyle?.visualMedium ?? ''
     );
+  const hasPersonInReference =
+    referenceVisualStyle?.hasPerson === true &&
+    !hasIllustrativeVisual &&
+    referenceVisualStyle?.visualMedium === 'photo';
 
   const referenceTextLines =
     copywritingProfile?.referenceAllTextLines?.length

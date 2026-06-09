@@ -275,8 +275,9 @@ export function illustrativeVisualBlock(ctx: AdaptationContext): string {
 
   return `**ILLUSTRATION / DIAGRAM VISUAL (CRITICAL — NOT a real person photo):**
 The reference ad uses **${vs?.visualMedium ?? 'illustration'}** — NOT a stock photo of a real person.
-- **Do NOT** generate a realistic photograph of a sleeping person, model, or lifestyle scene unless the reference is a real photo.
-- **DO** recreate the same **visual medium**: stylized illustration, anatomical diagram, cutaway, 3D render, animated graphic, or icon-led layout.
+- **Do NOT** generate a hyperrealistic photograph, sweaty fitness model, glossy muscle macro, or lifestyle scene when the reference uses stylized/illustrated anatomy or graphics.
+- **Do NOT** "upgrade" a soft stylized arm/body graphic into photoreal skin, pores, or gym photography — keep the same illustrated/animated rendering style.
+- **DO** recreate the same **visual medium**: stylized illustration, anatomical diagram, cutaway, 3D render, animated/educational graphic, or icon-led layout.
 - Adapt the illustration **concept** to the user's product category while keeping reference composition:
   * Reference: anatomical head/brain + product → User product: equivalent diagram (fabric layers, sleep science graphic, thread cross-section, etc.) + user's product centered
   * Reference: ingredient callout lines to drink → User: callout lines to product features/materials from scraped data

@@ -234,7 +234,7 @@ Rules:
 1. No competitor promo numbers unless in promoClaimsUsed; if referenceHasPromoOfferLine is false, promoClaimsUsed must be empty and prompt must not mention flash sale / % off
 2. Tagline must not match referenceVerbatimPhrases (no plagiarized hooks)
 3. Product pose from reference (not upload) — oldprompts §2 product POSE AND ARRANGEMENT
-4. isGraphicOnly or hasIllustrativeVisual → no real photographic people; use illustration/diagram if reference did
+4. isGraphicOnly or hasIllustrativeVisual → no real photographic people; prompt must describe illustration/diagram/stylized graphic matching reference medium — FAIL if prompt requests hyperrealistic photo, sweaty skin macro, or stock fitness model when reference was illustrated/stylized anatomy
 5. hasPersonInReference → real photo people still described; user's product in authentic use${ctx.productUseProfile && ctx.productUseProfile.confidence !== 'low' ? ` — for ${ctx.productUseProfile.category}, product must be on **${ctx.productUseProfile.bodyZone}**; FAIL if floating on wrong body part (${ctx.productUseProfile.forbiddenPlacements.slice(0, 2).join(', ')})` : ' with correct anatomical placement'}
 ${ctx.creativeBridge ? `5b. CREATIVE BRIDGE: Prompt must reflect adapted hook "${ctx.creativeBridge.adaptedHook.slice(0, 120)}" — FAIL if generic template copy ignores reference emotional structure; FAIL if visual-swap of competitor scene without native product concept` : ''}
 6. Line 2 mirrors reference rhetorical device — FAIL if generic authority/trope unrelated to reference (e.g. "Dermatologist recommended" when reference had ingredient transparency)

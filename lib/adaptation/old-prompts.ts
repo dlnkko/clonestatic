@@ -96,10 +96,12 @@ Your task:
     - Describe font style/type, weights, placement, alignment, effects — AND the **relative visual size** of each text tier (headline vs subheadline vs footer). The subheadline is often LONG in word count but must still be **visually smaller** than the headline — capture that ratio.
 
 3. **Identify VISUAL STYLE / DESIGN TYPE** (CRITICAL — do not add people or gym if reference has none):
-    - Does the reference ad show a **real photographic** person or model (actual photo, not illustration)? (yes/no)
-    - Does the reference use **illustration, diagram, cutaway, 3D render, or animated/stylized graphic** (e.g. anatomical head, brain diagram, icon graphics, vector art)? (yes/no)
-    - **Illustration/diagram type:** If yes above, describe (anatomical cutaway, flat illustration, 3D product render, ingredient callout diagram, circular stylized portrait, etc.). If no, write "none".
+    - Does the reference ad show a **real photographic** person or model (actual camera photo with skin pores, photographic depth of field)? (yes/no)
+    - **NOT a real photo:** stylized/animated/illustrated body parts (soft-rendered arm, anatomical diagram, educational cross-section, vector silhouette, 3D mannequin, glossy CGI anatomy) → answer **no** for real photographic person even if human anatomy is visible.
+    - Does the reference use **illustration, diagram, cutaway, 3D render, or animated/stylized graphic** (e.g. anatomical arm/head, brain diagram, soft educational body graphic, icon graphics, vector art)? (yes/no)
+    - **Illustration/diagram type:** If yes above, describe precisely (e.g. soft stylized upper-arm anatomy graphic, anatomical cutaway, flat illustration, 3D product render, ingredient callout diagram). If no, write "none".
     - **Visual medium:** Choose exactly one: photo | illustration | diagram | 3d-render | mixed | product-graphic-only
+    - Use **mixed** when photoreal product packaging is composited with illustrated/stylized body graphics or diagrams in the same layout.
     - Does the reference ad show ANY gym, sport setting, or location environment? (yes/no)
     - **Number of main visual elements:** one-hero-only OR multiple (use **multiple** when reference shows loose units/items AND a separate bottle/box/pouch/jar packshot — e.g. capsules + supplement bottle)
     - **Retail packaging visible as its own element:** Is a bottle, box, pouch, or jar shown as a distinct packshot (not only loose product)? (yes/no)

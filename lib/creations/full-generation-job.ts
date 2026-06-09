@@ -87,6 +87,9 @@ async function generatePrompt(
       matchedProductImageUrls: string[];
       hasDedicatedLogo: boolean;
       hasPersonInReference: boolean;
+      hasIllustrativeVisual: boolean;
+      visualMedium: string | null;
+      illustrationNotes: string | null;
       productUseProfile: import('@/lib/products/infer-product-use').ProductUseProfile | null;
     }
   | { error: string }
@@ -123,6 +126,16 @@ async function generatePrompt(
       matchedProductImageUrls: data.matchedProductImageUrls?.filter((u) => u.startsWith('http')) ?? [],
       hasDedicatedLogo: (data as { hasDedicatedLogo?: boolean }).hasDedicatedLogo === true,
       hasPersonInReference: (data as { hasPersonInReference?: boolean }).hasPersonInReference === true,
+      hasIllustrativeVisual:
+        (data as { hasIllustrativeVisual?: boolean }).hasIllustrativeVisual === true,
+      visualMedium:
+        typeof (data as { visualMedium?: string }).visualMedium === 'string'
+          ? (data as { visualMedium: string }).visualMedium
+          : null,
+      illustrationNotes:
+        typeof (data as { illustrationNotes?: string }).illustrationNotes === 'string'
+          ? (data as { illustrationNotes: string }).illustrationNotes
+          : null,
       productUseProfile: (data as { productUseProfile?: import('@/lib/products/infer-product-use').ProductUseProfile | null }).productUseProfile ?? null,
     };
   } catch (err) {
@@ -225,6 +238,9 @@ export async function runFullAdGenerationJob(params: FullAdGenerationParams): Pr
       admin,
       hasDedicatedLogo: promptResult.hasDedicatedLogo,
       hasPersonInReference: promptResult.hasPersonInReference,
+      hasIllustrativeVisual: promptResult.hasIllustrativeVisual,
+      visualMedium: promptResult.visualMedium ?? undefined,
+      illustrationNotes: promptResult.illustrationNotes ?? undefined,
       productUseProfile: promptResult.productUseProfile,
     });
   } catch (err) {

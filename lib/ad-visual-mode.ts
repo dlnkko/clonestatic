@@ -2,6 +2,33 @@ import type { ReferenceVisualStyle } from '@/lib/adaptation/types';
 
 export type AdVisualMode = 'design' | 'realistic';
 
+const ILLUSTRATIVE_MEDIA = new Set([
+  'illustration',
+  'diagram',
+  '3d-render',
+  'mixed',
+  'product-graphic-only',
+]);
+
+export function isIllustrativeVisualStyle(
+  vs: ReferenceVisualStyle | null | undefined
+): boolean {
+  if (!vs) return false;
+  return (
+    vs.hasIllustrationOrDiagram === true ||
+    ILLUSTRATIVE_MEDIA.has(vs.visualMedium ?? '')
+  );
+}
+
+/** Real photographic model — not illustrated/stylized anatomy or mixed graphic layouts. */
+export function effectiveHasPersonInReference(
+  vs: ReferenceVisualStyle | null | undefined
+): boolean {
+  if (!vs?.hasPerson) return false;
+  if (isIllustrativeVisualStyle(vs)) return false;
+  return vs.visualMedium === 'photo';
+}
+
 /**
  * Classifies reference ads for image generation routing:
  * - design → Nano Banana Pro (icons, layouts, illustrations, graphic elements)
@@ -29,6 +56,11 @@ export function classifyAdVisualMode(params: {
     /diagram/i,
     /anatomical/i,
     /cutaway/i,
+    /stylized/i,
+    /animated/i,
+    /soft[\s-]render/i,
+    /digital\s*illustration/i,
+    /educational\s*graphic/i,
     /stylized\s*graphic/i,
     /3d\s*render/i,
   ];
@@ -36,19 +68,15 @@ export function classifyAdVisualMode(params: {
 
   if (!vs) return 'design';
 
-  if (vs.hasIllustrationOrDiagram) return 'design';
-
-  const medium = vs.visualMedium ?? 'product-graphic-only';
-  if (['illustration', 'diagram', '3d-render', 'mixed', 'product-graphic-only'].includes(medium)) {
-    if (!vs.hasPerson) return 'design';
-  }
-
-  if (vs.hasPerson || vs.hasEnvironment) return 'realistic';
+  if (isIllustrativeVisualStyle(vs)) return 'design';
 
   const dt = vs.designType?.toLowerCase() ?? '';
   if (dt === 'illustration-led' || dt === 'diagram-led' || dt === 'graphic-product-only') {
     return 'design';
   }
+
+  if (effectiveHasPersonInReference(vs) || vs.hasEnvironment) return 'realistic';
+
   if (dt === 'has-person' || dt === 'has-environment' || dt === 'has-person-or-environment') {
     return 'realistic';
   }
