@@ -40,8 +40,6 @@ export async function POST(request: NextRequest) {
       productImageBase64,
       productImageUrl: productImageUrlParam,
       productImageUrls: productImageUrlsParam,
-      referenceImageUrl: referenceImageUrlParam,
-      referenceImageBase64,
       aspectRatio: aspectRatioParam,
       adVisualMode: adVisualModeParam,
       creationId: creationIdParam,
@@ -53,8 +51,6 @@ export async function POST(request: NextRequest) {
       productImageBase64?: string;
       productImageUrl?: string;
       productImageUrls?: string[];
-      referenceImageUrl?: string;
-      referenceImageBase64?: string;
       aspectRatio?: string;
       adVisualMode?: AdVisualMode;
       creationId?: string;
@@ -128,17 +124,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let referenceImageUrl: string | null = null;
-    if (
-      referenceImageUrlParam &&
-      typeof referenceImageUrlParam === 'string' &&
-      referenceImageUrlParam.startsWith('http')
-    ) {
-      referenceImageUrl = referenceImageUrlParam;
-    } else if (referenceImageBase64 && typeof referenceImageBase64 === 'string') {
-      referenceImageUrl = await uploadBase64ToImgBB(referenceImageBase64);
-    }
-
     // Always run Kie on the server after responding — works when mobile locks / tab backgrounds.
     let jobCreationId = creationId;
 
@@ -183,7 +168,6 @@ export async function POST(request: NextRequest) {
     const backgroundParams = {
       prompt,
       productImageUrls,
-      referenceImageUrl,
       aspectRatio,
       adVisualMode,
       creationId: jobCreationId,

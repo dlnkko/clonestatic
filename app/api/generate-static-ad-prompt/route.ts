@@ -49,6 +49,7 @@ import {
   injectLogoReferenceElement,
   orderMatchedVisualsForGeneration,
 } from '@/lib/products/ensure-logo-match';
+import { buildKieProductImageUrls } from '@/lib/products/kie-image-input';
 import {
   expandElementsForProductUnits,
   inferProductUnitsFromPose,
@@ -990,9 +991,11 @@ export async function POST(request: NextRequest) {
         creativeDeconstruction,
         creativeBridge: step2Result.creativeBridge ?? null,
       },
-      matchedProductImageUrls: orderMatchedVisualsForGeneration(matchedProductVisuals).map(
-        (m) => m.url
-      ),
+      matchedProductImageUrls: buildKieProductImageUrls({
+        matchedVisuals: matchedProductVisuals,
+        catalogImages,
+        useFullCatalog: savedProduct ? isUserUploadedProduct(savedProduct) : false,
+      }),
       hasDedicatedLogo: matchedProductVisuals.some((m) => m.role === 'logo'),
       hasPersonInReference: referenceVisualStyle?.hasPerson === true,
       productUseProfile,

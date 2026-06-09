@@ -218,7 +218,6 @@ export async function runFullAdGenerationJob(params: FullAdGenerationParams): Pr
     await runAdImageGenerationJob({
       prompt: promptResult.prompt,
       productImageUrls,
-      referenceImageUrl,
       aspectRatio,
       adVisualMode: promptResult.adVisualMode,
       creationId,

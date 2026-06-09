@@ -608,20 +608,13 @@ function StaticAdAppPage() {
           })
         : Promise.resolve(new Response(JSON.stringify({ url: selectedProduct?.primary_image_url }), { status: 200 }));
 
-      const referenceUploadPromise = fetch('/api/upload-product-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productImageBase64: staticAdBase64 }),
-      });
-
-      const [response, uploadRes, referenceUploadRes] = await Promise.all([
+      const [response, uploadRes] = await Promise.all([
         fetch('/api/generate-static-ad-prompt', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(promptBody),
         }),
         uploadPromise,
-        referenceUploadPromise,
       ]);
 
       const { data: promptData, errorMessage: promptErr } = await parseJsonResponse<{
@@ -654,19 +647,13 @@ function StaticAdAppPage() {
         productImageUrl = uploadData.url;
         if (productImageUrls.length === 0) productImageUrls = [uploadData.url];
       } else if (selectedProduct && productImageUrls.length === 0) {
-        productImageUrls = selectedProduct.images
-          .filter((i) => i.kind !== 'logo')
-          .map((i) => i.url);
+        const logos = selectedProduct.images.filter((i) => i.kind === 'logo').map((i) => i.url);
+        const rest = selectedProduct.images.filter((i) => i.kind !== 'logo').map((i) => i.url);
+        productImageUrls = [...logos, ...rest].filter((u) => u.startsWith('http'));
         productImageUrl = selectedProduct.primary_image_url;
         if (productImageUrls.length === 0 && productImageUrl) {
           productImageUrls = [productImageUrl];
         }
-      }
-
-      let referenceImageUrl: string | null = null;
-      const { data: refUploadData } = await parseJsonResponse<{ url?: string }>(referenceUploadRes);
-      if (referenceUploadRes.ok && refUploadData?.url) {
-        referenceImageUrl = refUploadData.url;
       }
 
       setIsGeneratingImage(true);
@@ -699,8 +686,6 @@ function StaticAdAppPage() {
           aspectRatio: aspect,
         };
         if (creationId) imageBody.creationId = creationId;
-        if (referenceImageUrl) imageBody.referenceImageUrl = referenceImageUrl;
-        else imageBody.referenceImageBase64 = staticAdBase64;
         if (productImageUrls.length > 1) imageBody.productImageUrls = productImageUrls;
         else if (productImageUrl) imageBody.productImageUrl = productImageUrl;
         else if (productBase64) imageBody.productImageBase64 = productBase64;
@@ -708,8 +693,7 @@ function StaticAdAppPage() {
         if (data.hasPersonInReference) imageBody.hasPersonInReference = true;
         if (data.productUseProfile) imageBody.productUseProfile = data.productUseProfile;
 
-        const useKeepalive =
-          !imageBody.referenceImageBase64 && !imageBody.productImageBase64;
+        const useKeepalive = !imageBody.productImageBase64;
 
         const imgRes = await fetch('/api/generate-ad-image', {
           method: 'POST',

@@ -5,7 +5,6 @@ import { generateAdImageWithKie } from '@/lib/kie';
 export type AdImageGenerationParams = {
   prompt: string;
   productImageUrls: string[];
-  referenceImageUrl: string | null;
   aspectRatio: string;
   adVisualMode: AdVisualMode;
   creationId: string;
@@ -42,7 +41,6 @@ export async function runAdImageGenerationJob(params: AdImageGenerationParams): 
   const {
     prompt,
     productImageUrls,
-    referenceImageUrl,
     aspectRatio,
     adVisualMode,
     creationId,
@@ -54,8 +52,7 @@ export async function runAdImageGenerationJob(params: AdImageGenerationParams): 
     const fullPrompt = appendAspectRatioHint(prompt, aspectRatio);
     const { imageUrl } = await generateAdImageWithKie({
       prompt: fullPrompt,
-      productImageUrls: productImageUrls.slice(0, 8),
-      referenceImageUrl,
+      productImageUrls,
       aspectRatio,
       adVisualMode,
       hasDedicatedLogo: params.hasDedicatedLogo,

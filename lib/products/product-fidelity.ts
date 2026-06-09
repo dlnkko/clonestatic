@@ -117,11 +117,11 @@ ${catalogLines}
 }
 
 export const KIE_PRODUCT_FIDELITY_SUFFIX = `CRITICAL — PRODUCT FIDELITY (non-negotiable):
-- The FIRST image(s) in image_input are the user's REAL product from their store catalog. Render THAT product exactly — same packaging type, shape, labels, colors, and contents (e.g. gummy pouch/bag, not a pill bottle).
-- Brand logo/wordmark on the product must match what is printed on the packaging in catalog photos — do NOT invent a separate footer or centered brand mark unless the prompt explicitly describes a standalone logo zone from the reference.
-- The LAST image (if present) is the reference ad — use ONLY for layout, composition, and text placement. Do NOT copy its product shape OR its competitor-category environment (bedroom, kitchen, etc.) when the user's product belongs to a different category.
-- Scene/setting/props must be 100% on-theme for the user's product (e.g. aesthetic gym for creatine) while keeping the reference's lighting mood and premium aesthetic.
-- Never invent or substitute a different product form factor. If catalog shows gummies in a stand-up pouch, show the pouch — NOT a supplement bottle like the reference.`;
+- Every attached catalog image is the user's REAL product (packaging, units, lifestyle, trust badge, and/or dedicated logo file). Render those assets exactly — same packaging type, shape, labels, colors, and contents.
+- When a dedicated logo image is attached, reproduce that exact logotype in the standalone logo zone from the prompt — not plain typed text.
+- Layout, composition, text placement, and lighting mood come from the written prompt (derived from reference analysis). Do NOT copy competitor product shapes or off-category environments.
+- Scene/setting/props must be on-theme for the user's product while matching the prompt's mood and aesthetic.
+- Never invent or substitute a different product form factor than shown in the catalog photos.`;
 
 export const KIE_DEDICATED_LOGO_SUFFIX = `CRITICAL — STANDALONE BRAND LOGO:
 - When a dedicated logo image is included in image_input, reproduce that EXACT logo graphic in the standalone logo zone described in the prompt (same letterforms, colors, stroke weight, and proportions).

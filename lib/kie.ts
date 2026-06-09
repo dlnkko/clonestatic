@@ -145,7 +145,6 @@ function parseResultUrls(resultJson: string | undefined): string[] {
 export async function generateAdImageWithKie(params: {
   prompt: string;
   productImageUrls: string[];
-  referenceImageUrl?: string | null;
   aspectRatio: string;
   adVisualMode: AdVisualMode;
   hasDedicatedLogo?: boolean;
@@ -155,7 +154,6 @@ export async function generateAdImageWithKie(params: {
   const {
     prompt,
     productImageUrls,
-    referenceImageUrl,
     aspectRatio,
     adVisualMode,
     hasDedicatedLogo,
@@ -163,7 +161,9 @@ export async function generateAdImageWithKie(params: {
     productUseProfile,
   } = params;
   const ratio = mapAspectRatio(aspectRatio, adVisualMode);
-  const rawCatalogUrls = productImageUrls.filter((u) => u.startsWith('http')).slice(0, 8);
+  const maxCatalog =
+    adVisualMode === 'design' ? 8 : 16;
+  const rawCatalogUrls = productImageUrls.filter((u) => u.startsWith('http')).slice(0, maxCatalog);
   const catalogUrls = await ensureKieCompatibleUrls(rawCatalogUrls);
   const fidelityPrompt = appendKieProductFidelityPrompt(prompt, catalogUrls.length > 0, {
     hasDedicatedLogo,
@@ -176,21 +176,16 @@ export async function generateAdImageWithKie(params: {
 
   if (adVisualMode === 'design') {
     model = 'nano-banana-pro';
-    const rawReference = referenceImageUrl?.startsWith('http') ? referenceImageUrl : null;
-    const [referenceConverted] = rawReference
-      ? await ensureKieCompatibleUrls([rawReference])
-      : [null];
-    // Product catalog first so the model anchors on user's real product; reference last for layout only.
-    const imageInput = [
-      ...catalogUrls,
-      ...(referenceConverted ? [referenceConverted] : []),
-    ].slice(0, 8);
+
+    if (catalogUrls.length === 0) {
+      throw new Error('No valid product image URLs for design generation');
+    }
 
     taskId = await createKieTask({
       model,
       input: {
         prompt: fidelityPrompt,
-        image_input: imageInput,
+        image_input: catalogUrls,
         aspect_ratio: ratio,
         resolution: '2K',
         output_format: 'png',
@@ -198,7 +193,7 @@ export async function generateAdImageWithKie(params: {
     });
   } else {
     model = 'gpt-image-2-image-to-image';
-    const inputUrls = catalogUrls.slice(0, 16);
+    const inputUrls = catalogUrls;
 
     if (inputUrls.length === 0) {
       throw new Error('No valid product image URLs for realistic generation');

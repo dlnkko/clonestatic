@@ -13,3 +13,4 @@ set total_impressions =
 where total_impressions is null
   and metadata ? 'total_impressions';
 
+
