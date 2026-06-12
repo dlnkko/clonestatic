@@ -18,7 +18,11 @@
     "resolve-skincare-brands": "npx tsx scripts/resolve-skincare-brands.ts",
     "ingest-library:skincare": "npx tsx scripts/ingest-skincare-brands.ts",
     "resolve-all-brands": "npx tsx scripts/resolve-all-db-brands.ts",
-    "ingest-all-brands": "npx tsx scripts/ingest-all-db-brands.ts"
+    "ingest-all-brands": "npx tsx scripts/ingest-all-db-brands.ts",
+    "purge-library": "npx tsx scripts/purge-static-library-ads.ts",
+    "purge-library:apply": "npx tsx scripts/purge-static-library-ads.ts --apply",
+    "purge-small-brands": "npx tsx scripts/purge-static-library-ads.ts --mode small-brands --max-ads 4",
+    "purge-small-brands:apply": "npx tsx scripts/purge-static-library-ads.ts --mode small-brands --max-ads 4 --apply"
   },
   "dependencies": {
     "@google/genai": "^1.30.0",

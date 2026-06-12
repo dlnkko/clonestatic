@@ -3,7 +3,25 @@ import {
   buildAllowedPriceFromConfig,
   pricingInstructionsFromConfig,
 } from './pricing-config';
+import { normalizeStoredImageUrl } from './media-url';
 import type { ProductImage, ProductRecord, ProductScrapeCache } from './types';
+
+function sanitizeProductImages(images: ProductImage[]): ProductImage[] {
+  return images
+    .map((img) => ({
+      ...img,
+      url: normalizeStoredImageUrl(img.url),
+    }))
+    .filter((img) => img.url.startsWith('http'));
+}
+
+function sanitizePrimaryImageUrl(primary: unknown, images: ProductImage[]): string {
+  const raw = normalizeStoredImageUrl(typeof primary === 'string' ? primary : '');
+  if (raw.startsWith('http')) return raw;
+  const fromCatalog =
+    images.find((i) => i.kind !== 'logo')?.url ?? images.find((i) => i.url)?.url ?? '';
+  return fromCatalog || raw;
+}
 
 export function getProductAllowedPrice(product: ProductRecord): string | null {
   const fromConfig = buildAllowedPriceFromConfig(product.scrape_cache?.pricingConfig);
@@ -22,6 +40,12 @@ export function getProductPricingInstructions(product: ProductRecord): string | 
 }
 
 export function rowToProduct(row: Record<string, unknown>): ProductRecord {
+  const images = sanitizeProductImages(
+    Array.isArray(row.images) ? (row.images as ProductImage[]) : []
+  );
+  const logoRaw = normalizeStoredImageUrl((row.logo_url as string) || '');
+  const logo_url = logoRaw.startsWith('http') ? logoRaw : null;
+
   return {
     id: String(row.id),
     user_id: String(row.user_id),
@@ -31,9 +55,9 @@ export function rowToProduct(row: Record<string, unknown>): ProductRecord {
     description: (row.description as string) || null,
     target_audience: (row.target_audience as string) || null,
     color_palette: (row.color_palette as ProductRecord['color_palette']) || null,
-    logo_url: (row.logo_url as string) || null,
-    primary_image_url: String(row.primary_image_url),
-    images: Array.isArray(row.images) ? (row.images as ProductImage[]) : [],
+    logo_url,
+    primary_image_url: sanitizePrimaryImageUrl(row.primary_image_url, images),
+    images,
     scrape_cache: (row.scrape_cache as ProductScrapeCache) || null,
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),

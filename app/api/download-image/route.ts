@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isDirectImageUrl, resolveProductImageFetchUrl } from '@/lib/products/media-url';
 
 /** Proxies an image and returns it with Content-Disposition: attachment so mobile browsers trigger download. */
 function isValidImageUrl(url: string): boolean {
@@ -28,7 +29,8 @@ export async function GET(request: NextRequest) {
   const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
 
   try {
-    const res = await fetch(url, {
+    const fetchUrl = await resolveProductImageFetchUrl(url);
+    const res = await fetch(fetchUrl, {
       headers: {
         Accept: 'image/*',
         'User-Agent': 'admirror/1.0',
@@ -41,6 +43,9 @@ export async function GET(request: NextRequest) {
     }
     const contentType = res.headers.get('content-type');
     if (!isImageContentType(contentType)) {
+      if (!isDirectImageUrl(fetchUrl) && fetchUrl === url) {
+        return NextResponse.json({ error: 'URL did not return an image' }, { status: 400 });
+      }
       return NextResponse.json({ error: 'URL did not return an image' }, { status: 400 });
     }
     const blob = await res.arrayBuffer();

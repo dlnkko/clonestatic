@@ -1,4 +1,5 @@
 import { normalizeBase64DataUrl } from '@/lib/images/normalize-image';
+import { pickImgbbDirectUrl } from '@/lib/products/media-url';
 
 /** Upload base64 data URL to ImgBB and return public URL. Converts webp/avif to JPEG/PNG first. */
 export async function uploadBase64ToImgBB(base64DataUrl: string): Promise<string> {
@@ -17,8 +18,8 @@ export async function uploadBase64ToImgBB(base64DataUrl: string): Promise<string
     body: form,
   });
   const json = await res.json();
-  if (!json.success || !json.data?.url) {
+  if (!json.success || !json.data) {
     throw new Error(json?.error?.message || 'Failed to upload image to ImgBB');
   }
-  return json.data.url as string;
+  return pickImgbbDirectUrl(json.data as Record<string, unknown>);
 }

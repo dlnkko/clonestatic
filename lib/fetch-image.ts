@@ -1,3 +1,5 @@
+import { resolveProductImageFetchUrl } from '@/lib/products/media-url';
+
 const RETRYABLE =
   /ECONNRESET|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|socket hang up|fetch failed|network/i;
 
@@ -26,9 +28,11 @@ export async function fetchImageWithRetry(
 
   if (!url.startsWith('http')) return null;
 
+  const resolvedUrl = await resolveProductImageFetchUrl(url);
+
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const res = await fetch(url, {
+      const res = await fetch(resolvedUrl, {
         signal: AbortSignal.timeout(timeoutMs),
         redirect: 'follow',
         headers: {

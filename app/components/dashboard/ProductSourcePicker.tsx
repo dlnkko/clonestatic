@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
+import { ProxiedImage } from '@/app/components/ProxiedImage';
 import { cn } from '@/lib/cn';
 import type { ProductRecord } from '@/lib/products/types';
 
@@ -66,7 +67,7 @@ export function ProductSourcePicker({
       >
         {selected ? (
           <>
-            <img src={selected.primary_image_url} alt="" className="dash-product-picker-thumb" />
+            <ProxiedImage src={selected.primary_image_url} alt="" className="dash-product-picker-thumb" />
             <span className="dash-product-picker-value">{formatProductLabel(selected.name)}</span>
           </>
         ) : (
@@ -108,7 +109,7 @@ export function ProductSourcePicker({
                     setOpen(false);
                   }}
                 >
-                  <img src={p.primary_image_url} alt="" className="dash-product-picker-option-thumb" />
+                  <ProxiedImage src={p.primary_image_url} alt="" className="dash-product-picker-option-thumb" />
                   <span className="dash-product-picker-option-text">
                     <span className="dash-product-picker-option-title">{formatProductLabel(p.name)}</span>
                     <span className="dash-product-picker-option-sub">

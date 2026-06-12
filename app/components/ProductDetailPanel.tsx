@@ -10,6 +10,7 @@ import {
   finalizePricingConfig,
   pricingConfigFromExtracted,
 } from '@/lib/products/pricing-config';
+import { ProxiedImage } from '@/app/components/ProxiedImage';
 
 type Props = {
   product: ProductRecord | null;
@@ -112,7 +113,7 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
         <div className="flex-1 overflow-y-auto px-6 py-5 sm:px-8">
           <div className="mx-auto flex max-w-2xl flex-col gap-5">
             <div className="flex gap-4 rounded-2xl border border-[var(--dash-border)] bg-slate-50/80 p-4">
-              <img
+              <ProxiedImage
                 src={product.primary_image_url}
                 alt=""
                 className="h-24 w-24 shrink-0 rounded-xl object-cover ring-1 ring-slate-200"
@@ -173,13 +174,17 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
               <div className="flex flex-wrap gap-2">
                 {product.images.map((img, i) => (
                   <a
-                    key={i}
+                    key={`${img.url}-${i}`}
                     href={img.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="relative block h-20 w-20 overflow-hidden rounded-xl ring-1 ring-slate-200 transition hover:ring-indigo-300"
+                    className="relative block h-20 w-20 overflow-hidden rounded-xl ring-1 ring-slate-200 bg-white transition hover:ring-indigo-300"
                   >
-                    <img src={img.url} alt="" className="h-full w-full object-cover" />
+                    <ProxiedImage
+                      src={img.url}
+                      alt=""
+                      className={`h-full w-full ${img.kind === 'logo' ? 'object-contain p-1' : 'object-cover'}`}
+                    />
                     {img.kind === 'logo' && (
                       <span className="absolute left-0.5 top-0.5 rounded bg-black/70 px-1 text-[8px] text-white">
                         Logo
