@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useState } from 'react';
-import { displayImageUrl } from '@/lib/display-image-url';
+import { useCallback, useEffect, useState } from 'react';
+import { displayImageUrl, shouldBypassImageProxy } from '@/lib/display-image-url';
 import { cn } from '@/lib/cn';
 
 type ProxiedImageProps = React.ImgHTMLAttributes<HTMLImageElement> & {
@@ -9,7 +9,9 @@ type ProxiedImageProps = React.ImgHTMLAttributes<HTMLImageElement> & {
   fallbackClassName?: string;
 };
 
-/** Loads external image URLs via same-origin proxy (fixes mobile CDN / hotlink failures). */
+type LoadMode = 'proxy' | 'direct' | 'failed';
+
+/** Loads external image URLs via same-origin proxy when needed (fixes mobile CDN / hotlink failures). */
 export function ProxiedImage({
   src,
   alt = '',
@@ -18,43 +20,67 @@ export function ProxiedImage({
   onError,
   ...rest
 }: ProxiedImageProps) {
-  const [failed, setFailed] = useState(false);
-  const proxied = displayImageUrl(src);
+  const [mode, setMode] = useState<LoadMode>(() =>
+    shouldBypassImageProxy(src) ? 'direct' : 'proxy'
+  );
+
+  useEffect(() => {
+    setMode(shouldBypassImageProxy(src) ? 'direct' : 'proxy');
+  }, [src]);
 
   const handleError = useCallback(
     (e: React.SyntheticEvent<HTMLImageElement>) => {
-      setFailed(true);
+      if (mode === 'proxy' && src.startsWith('http')) {
+        setMode('direct');
+        return;
+      }
+      setMode('failed');
       onError?.(e);
     },
-    [onError]
+    [mode, onError, src]
   );
 
-  if (failed) {
+  if (!src) {
     return (
       <div
         className={cn(
-          'flex flex-col items-center justify-center gap-2 bg-slate-100 p-4 text-center',
+          'flex items-center justify-center bg-slate-100 text-[10px] text-slate-400',
           fallbackClassName,
           className
         )}
       >
-        <span className="text-xs font-medium text-slate-600">No se pudo cargar la imagen</span>
+        —
+      </div>
+    );
+  }
+
+  if (mode === 'failed') {
+    return (
+      <div
+        className={cn(
+          'flex flex-col items-center justify-center gap-0.5 overflow-hidden bg-slate-100 p-1 text-center',
+          fallbackClassName
+        )}
+      >
+        <span className="text-[9px] font-medium leading-tight text-slate-500">Error</span>
         <a
           href={src}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs font-semibold text-indigo-600 underline"
+          className="text-[9px] font-semibold leading-tight text-indigo-600 underline"
         >
-          Abrir enlace directo
+          Abrir
         </a>
       </div>
     );
   }
 
+  const resolvedSrc = mode === 'direct' ? src : displayImageUrl(src);
+
   return (
     <img
       {...rest}
-      src={proxied}
+      src={resolvedSrc}
       alt={alt}
       className={className}
       onError={handleError}

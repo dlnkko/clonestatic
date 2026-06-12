@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { rowToProduct } from '@/lib/products/db';
+import { resolveProductImageSlots, type ProductImageSlotInput } from '@/lib/products/save-product-images';
 import type { ProductScrapeCache } from '@/lib/products/types';
 
 export const dynamic = 'force-dynamic';
@@ -62,6 +63,7 @@ export async function PATCH(
       priceDisplay,
       pricingConfig,
       scrape_cache,
+      imageSlots,
     } = body as {
       name?: string;
       description?: string;
@@ -70,11 +72,12 @@ export async function PATCH(
       priceDisplay?: string | null;
       pricingConfig?: ProductScrapeCache['pricingConfig'];
       scrape_cache?: ProductScrapeCache;
+      imageSlots?: ProductImageSlotInput[];
     };
 
     const { data: existing, error: fetchErr } = await supabase
       .from('products')
-      .select('scrape_cache')
+      .select('name, scrape_cache')
       .eq('id', id)
       .eq('user_id', user.id)
       .single();
@@ -113,6 +116,35 @@ export async function PATCH(
       cache = { ...cache, pricingConfig };
     }
     if (cache) updates.scrape_cache = cache;
+
+    if (Array.isArray(imageSlots)) {
+      if (imageSlots.length < 1) {
+        return NextResponse.json({ error: 'At least one product image is required' }, { status: 400 });
+      }
+      const logoCount = imageSlots.filter((s) => s.kind === 'logo').length;
+      const productCount = imageSlots.length - logoCount;
+      if (productCount < 1) {
+        return NextResponse.json({ error: 'At least one product image is required' }, { status: 400 });
+      }
+      if (productCount > 10) {
+        return NextResponse.json({ error: 'Maximum 10 product images' }, { status: 400 });
+      }
+      if (logoCount > 2) {
+        return NextResponse.json({ error: 'Maximum 2 logo images' }, { status: 400 });
+      }
+      const productName =
+        (typeof name === 'string' && name.trim()) ||
+        String(existing.name || 'Product');
+      try {
+        const resolved = await resolveProductImageSlots(imageSlots, productName);
+        updates.images = resolved.images;
+        updates.primary_image_url = resolved.primary_image_url;
+        updates.logo_url = resolved.logo_url;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : 'Failed to update images';
+        return NextResponse.json({ error: message }, { status: 400 });
+      }
+    }
 
     const { data, error } = await supabase
       .from('products')

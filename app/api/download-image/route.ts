@@ -32,8 +32,9 @@ export async function GET(request: NextRequest) {
     const fetchUrl = await resolveProductImageFetchUrl(url);
     const res = await fetch(fetchUrl, {
       headers: {
-        Accept: 'image/*',
-        'User-Agent': 'admirror/1.0',
+        Accept: 'image/*,*/*',
+        'User-Agent': 'Mozilla/5.0 (compatible; admirror/1.0)',
+        Referer: 'https://imgbb.com/',
       },
       cache: 'no-store',
       signal: AbortSignal.timeout(120_000),

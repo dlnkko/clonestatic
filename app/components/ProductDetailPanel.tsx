@@ -11,6 +11,12 @@ import {
   pricingConfigFromExtracted,
 } from '@/lib/products/pricing-config';
 import { ProxiedImage } from '@/app/components/ProxiedImage';
+import {
+  ProductImagesEditor,
+  productImagesFromRecord,
+  readEditableImagesAsPayload,
+  type EditableProductImage,
+} from '@/app/components/products/ProductImagesEditor';
 
 type Props = {
   product: ProductRecord | null;
@@ -26,6 +32,8 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
   const [targetAudience, setTargetAudience] = useState('');
   const [paletteColors, setPaletteColors] = useState<string[]>([]);
   const [pricingConfig, setPricingConfig] = useState<ProductPricingConfig>(emptyPricingConfig());
+  const [productImages, setProductImages] = useState<EditableProductImage[]>([]);
+  const [logoImages, setLogoImages] = useState<EditableProductImage[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,12 +55,20 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
     } else {
       setPricingConfig(emptyPricingConfig());
     }
+    const parsed = productImagesFromRecord(product.images);
+    setProductImages(parsed.productImages);
+    setLogoImages(parsed.logoImages);
     setError(null);
   }, [product]);
 
   if (!product) return null;
 
   const handleSave = async () => {
+    if (productImages.length < 1) {
+      setError(t('products', 'productImagesRequired'));
+      return;
+    }
+
     setSaving(true);
     setError(null);
     try {
@@ -64,6 +80,8 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
             pricingConfig: syncedPricing,
           }
         : null;
+
+      const imageSlots = await readEditableImagesAsPayload(productImages, logoImages);
 
       const res = await fetch(`/api/products/${product.id}`, {
         method: 'PATCH',
@@ -77,6 +95,7 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
           priceDisplay: syncedPricing.priceDisplay,
           pricingConfig: syncedPricing,
           scrape_cache,
+          imageSlots,
         }),
       });
       const data = await res.json();
@@ -97,6 +116,8 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
       onClose();
     }
   };
+
+  const imageCount = productImages.length + logoImages.length;
 
   return (
     <div className="dash-modal-root dash-modal-root--center" role="dialog" aria-modal="true">
@@ -133,7 +154,7 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
                   </a>
                 )}
                 <p className="mt-2 text-xs text-slate-500">
-                  {t('products', 'imagesStored', { count: product.images.length })}
+                  {t('products', 'imagesStored', { count: imageCount })}
                 </p>
               </div>
             </div>
@@ -169,31 +190,21 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
               detectedPricing={product.scrape_cache?.extractedPricing ?? null}
             />
 
-            <div>
-              <label className="dash-label mb-2">{t('products', 'productImages')}</label>
-              <div className="flex flex-wrap gap-2">
-                {product.images.map((img, i) => (
-                  <a
-                    key={`${img.url}-${i}`}
-                    href={img.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="relative block h-20 w-20 overflow-hidden rounded-xl ring-1 ring-slate-200 bg-white transition hover:ring-indigo-300"
-                  >
-                    <ProxiedImage
-                      src={img.url}
-                      alt=""
-                      className={`h-full w-full ${img.kind === 'logo' ? 'object-contain p-1' : 'object-cover'}`}
-                    />
-                    {img.kind === 'logo' && (
-                      <span className="absolute left-0.5 top-0.5 rounded bg-black/70 px-1 text-[8px] text-white">
-                        Logo
-                      </span>
-                    )}
-                  </a>
-                ))}
-              </div>
-            </div>
+            <ProductImagesEditor
+              productImages={productImages}
+              logoImages={logoImages}
+              onProductImagesChange={setProductImages}
+              onLogoImagesChange={setLogoImages}
+              labels={{
+                productImages: t('products', 'productImages'),
+                productImagesHint: t('products', 'productImagesEditHint'),
+                logoImages: t('products', 'logoImages'),
+                logoImagesHint: t('products', 'logoImagesEditHint'),
+                replace: t('products', 'replaceImage'),
+                remove: t('products', 'removeImage'),
+                upload: t('products', 'uploadImage'),
+              }}
+            />
 
             {error && <p className="text-sm text-red-600">{error}</p>}
           </div>
