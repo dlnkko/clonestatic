@@ -17,6 +17,7 @@ import {
   productPlacementOnModelBlock,
   productThemedEnvironmentBlock,
   referenceCopyMirroringBlock,
+  realPersonPhotoStyleBlock,
   subheroCopyPatternBlock,
   textLayoutBlock,
   typographyHierarchyBlock,
@@ -205,6 +206,14 @@ Format your response EXACTLY as:
 If illustration/diagram-led: the ad uses stylized graphics — NOT a real person photo. Adaptation must recreate illustration/diagram style with user's product, never default to stock lifestyle photography.
 If "graphic-product-only" or "illustration-led": do NOT add real photographic people or gym/sport imagery.
 
+**PHOTOGRAPHY STYLE (REFERENCE AD)** — fill ONLY when "Has real photographic person/model" is yes:
+- Shot distance & crop: [extreme close-up face / close-up shoulders / medium / full body — describe exact crop]
+- Expression & energy: [joyful scream, candid laugh, mid-shout, calm smile, etc. — the personality the ad sells]
+- Camera feel: [handheld motion blur, slight camera shake, festival snapshot, flash-on-phone, panning blur, crisp but candid, etc.]
+- Spontaneity: [candid in-the-moment / directed but natural / studio-posed]
+- Smartphone/iPhone cues: [natural HDR, slight grain, imperfect framing, real skin texture, not retouched]
+- Photography notes: [one sentence: e.g. "Tight joyful close-up with slight motion blur like a concert iPhone snapshot"]
+
 **BRAND / LOGO PLACEMENT (REFERENCE AD):**
 - Standalone brand logo in layout: [yes/no]
 - Logo appears only on product packaging: [yes/no]
@@ -341,6 +350,7 @@ function peopleModelsCriticalBlock(ctx: AdaptationContext): string {
 The reference ad includes one or more **people** using or featuring a product. You MUST **preserve the human presence** in the final ad:
 - **Do NOT remove people** and do NOT turn the ad into a **product-only** shot unless the user explicitly requests that in Guidelines.
 - **Do NOT drop** the reference's shot type (portrait, lifestyle, close-up) — keep the same **framing and visual grammar**.
+- **Photography authenticity:** Match reference **camera feel** — if reference is tight close-up with joyful energy, motion blur, or handheld snapshot quality, the output must read as **iPhone candid photo**, NOT glossy AI/stock realism.
 - **Product interaction is dynamic:** Show the **user's product** in its **authentic use case** (see AUTHENTIC PRODUCT USE above). Clone composition and mood; **do not** clone the competitor's product form (worn on head, wrong grip) when the user's product is used differently.
 - **Avatars / appearance:** You MAY vary faces, hair, skin tone, age for diversity; keep the same **shot energy** and product visibility.
 - **Setting:** Shift setting to fit the **user's product category** (gym for creatine, bedroom for bedding, vanity for skincare) while matching the reference's **production quality, lighting mood, and aesthetic**. Do NOT keep competitor-category environments when categories differ.
@@ -592,7 +602,7 @@ ${ctx.pricingInstructions}
 **Your Task:**
 Adapt the reference prompt above to create a NEW prompt for the product in the provided image. The new prompt must:
 
-${peopleModelsCriticalBlock(ctx)}${productUseCaseAdaptationBlock(ctx)}${oneHeroBlock(ctx)}${productCatalogFidelityBlock(ctx)}${productThemedEnvironmentBlock(ctx)}${packagingMirroringBlock(ctx)}${graphicOnlyBlock(ctx)}
+${peopleModelsCriticalBlock(ctx)}${realPersonPhotoStyleBlock(ctx)}${productUseCaseAdaptationBlock(ctx)}${oneHeroBlock(ctx)}${productCatalogFidelityBlock(ctx)}${productThemedEnvironmentBlock(ctx)}${packagingMirroringBlock(ctx)}${graphicOnlyBlock(ctx)}
 
 ${illustrativeVisualBlock(ctx)}
 
@@ -681,6 +691,8 @@ ${backgroundColorAdaptationBlock(ctx)}
 ${productThemedEnvironmentBlock(ctx)}
 
 ${productUseCaseAdaptationBlock(ctx)}
+
+${realPersonPhotoStyleBlock(ctx)}
 
 ${maintainDesignElementsBlock(ctx)}
 

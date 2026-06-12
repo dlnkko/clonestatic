@@ -494,3 +494,28 @@ ${refHasSaveOffer ? '- Reference had a save/discount line — mirror that struct
 - Use a **direct purchase CTA** aligned with reference tone (e.g. "Shop now", "Get yours", promo code bar) — NOT subscription commerce unless reference had it
 - If allowed price is set (${ctx.allowedPrice ?? 'none'}), price may appear once — never pair with fake subscription savings`;
 }
+
+/** Real photographic people — match reference camera grammar (candid iPhone, not AI stock). */
+export function realPersonPhotoStyleBlock(ctx: AdaptationContext): string {
+  if (!ctx.hasPersonInReference || ctx.hasIllustrativeVisual) return '';
+
+  const refNotes = ctx.referencePhotoStyle?.trim();
+
+  return `**REAL PHOTO AUTHENTICITY — MATCH REFERENCE CAMERA FEEL (CRITICAL):**
+The reference uses **real photographic people**. Clone the reference **photography grammar** — NOT a generic polished stock/AI fitness shoot.
+
+**Match from reference (mandatory):**
+- **Framing & distance:** Same shot distance — if reference is **tight close-up / face-forward / cropped shoulders**, keep that intimacy; do NOT zoom out to a generic half-body catalog pose unless reference was wide.
+- **Expression & energy:** Mirror reference mood — joyful scream, candid laugh, mid-moment excitement, relaxed confidence. Model must feel **alive with personality**, not neutral stock-smile.
+- **Camera feel:** If reference has **slight motion blur, handheld shake, candid snapshot energy, festival/concert spontaneity, or imperfect focus**, reproduce that **authentic captured-moment** quality — do NOT over-sharpen into glossy AI/stock realism.
+- **Device aesthetic:** Photo must read as **shot on iPhone / modern smartphone** — natural HDR, realistic skin texture with minor imperfections, authentic depth, slight wide-lens distortion if close-up. **NOT** hyper-retouched commercial render, **NOT** obvious AI smooth skin, **NOT** studio catalog backdrop.
+- **Lighting:** Match reference lighting character (golden hour, mixed venue lights, on-phone flash, etc.) — natural and situational.
+
+${refNotes ? `Reference photography analysis:\n${refNotes}\n` : ''}**FORBIDDEN:**
+- Generic supplement/fitness stock (track at sunset, perfect abs, holding pill to mouth) unless reference literally shows that
+- Over-polished "AI influencer" skin, plastic symmetry, uncanny perfect teeth
+- Replacing reference **intimate close-up energy** with a distant conventional lifestyle shot
+- Removing motion/candid imperfection when reference had festival/snapshot authenticity
+
+**REQUIRED in final prompt:** Explicitly state **smartphone/iPhone candid photo quality** + reference framing + expression + any motion/handheld feel, while keeping **exact ad layout, typography, and text design**.`;
+}

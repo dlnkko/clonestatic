@@ -134,6 +134,12 @@ export const KIE_ILLUSTRATIVE_MEDIUM_SUFFIX = `CRITICAL — VISUAL MEDIUM (non-n
 - In mixed layouts, catalog product packaging may stay photorealistic when composited — but human/body elements remain illustrated/stylized like the reference.
 - FORBIDDEN: upgrading a stylized anatomical arm or educational body graphic into a photoreal gym/lifestyle shot.`;
 
+export const KIE_REAL_PERSON_PHOTO_SUFFIX = `CRITICAL — REAL PHOTO AUTHENTICITY (reference has real photographic people):
+- Match reference **shot distance/crop**, **expression energy**, and **camera feel** (tight close-up, candid laugh, handheld motion blur, festival snapshot, etc.).
+- Final image must read as **shot on iPhone / modern smartphone** — natural HDR, real skin texture with minor imperfections, authentic depth, candid framing. NOT hyper-retouched stock, NOT glossy AI polish, NOT plastic smooth skin.
+- Preserve reference spontaneity and personality; do NOT replace intimate close-up energy with a distant generic lifestyle catalog pose.
+- Keep ad **layout, typography, and text design** from the prompt exactly — only the photography grammar should feel candid and real.`;
+
 export function appendKieProductFidelityPrompt(
   prompt: string,
   hasProductImages: boolean,
@@ -157,6 +163,8 @@ export function appendKieProductFidelityPrompt(
       mediumBlock += `\n- Reference illustration style to preserve: ${options.illustrationNotes.trim()}`;
     }
     out += `\n\n${mediumBlock}`;
+  } else if (options?.hasPersonInReference) {
+    out += `\n\n${KIE_REAL_PERSON_PHOTO_SUFFIX}`;
   }
   if (options?.hasDedicatedLogo) {
     out += `\n\n${KIE_DEDICATED_LOGO_SUFFIX}`;

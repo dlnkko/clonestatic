@@ -194,6 +194,7 @@ export type AdaptationContext = {
   hasReferenceComparisonModule: boolean;
   referenceLayoutZones: ReferenceLayoutZones | null;
   referenceProductPoseAndArrangement: string;
+  referencePhotoStyle: string | null;
   referenceProductUnits: import('@/lib/products/types').ReferenceProductUnitsProfile | null;
   referenceReviewModule: string;
   hasReferenceReviewModule: boolean;

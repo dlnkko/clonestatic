@@ -691,3 +691,18 @@ export function parseReferenceProductUnits(analysisText: string): ReferenceProdu
     slots: perSlot.length > 0 ? perSlot : undefined,
   };
 }
+
+/** Candid / iPhone photography grammar when reference has real people. */
+export function parseReferencePhotoStyle(analysisText: string): string | null {
+  const block = analysisText.match(
+    /\*\*PHOTOGRAPHY STYLE \(REFERENCE AD\)\*\*[^*]*([\s\S]*?)(?=\*\*[A-Z][^*]*\(REFERENCE AD\)|\*\*COPYWRITING|\*\*PRODUCT POSE|\*\*REFERENCE AD PROMPT|$)/i
+  );
+  if (!block?.[1]) return null;
+  const text = block[1]
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.startsWith('-') && !/fill ONLY when/i.test(l))
+    .join('\n')
+    .trim();
+  return text.length > 20 ? text : null;
+}

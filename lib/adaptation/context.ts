@@ -13,6 +13,7 @@ import {
   parseReferenceComparisonModule,
   parseReferenceLayoutZones,
   parseReferenceLayoutZonesFromAnalysis,
+  parseReferencePhotoStyle,
   parseReferenceTextLayout,
   parseTypographyHierarchy,
 } from './parse-reference-analysis';
@@ -162,6 +163,11 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     ? parseReferenceLayoutZones(referenceLayoutZonesBlock)
     : null;
 
+  const referencePhotoStyle =
+    referenceVisualStyle?.hasPerson && referenceVisualStyle.visualMedium === 'photo'
+      ? parseReferencePhotoStyle(referencePrompt)
+      : null;
+
   const pricingInstructions = buildPricingInstructions(allowedPrice, pricingDetail);
 
   const resolvedLang: CopyLanguageOption = resolveCopyLanguage(copyLanguage);
@@ -290,6 +296,7 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     hasReferenceComparisonModule,
     referenceLayoutZones,
     referenceProductPoseAndArrangement,
+    referencePhotoStyle,
     referenceProductUnits,
     referenceReviewModule,
     hasReferenceReviewModule,
@@ -564,6 +571,7 @@ export function contextSummaryForAgent(ctx: AdaptationContext): string {
       referenceTypography: ctx.referenceTypography?.slice(0, 2000) ?? null,
       typographyHierarchy: ctx.typographyHierarchy,
       referenceProductPoseAndArrangement: ctx.referenceProductPoseAndArrangement?.slice(0, 2000) ?? null,
+      referencePhotoStyle: ctx.referencePhotoStyle?.slice(0, 800) ?? null,
       referenceReviewModule: ctx.hasReferenceReviewModule
         ? ctx.referenceReviewModule.slice(0, 1500)
         : null,
