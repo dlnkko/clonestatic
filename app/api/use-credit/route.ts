@@ -1,12 +1,17 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { resolveOwnerEmail } from '@/lib/subscription-limits';
+import { useCreditForGeneration } from '@/lib/creations/use-credit';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
   if (authError || !user?.email) {
     return NextResponse.json({ error: 'Sign in required' }, { status: 401 });
   }
@@ -18,35 +23,29 @@ export async function POST() {
 
   try {
     const admin = createAdminClient();
-    const { data: row, error: fetchError } = await admin
+    const isOwner = email === resolveOwnerEmail();
+    const result = await useCreditForGeneration(request, admin, email, isOwner);
+
+    if (!result.ok) {
+      return NextResponse.json(
+        { error: result.error, credits_remaining: result.credits_remaining },
+        { status: result.status }
+      );
+    }
+
+    if (isOwner) {
+      return NextResponse.json({ credits_remaining: 999999 });
+    }
+
+    const billingEmail = result.billingEmail ?? email;
+    const { data: row } = await admin
       .from('subscriptions')
       .select('credits_remaining')
-      .eq('email', email)
-      .single();
+      .eq('email', billingEmail)
+      .maybeSingle();
 
-    if (fetchError || !row) {
-      return NextResponse.json({ error: 'No subscription found' }, { status: 404 });
-    }
-
-    const current = Math.max(0, row.credits_remaining ?? 0);
-    if (current < 1) {
-      return NextResponse.json({ error: 'No credits remaining', credits_remaining: 0 }, { status: 402 });
-    }
-
-    const { error: updateError } = await admin
-      .from('subscriptions')
-      .update({
-        credits_remaining: current - 1,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('email', email);
-
-    if (updateError) {
-      console.error('use-credit update error:', updateError);
-      return NextResponse.json({ error: 'Failed to use credit' }, { status: 500 });
-    }
-
-    return NextResponse.json({ credits_remaining: current - 1 });
+    const remaining = Math.max(0, row?.credits_remaining ?? 0);
+    return NextResponse.json({ credits_remaining: remaining });
   } catch (err) {
     console.error('POST /api/use-credit:', err);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

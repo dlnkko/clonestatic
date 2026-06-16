@@ -16,6 +16,8 @@ export type WhopSubscriptionInput = {
   memberId?: string | null;
   renewalPeriodEnd?: string | null;
   cancelAtPeriodEnd?: boolean;
+  /** Whop pay_xxx — used to avoid crediting the same one-time purchase twice */
+  paymentId?: string | null;
 };
 
 function readString(value: unknown): string | null {
@@ -92,6 +94,12 @@ export function parseWhopWebhookPayload(body: Record<string, unknown>): WhopSubs
 
   const memberId = readString(user?.id) ?? readString(data.member_id);
 
+  const rawId = readString(data.id);
+  const paymentId =
+    (rawId?.startsWith('pay_') ? rawId : null) ??
+    readString(data.payment_id) ??
+    readString((data.payment as Record<string, unknown> | undefined)?.id);
+
   const renewalPeriodEnd =
     readString(data.renewal_period_end) ??
     readString(membership?.renewal_period_end) ??
@@ -108,6 +116,7 @@ export function parseWhopWebhookPayload(body: Record<string, unknown>): WhopSubs
     memberId,
     renewalPeriodEnd,
     cancelAtPeriodEnd,
+    paymentId,
   };
 }
 
@@ -172,14 +181,28 @@ export async function upsertWhopSubscription(
 
   const { data: existing } = await supabase
     .from('subscriptions')
-    .select('credits_remaining, plan, period_end, whop_membership_id, cancel_at_period_end')
+    .select(
+      'credits_remaining, plan, period_end, whop_membership_id, cancel_at_period_end, last_credited_payment_id'
+    )
     .eq('email', input.email)
     .maybeSingle();
 
+  const paymentId = input.paymentId?.trim() || null;
+
   if (isOneTimePlan(planKey) && grantFreshCredits) {
     const addCredits = creditsForPlan(planKey);
-    if (incrementOneTimeCredits) {
+    const alreadyCredited =
+      paymentId &&
+      existing?.last_credited_payment_id &&
+      existing.last_credited_payment_id === paymentId;
+
+    if (alreadyCredited) {
+      row.credits_remaining = Math.max(0, existing?.credits_remaining ?? 0);
+    } else if (incrementOneTimeCredits) {
       row.credits_remaining = Math.max(0, existing?.credits_remaining ?? 0) + addCredits;
+      if (paymentId) {
+        (row as Record<string, unknown>).last_credited_payment_id = paymentId;
+      }
     } else if (existing) {
       row.credits_remaining = Math.max(0, existing.credits_remaining ?? 0);
     }

@@ -5,6 +5,7 @@ import {
   planDisplayName,
   type SubscriptionPlan,
 } from '@/lib/plans';
+import { resolveBillingEmail } from '@/lib/team-members';
 
 const DEFAULT_OWNER_EMAIL = 'diegolinaresd10@gmail.com';
 
@@ -22,6 +23,9 @@ export type UserSubscriptionContext = {
   whopMembershipId: string | null;
   cancelAtPeriodEnd: boolean;
   periodEnd: string | null;
+  isTeamMember: boolean;
+  teamOwnerEmail: string | null;
+  canManageTeam: boolean;
 };
 
 export async function getUserSubscriptionContext(
@@ -49,46 +53,60 @@ export async function getUserSubscriptionContext(
       whopMembershipId: null,
       cancelAtPeriodEnd: false,
       periodEnd: null,
+      isTeamMember: false,
+      teamOwnerEmail: null,
+      canManageTeam: true,
     };
   }
+
+  const { billingEmail, isTeamMember, teamOwnerEmail } = await resolveBillingEmail(
+    admin,
+    normalizedEmail
+  );
 
   const { data: sub } = await admin
     .from('subscriptions')
     .select('plan, credits_remaining, period_end, whop_membership_id, cancel_at_period_end')
-    .eq('email', normalizedEmail)
+    .eq('email', billingEmail)
     .maybeSingle();
 
   let activeSub = sub;
 
   if (!activeSub || !isEntitledPlan(activeSub.plan)) {
-    const { syncWhopSubscriptionForEmailWithRetries } = await import('@/lib/whop');
-    const syncResult = await syncWhopSubscriptionForEmailWithRetries(normalizedEmail, {
-      maxAttempts: 3,
-      delayMs: 1500,
-    });
-    if (syncResult.ok) {
-      const refreshed = await admin
-        .from('subscriptions')
-        .select('plan, credits_remaining, period_end, whop_membership_id, cancel_at_period_end')
-        .eq('email', normalizedEmail)
-        .maybeSingle();
-      if (refreshed.data && isEntitledPlan(refreshed.data.plan)) {
-        activeSub = refreshed.data;
+    if (!isTeamMember) {
+      const { syncWhopSubscriptionForEmailWithRetries } = await import('@/lib/whop');
+      const syncResult = await syncWhopSubscriptionForEmailWithRetries(normalizedEmail, {
+        maxAttempts: 3,
+        delayMs: 1500,
+      });
+      if (syncResult.ok) {
+        const refreshed = await admin
+          .from('subscriptions')
+          .select('plan, credits_remaining, period_end, whop_membership_id, cancel_at_period_end')
+          .eq('email', normalizedEmail)
+          .maybeSingle();
+        if (refreshed.data && isEntitledPlan(refreshed.data.plan)) {
+          activeSub = refreshed.data;
+        }
       }
     }
   }
 
   if (activeSub && isEntitledPlan(activeSub.plan)) {
     const maxProducts = maxProductsForPlan(activeSub.plan);
+    const ownsPlan = billingEmail === normalizedEmail;
     return {
       plan: activeSub.plan,
       creditsRemaining: Math.max(0, activeSub.credits_remaining ?? 0),
       maxProducts,
       productCount,
       canAddProduct: productCount < maxProducts,
-      whopMembershipId: activeSub.whop_membership_id ?? null,
-      cancelAtPeriodEnd: activeSub.cancel_at_period_end === true,
+      whopMembershipId: ownsPlan ? (activeSub.whop_membership_id ?? null) : null,
+      cancelAtPeriodEnd: ownsPlan ? activeSub.cancel_at_period_end === true : false,
       periodEnd: activeSub.period_end ?? null,
+      isTeamMember,
+      teamOwnerEmail,
+      canManageTeam: ownsPlan && !isTeamMember,
     };
   }
 
@@ -101,6 +119,9 @@ export async function getUserSubscriptionContext(
     whopMembershipId: null,
     cancelAtPeriodEnd: false,
     periodEnd: null,
+    isTeamMember,
+    teamOwnerEmail,
+    canManageTeam: false,
   };
 }
 

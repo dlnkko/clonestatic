@@ -84,6 +84,9 @@ export async function POST(request: NextRequest) {
       event
     );
 
+  /** One-time packs: only add credits on payment success (not membership + sync duplicate). */
+  const isOneTimeCreditEvent = /payment\.(succeeded|completed)/i.test(event);
+
   if (!parsed?.email) {
     if (isPayment) {
       console.error('Whop webhook: no email in payload', JSON.stringify(body).slice(0, 1200));
@@ -100,7 +103,7 @@ export async function POST(request: NextRequest) {
     const supabase = createAdminClient();
     const { row, error } = await upsertWhopSubscription(supabase, parsed, {
       grantFreshCredits: isPayment,
-      incrementOneTimeCredits: isPayment,
+      incrementOneTimeCredits: isOneTimeCreditEvent,
     });
     if (error) {
       console.error('Whop webhook Supabase upsert error:', error);

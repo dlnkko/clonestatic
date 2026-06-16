@@ -167,12 +167,13 @@ async function upsertFromWhopData(
 function inputFromWhopPayment(
   sessionEmail: string,
   payment: {
+    id?: string | null;
     plan?: { id?: string | null } | null;
     membership?: { id?: string | null } | null;
     user?: { id?: string | null; email?: string | null } | null;
     status?: unknown;
   },
-  options?: { skipStatusCheck?: boolean }
+  options?: { skipStatusCheck?: boolean; paymentId?: string }
 ): WhopSubscriptionInput | null {
   if (!options?.skipStatusCheck && !isSuccessfulPaymentStatus(payment.status)) return null;
 
@@ -185,6 +186,11 @@ function inputFromWhopPayment(
     console.warn('Whop payment email mismatch:', payEmail, 'session=', normalizedSession);
   }
 
+  const resolvedPaymentId =
+    options?.paymentId?.trim() ||
+    (payment.id?.startsWith('pay_') ? payment.id : null) ||
+    null;
+
   return {
     email: normalizedSession,
     planId,
@@ -192,6 +198,7 @@ function inputFromWhopPayment(
     memberId: payment.user?.id ?? null,
     renewalPeriodEnd: null,
     cancelAtPeriodEnd: false,
+    paymentId: resolvedPaymentId,
   };
 }
 
@@ -212,7 +219,10 @@ export async function activateWhopSubscriptionFromPaymentId(
 
   try {
     const payment = await client.payments.retrieve(normalizedId);
-    const input = inputFromWhopPayment(sessionEmail, payment, { skipStatusCheck: true });
+    const input = inputFromWhopPayment(sessionEmail, payment, {
+      skipStatusCheck: true,
+      paymentId: normalizedId,
+    });
     if (!input) {
       return { ok: false, error: 'Payment not successful or missing plan' };
     }
@@ -342,6 +352,7 @@ async function findPaymentForEmail(
         memberId: payment.user?.id ?? null,
         renewalPeriodEnd: null,
         cancelAtPeriodEnd: false,
+        paymentId: payment.id?.startsWith('pay_') ? payment.id : null,
       };
     }
   } catch (err) {
@@ -447,6 +458,7 @@ export async function enrichWhopPayloadFromApi(
           memberId: payment.user?.id ?? null,
           renewalPeriodEnd: null,
           cancelAtPeriodEnd: false,
+          paymentId,
         };
       }
     }

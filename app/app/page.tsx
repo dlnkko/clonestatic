@@ -28,6 +28,8 @@ import {
 } from '@/lib/creations/pending-generation';
 import { isTransientFetchError } from '@/lib/display-image-url';
 import { ProxiedImage } from '../components/ProxiedImage';
+import { StepHeader } from '../components/dashboard/ui';
+import { TeamMembersPanel } from '../components/dashboard/TeamMembersPanel';
 
 /** Parse response as JSON; if body is not JSON (e.g. "Request Entity Too Large"), return null and set friendly error. */
 async function createGeneratingCreation(
@@ -248,7 +250,7 @@ function StaticAdAppPage() {
   const [referenceAdDimensions, setReferenceAdDimensions] = useState<{ width: number; height: number } | null>(null);
 
   const hasSupabase = isSupabaseConfigured();
-  const [activeTab, setActiveTab] = useState<'new' | 'history' | 'support' | 'ad-library' | 'products'>('new');
+  const [activeTab, setActiveTab] = useState<'new' | 'history' | 'support' | 'ad-library' | 'products' | 'team'>('new');
   const [products, setProducts] = useState<ProductRecord[]>([]);
   const [productsLoading, setProductsLoading] = useState(hasSupabase);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
@@ -266,6 +268,8 @@ function StaticAdAppPage() {
   const [canAddProduct, setCanAddProduct] = useState(true);
   const [canCancelSubscription, setCanCancelSubscription] = useState(false);
   const [cancelAtPeriodEnd, setCancelAtPeriodEnd] = useState(false);
+  const [isTeamMember, setIsTeamMember] = useState(false);
+  const [teamOwnerEmail, setTeamOwnerEmail] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [pricingBilling, setPricingBilling] = useState<'monthly' | 'yearly'>('monthly');
@@ -387,8 +391,14 @@ function StaticAdAppPage() {
         setMaxProducts(typeof subData?.max_products === 'number' ? subData.max_products : null);
         setCanAddProduct(subData?.can_add_product !== false);
         setCancelAtPeriodEnd(subData?.cancel_at_period_end === true);
+        setIsTeamMember(subData?.is_team_member === true);
+        setTeamOwnerEmail(
+          typeof subData?.team_owner_email === 'string' ? subData.team_owner_email : null
+        );
         setCanCancelSubscription(
-          isPaidPlan(subData?.plan) && subData?.has_whop_membership === true
+          !subData?.is_team_member &&
+            isPaidPlan(subData?.plan) &&
+            subData?.has_whop_membership === true
         );
       } else {
         setCreditsRemaining(0);
@@ -398,6 +408,8 @@ function StaticAdAppPage() {
         setCanAddProduct(true);
         setCanCancelSubscription(false);
         setCancelAtPeriodEnd(false);
+        setIsTeamMember(false);
+        setTeamOwnerEmail(null);
       }
     } catch {
       setCreditsRemaining(null);
@@ -1351,21 +1363,24 @@ function StaticAdAppPage() {
         maxProducts={maxProducts}
         canCancelSubscription={canCancelSubscription}
         cancelAtPeriodEnd={cancelAtPeriodEnd}
+        isTeamMember={isTeamMember}
+        teamOwnerEmail={teamOwnerEmail}
         onSubscriptionRefresh={fetchSubscription}
         user={user}
         onUpgrade={() => setShowPricingModal(true)}
         onSignOut={handleSignOut}
       >
           {activeTab === 'history' && hasSupabase ? (
-          <div className="dash-card dash-card-lg">
-            <h2 className="dash-section-title mb-1">Your creations</h2>
-            <p className="mb-6 text-xs text-slate-500">
+          <div className="dash-card dash-card-lg dash-animate-in">
+            <h1 className="dash-title">{t('nav', 'history')}</h1>
+            <div className="dash-title-accent" aria-hidden />
+            <p className="dash-text-muted mb-6">
               Images are kept for 30 days, then removed from History.
             </p>
             {creationsLoading && creations.length === 0 ? (
               <div className="flex items-center justify-center py-12"><svg className="h-8 w-8 dash-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></div>
             ) : creations.length === 0 ? (
-              <p className="py-12 text-center text-sm text-slate-500">No creations yet. Generate an image in Clone.</p>
+              <p className="dash-text-muted py-12 text-center">No creations yet. Generate an image in Clone.</p>
             ) : (
               <div className="dash-grid-media">
                 {creations.map((c, index) => {
@@ -1375,9 +1390,9 @@ function StaticAdAppPage() {
                   return (
                     <div key={c.id} className="dash-media-card">
                       {isGenerating ? (
-                        <div className="flex aspect-[9/16] w-full flex-col items-center justify-center gap-2 bg-slate-100 p-4">
+                        <div className="flex aspect-[9/16] w-full flex-col items-center justify-center gap-2 dash-bg-muted p-4">
                           <svg className="h-6 w-6 dash-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                          <span className="text-xs font-medium text-slate-600">Generating...</span>
+                          <span className="dash-text-muted-sm font-medium">Generating...</span>
                         </div>
                       ) : isFailed ? (
                         <div className="flex aspect-[9/16] w-full flex-col items-center justify-center gap-2 bg-red-50 p-4 text-center">
@@ -1389,7 +1404,7 @@ function StaticAdAppPage() {
                           )}
                         </div>
                       ) : (
-                        <a href={c.image_url!} target="_blank" rel="noopener noreferrer" className="block aspect-[9/16] w-full bg-slate-100">
+                        <a href={c.image_url!} target="_blank" rel="noopener noreferrer" className="block aspect-[9/16] w-full dash-bg-muted">
                           <ProxiedImage
                             src={c.image_url!}
                             alt=""
@@ -1402,10 +1417,10 @@ function StaticAdAppPage() {
                         </a>
                       )}
                       <div className="flex items-center justify-between gap-2 p-2 sm:p-3">
-                        <span className="truncate text-[10px] sm:text-xs text-slate-500">{c.aspect_ratio || '—'} · {new Date(c.created_at).toLocaleDateString()}</span>
+                        <span className="dash-text-muted-sm truncate">{c.aspect_ratio || '—'} · {new Date(c.created_at).toLocaleDateString()}</span>
                         {!isGenerating && !isFailed && (
                           <div className="flex shrink-0 gap-1">
-                            <a href={c.image_url!} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-slate-50" title="Open"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+                            <a href={c.image_url!} target="_blank" rel="noopener noreferrer" className="dash-icon-btn-sm" title="Open"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
                             <button type="button" onClick={() => handleDownloadImage(c.image_url!, 'generated-ad.jpg')} className="dash-btn dash-btn-primary !px-2 !py-1.5" title="Download"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
                           </div>
                         )}
@@ -1420,7 +1435,8 @@ function StaticAdAppPage() {
         <div className="space-y-6">
           <header className="dash-animate-in">
             <h1 className="dash-title">{t('library', 'title')}</h1>
-            <p className="dash-subtitle mt-2">{t('library', 'subtitle')}</p>
+            <div className="dash-title-accent" aria-hidden />
+            <p className="dash-subtitle mt-3">{t('library', 'subtitle')}</p>
           </header>
 
           <div className="dash-card dash-card-lg">
@@ -1770,13 +1786,13 @@ function StaticAdAppPage() {
             </button>
           </header>
           {maxProducts !== null && productCount !== null && (
-            <p className="text-sm text-slate-500">
+            <p className="dash-text-muted">
               {productCount}/{formatMaxProductsLabel(maxProducts)} products saved
               {!canAddProduct && ' — upgrade to add more'}
             </p>
           )}
           {productsLoading ? (
-            <p className="text-sm text-slate-500">Loading products…</p>
+            <p className="dash-text-muted">Loading products…</p>
           ) : products.length === 0 ? (
             <div className="dash-empty dash-card border-dashed">
               <p className="dash-empty-title">No products yet</p>
@@ -1846,13 +1862,16 @@ function StaticAdAppPage() {
             </div>
           )}
         </div>
+          ) : activeTab === 'team' ? (
+            <TeamMembersPanel />
           ) : activeTab === 'support' ? (
-        <div className="dash-card dash-card-lg max-w-2xl">
+        <div className="dash-card dash-card-lg max-w-2xl dash-animate-in">
           <h1 className="dash-title">Support</h1>
+          <div className="dash-title-accent" aria-hidden />
           <p className="dash-subtitle mt-3 leading-relaxed">
             Need help with an issue, plan changes, or anything else? We&apos;re here for you.
           </p>
-          <ul className="mt-4 space-y-2 text-sm text-slate-600">
+          <ul className="dash-text-muted mt-4 space-y-2">
             <li>• Help with technical problems or bugs</li>
             <li>• Plan upgrades or account questions</li>
             <li>• Feature requests or feedback</li>
@@ -1882,12 +1901,12 @@ function StaticAdAppPage() {
                   </svg>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-indigo-950">{t('mirror', 'startHere')}</p>
-                  <p className="mt-1 text-sm leading-relaxed text-indigo-900/85">
+                  <p className="text-sm font-semibold text-[var(--dash-fg)]">{t('mirror', 'startHere')}</p>
+                  <p className="dash-text-muted mt-1 text-sm leading-relaxed">
                     {t('mirror', 'startHereBefore')}
                     <button
                       type="button"
-                      className="font-semibold text-indigo-600 underline decoration-indigo-300 underline-offset-2 hover:text-indigo-800"
+                      className="font-semibold text-[var(--brand-indigo)] underline decoration-[var(--brand-purple)]/40 underline-offset-2 hover:opacity-80"
                       onClick={() => setActiveTab('products')}
                     >
                       {t('nav', 'products')}
@@ -1900,13 +1919,14 @@ function StaticAdAppPage() {
           </header>
 
         <div className="dash-workspace">
-          <div className="flex flex-col gap-4 sm:gap-5 dash-workspace-form">
-            <section className="space-y-4 dash-card">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="dash-section-title">{t('mirror', 'visualAssets')}</h2>
-                <span className="dash-badge dash-badge-required shrink-0">{t('common', 'required')}</span>
-              </div>
-              <div className="grid grid-cols-1 gap-4 xs:grid-cols-2 sm:gap-4">
+          <div className="dash-workspace-form dash-segment-stack">
+            <section className="dash-card">
+              <StepHeader
+                step={1}
+                title={t('mirror', 'visualAssets')}
+                badge={<span className="dash-badge dash-badge-required shrink-0">{t('common', 'required')}</span>}
+              />
+              <div className="grid grid-cols-1 gap-4 min-[520px]:grid-cols-2 sm:gap-4">
                 <div className="dash-upload-slot">
                   <p className="dash-label mb-1">{t('mirror', 'referenceAd')}</p>
                   <input type="file" accept="image/*" onChange={handleStaticAdUpload} className="hidden" id="static-ad-upload" />
@@ -1956,7 +1976,7 @@ function StaticAdAppPage() {
                       )}
                     </>
                   ) : (
-                    <div className="flex min-h-[180px] flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--dash-border)] bg-slate-50/80 p-6 text-center">
+                    <div className="flex min-h-[180px] flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--dash-border)] bg-[var(--dash-muted-bg)] p-6 text-center">
                       <p className="text-sm font-semibold text-[var(--dash-fg)]">{t('mirror', 'addProductFirst')}</p>
                       <p className="dash-muted-text mt-1 max-w-[220px] text-xs leading-relaxed">
                         {t('mirror', 'addProductFirstHint')}
@@ -1989,8 +2009,12 @@ function StaticAdAppPage() {
                 <p className="dash-muted-text mt-1.5">{imageSize === 'auto' && referenceAdDimensions ? `Using aspect ratio from reference ad (${getResolvedAspectRatio()}).` : imageSize === 'auto' ? 'Match reference ad proportions (vertical by default).' : `Fixed aspect ratio: ${imageSize}.`}</p>
               </div>
             </section>
-            <section className="space-y-4 dash-card">
-              <div className="flex items-center justify-between gap-2"><h2 className="dash-section-title">{t('mirror', 'context')}</h2><span className="dash-badge dash-badge-optional shrink-0">{t('common', 'optional')}</span></div>
+            <section className="dash-card">
+              <StepHeader
+                step={2}
+                title={t('mirror', 'context')}
+                badge={<span className="dash-badge dash-badge-optional shrink-0">{t('common', 'optional')}</span>}
+              />
               <div className="space-y-4">
                 <div>
                   <label className="dash-label mb-1.5">{t('mirror', 'copyLanguage')}</label>
@@ -2014,14 +2038,14 @@ function StaticAdAppPage() {
                 </div>
               </div>
             </section>
-            <div className="dash-card">
+            <div className="dash-card dash-card-cta">
               <button type="button" onClick={handleGenerate} disabled={!canGenerate || isGenerating} className="dash-btn dash-btn-primary w-full min-h-[52px] touch-manipulation">
                 {isGenerating ? <><svg className="h-4 w-4 animate-spin text-white/90" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>{isScraping ? 'Analyzing URL...' : `${t('mirror', 'generateImage')}…`}</span></> : <><span>{t('mirror', 'generateImage')}</span><svg className="h-4 w-4 text-white/90 transition-transform group-hover:translate-x-0.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></>}
               </button>
               {error && <div className="dash-alert dash-alert-error mt-4"><svg className="mt-0.5 h-4 w-4 shrink-0 text-red-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><p>{error}</p></div>}
             </div>
           </div>
-          <div className="dash-workspace-preview dash-sticky-preview">
+          <div className="dash-workspace-preview dash-sticky-preview dash-animate-in">
             <div className="dash-preview-panel dash-preview-panel--mirror flex">
               <div className="dash-preview-panel-header shrink-0">
                 <span className="dash-preview-panel-label">{t('mirror', 'generatedImage')}</span>
@@ -2030,9 +2054,11 @@ function StaticAdAppPage() {
               <div className="dash-preview-panel-body">
                 {!generatedImageUrl && !isPreviewLoading ? (
                   <div className="flex flex-col items-center justify-center text-center px-2">
-                    <div className="mb-3 sm:mb-4 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50"><svg className="h-7 w-7 sm:h-8 sm:w-8 text-slate-400" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>
-                    <h3 className="text-sm font-semibold text-slate-800">{t('mirror', 'previewEmpty')}</h3>
-                    <p className="mt-1 max-w-[260px] text-xs text-slate-500">{t('mirror', 'previewHint')}</p>
+                    <div className="dash-empty-icon mb-3 sm:mb-4 h-14 w-14 sm:h-16 sm:w-16 rounded-2xl">
+                      <svg className="h-7 w-7 sm:h-8 sm:w-8 text-[var(--brand-indigo)]" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                    </div>
+                    <h3 className="text-sm font-semibold text-[var(--dash-fg)]">{t('mirror', 'previewEmpty')}</h3>
+                    <p className="dash-text-muted-sm mt-1 max-w-[260px]">{t('mirror', 'previewHint')}</p>
                   </div>
                 ) : isPreviewLoading ? (
                   <AdPreviewLoading phase={previewLoadingPhase} />

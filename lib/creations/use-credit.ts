@@ -1,9 +1,10 @@
 import type { NextRequest } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getClientIpHash, tryClaimFreeTrial } from '@/lib/free-trial';
+import { resolveBillingEmail } from '@/lib/team-members';
 
 export type UseCreditResult =
-  | { ok: true }
+  | { ok: true; billingEmail?: string }
   | { ok: false; status: number; error: string; credits_remaining?: number };
 
 export async function useCreditForGeneration(
@@ -14,15 +15,17 @@ export async function useCreditForGeneration(
 ): Promise<UseCreditResult> {
   if (isOwner) return { ok: true };
 
+  const { billingEmail } = await resolveBillingEmail(admin, email);
+
   let { data: row, error: fetchError } = await admin
     .from('subscriptions')
     .select('credits_remaining, plan')
-    .eq('email', email)
+    .eq('email', billingEmail)
     .maybeSingle();
 
   if (!row || fetchError) {
     const { syncWhopSubscriptionForEmailWithRetries } = await import('@/lib/whop');
-    const syncResult = await syncWhopSubscriptionForEmailWithRetries(email, {
+    const syncResult = await syncWhopSubscriptionForEmailWithRetries(billingEmail, {
       maxAttempts: 3,
       delayMs: 1500,
     });
@@ -30,7 +33,7 @@ export async function useCreditForGeneration(
       const refreshed = await admin
         .from('subscriptions')
         .select('credits_remaining, plan')
-        .eq('email', email)
+        .eq('email', billingEmail)
         .maybeSingle();
       row = refreshed.data;
       fetchError = refreshed.error;
@@ -47,12 +50,21 @@ export async function useCreditForGeneration(
         credits_remaining: current - 1,
         updated_at: new Date().toISOString(),
       })
-      .eq('email', email);
+      .eq('email', billingEmail);
     if (updateError) {
       console.error('use-credit:', updateError);
       return { ok: false, status: 500, error: 'Failed to use credit' };
     }
-    return { ok: true };
+    return { ok: true, billingEmail };
+  }
+
+  if (billingEmail !== email.trim().toLowerCase()) {
+    return {
+      ok: false,
+      status: 402,
+      error: 'No credits remaining on the team plan',
+      credits_remaining: 0,
+    };
   }
 
   const ipHash = getClientIpHash(request);

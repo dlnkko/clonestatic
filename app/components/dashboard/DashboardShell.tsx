@@ -13,7 +13,8 @@ export type DashboardTab =
   | 'history'
   | 'support'
   | 'ad-library'
-  | 'products';
+  | 'products'
+  | 'team';
 
 const NAV: { id: DashboardTab; labelKey: string; icon: React.ReactNode }[] = [
   {
@@ -65,6 +66,15 @@ const NAV: { id: DashboardTab; labelKey: string; icon: React.ReactNode }[] = [
       </svg>
     ),
   },
+  {
+    id: 'team',
+    labelKey: 'team',
+    icon: (
+      <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+      </svg>
+    ),
+  },
 ];
 
 type Props = {
@@ -78,6 +88,8 @@ type Props = {
   maxProducts: number | null;
   canCancelSubscription: boolean;
   cancelAtPeriodEnd: boolean;
+  isTeamMember: boolean;
+  teamOwnerEmail: string | null;
   onSubscriptionRefresh: () => void;
   user: { email: string; name?: string } | null;
   onUpgrade: () => void;
@@ -96,6 +108,8 @@ export function DashboardShell({
   maxProducts,
   canCancelSubscription,
   cancelAtPeriodEnd,
+  isTeamMember,
+  teamOwnerEmail,
   onSubscriptionRefresh,
   user,
   onUpgrade,
@@ -207,12 +221,20 @@ export function DashboardShell({
             ))}
           </select>
 
-          <button type="button" onClick={onUpgrade} className="dash-btn dash-btn-primary w-full">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-            </svg>
-            {t('nav', 'upgrade')}
-          </button>
+          {!isTeamMember && (
+            <button type="button" onClick={onUpgrade} className="dash-btn dash-btn-primary w-full">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+              </svg>
+              {t('nav', 'upgrade')}
+            </button>
+          )}
+
+          {isTeamMember && teamOwnerEmail && (
+            <p className="mb-2 rounded-md border border-indigo-200/70 bg-indigo-50/80 px-2.5 py-1.5 text-[11px] leading-snug text-indigo-900">
+              {t('shell', 'teamMemberOf', { email: teamOwnerEmail })}
+            </p>
+          )}
 
           {(creditsRemaining !== null || planName) && (
             <div className="dash-credits-compact">
