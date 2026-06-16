@@ -28,7 +28,7 @@ import {
 } from '@/lib/creations/pending-generation';
 import { isTransientFetchError } from '@/lib/display-image-url';
 import { ProxiedImage } from '../components/ProxiedImage';
-import { StepHeader } from '../components/dashboard/ui';
+import { StepHeader } from '../components/dashboard/StepHeader';
 import { TeamMembersPanel } from '../components/dashboard/TeamMembersPanel';
 
 /** Parse response as JSON; if body is not JSON (e.g. "Request Entity Too Large"), return null and set friendly error. */
