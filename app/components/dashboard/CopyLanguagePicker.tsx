@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/cn';
 import { useI18n } from '@/lib/i18n/LocaleProvider';
 import {
@@ -17,6 +18,9 @@ type Props = {
   className?: string;
   disabled?: boolean;
 };
+
+const PANEL_GAP = 6;
+const PANEL_MAX_HEIGHT = 288;
 
 function regionLabel(region: CopyLanguageOption['region'], locale: string): string {
   const labels = COPY_LANGUAGE_REGION_LABELS[region];
@@ -36,11 +40,23 @@ function matchesQuery(lang: CopyLanguageOption, query: string): boolean {
   );
 }
 
+type PanelStyle = {
+  top?: number;
+  bottom?: number;
+  left: number;
+  width: number;
+  maxHeight: number;
+  openUp: boolean;
+};
+
 export function CopyLanguagePicker({ value, onChange, className, disabled }: Props) {
   const { locale } = useI18n();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [panelStyle, setPanelStyle] = useState<PanelStyle | null>(null);
+  const [mounted, setMounted] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const listId = useId();
 
@@ -57,13 +73,59 @@ export function CopyLanguagePicker({ value, onChange, className, disabled }: Pro
   }, [query, locale]);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const updatePanelPosition = () => {
+    const trigger = rootRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom - PANEL_GAP;
+    const spaceAbove = rect.top - PANEL_GAP;
+    const openUp = spaceBelow < 220 && spaceAbove > spaceBelow;
+
+    if (openUp) {
+      setPanelStyle({
+        left: rect.left,
+        width: rect.width,
+        bottom: window.innerHeight - rect.top + PANEL_GAP,
+        maxHeight: Math.min(PANEL_MAX_HEIGHT, Math.max(160, spaceAbove)),
+        openUp: true,
+      });
+      return;
+    }
+
+    setPanelStyle({
+      left: rect.left,
+      width: rect.width,
+      top: rect.bottom + PANEL_GAP,
+      maxHeight: Math.min(PANEL_MAX_HEIGHT, Math.max(160, spaceBelow)),
+      openUp: false,
+    });
+  };
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setPanelStyle(null);
+      return;
+    }
+    updatePanelPosition();
+    window.addEventListener('resize', updatePanelPosition);
+    window.addEventListener('scroll', updatePanelPosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePanelPosition);
+      window.removeEventListener('scroll', updatePanelPosition, true);
+    };
+  }, [open, query, grouped.length]);
+
+  useEffect(() => {
     if (!open) return;
     const t = window.setTimeout(() => searchRef.current?.focus(), 0);
     const onDoc = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) {
-        setOpen(false);
-        setQuery('');
-      }
+      const target = e.target as Node;
+      if (rootRef.current?.contains(target) || panelRef.current?.contains(target)) return;
+      setOpen(false);
+      setQuery('');
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -91,8 +153,112 @@ export function CopyLanguagePicker({ value, onChange, className, disabled }: Pro
   const emptyLabel =
     locale === 'es' ? 'Sin resultados' : locale === 'pt' ? 'Sem resultados' : 'No results';
 
+  const panel =
+    open && panelStyle && mounted ? (
+      <div
+        ref={panelRef}
+        id={listId}
+        role="listbox"
+        className={cn(
+          'copy-language-panel copy-language-panel-floating',
+          panelStyle.openUp && 'copy-language-panel-up'
+        )}
+        style={{
+          position: 'fixed',
+          left: panelStyle.left,
+          width: panelStyle.width,
+          top: panelStyle.top,
+          bottom: panelStyle.bottom,
+          maxHeight: panelStyle.maxHeight,
+          zIndex: 400,
+        }}
+      >
+        <div className="copy-language-search-wrap">
+          <svg
+            className="copy-language-search-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden
+          >
+            <circle cx="11" cy="11" r="7" />
+            <path strokeLinecap="round" d="M20 20l-3-3" />
+          </svg>
+          <input
+            ref={searchRef}
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={searchPlaceholder}
+            className="copy-language-search"
+          />
+        </div>
+
+        <ul className="copy-language-list">
+          {grouped.length === 0 ? (
+            <li className="copy-language-empty">{emptyLabel}</li>
+          ) : (
+            grouped.map((group) => (
+              <li key={group.region}>
+                <p className="copy-language-group-label">{group.label}</p>
+                <ul>
+                  {group.items.map((lang) => {
+                    const isSelected = lang.code === selected.code;
+                    const isRtl = lang.code === 'ar' || lang.code === 'he' || lang.code === 'fa';
+                    return (
+                      <li key={lang.code} role="presentation">
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={isSelected}
+                          className={cn(
+                            'copy-language-option',
+                            isSelected && 'copy-language-option-selected',
+                            isRtl && 'copy-language-option-rtl'
+                          )}
+                          onClick={() => pick(lang.code)}
+                        >
+                          <span className="copy-language-option-glyph" aria-hidden>
+                            {lang.label.charAt(0)}
+                          </span>
+                          <span className="copy-language-option-body">
+                            <span className="copy-language-option-label">{lang.label}</span>
+                            <span className="copy-language-option-sub">{lang.subtitle}</span>
+                          </span>
+                          <span className="copy-language-option-code">
+                            {lang.code.toUpperCase()}
+                          </span>
+                          {isSelected && (
+                            <svg
+                              className="copy-language-check"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              aria-hidden
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </li>
+            ))
+          )}
+        </ul>
+      </div>
+    ) : null;
+
   return (
-    <div ref={rootRef} className={cn('copy-language-picker', className)}>
+    <div ref={rootRef} className={cn('copy-language-picker', open && 'copy-language-picker-open', className)}>
       <button
         type="button"
         disabled={disabled}
@@ -122,91 +288,7 @@ export function CopyLanguagePicker({ value, onChange, className, disabled }: Pro
         </svg>
       </button>
 
-      {open && (
-        <div className="copy-language-panel">
-          <div className="copy-language-search-wrap">
-            <svg
-              className="copy-language-search-icon"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              aria-hidden
-            >
-              <circle cx="11" cy="11" r="7" />
-              <path strokeLinecap="round" d="M20 20l-3-3" />
-            </svg>
-            <input
-              ref={searchRef}
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={searchPlaceholder}
-              className="copy-language-search"
-            />
-          </div>
-
-          <ul id={listId} role="listbox" className="copy-language-list">
-            {grouped.length === 0 ? (
-              <li className="copy-language-empty">{emptyLabel}</li>
-            ) : (
-              grouped.map((group) => (
-                <li key={group.region}>
-                  <p className="copy-language-group-label">{group.label}</p>
-                  <ul>
-                    {group.items.map((lang) => {
-                      const isSelected = lang.code === selected.code;
-                      const isRtl = lang.code === 'ar' || lang.code === 'he' || lang.code === 'fa';
-                      return (
-                        <li key={lang.code} role="presentation">
-                          <button
-                            type="button"
-                            role="option"
-                            aria-selected={isSelected}
-                            className={cn(
-                              'copy-language-option',
-                              isSelected && 'copy-language-option-selected',
-                              isRtl && 'copy-language-option-rtl'
-                            )}
-                            onClick={() => pick(lang.code)}
-                          >
-                            <span className="copy-language-option-glyph" aria-hidden>
-                              {lang.label.charAt(0)}
-                            </span>
-                            <span className="copy-language-option-body">
-                              <span className="copy-language-option-label">{lang.label}</span>
-                              <span className="copy-language-option-sub">{lang.subtitle}</span>
-                            </span>
-                            <span className="copy-language-option-code">
-                              {lang.code.toUpperCase()}
-                            </span>
-                            {isSelected && (
-                              <svg
-                                className="copy-language-check"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2.5"
-                                aria-hidden
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M5 13l4 4L19 7"
-                                />
-                              </svg>
-                            )}
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </li>
-              ))
-            )}
-          </ul>
-        </div>
-      )}
+      {mounted && panel ? createPortal(panel, document.body) : null}
     </div>
   );
 }
