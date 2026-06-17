@@ -13,7 +13,7 @@ import { ProductModal } from '../components/ProductModal';
 import { AppProviders } from './providers';
 import { useI18n } from '@/lib/i18n/LocaleProvider';
 import { formatMaxProductsLabel, isEntitledPlan, isPaidPlan } from '@/lib/plans';
-import { COPY_LANGUAGES } from '@/lib/copy-languages';
+import { CopyLanguagePicker } from '../components/dashboard/CopyLanguagePicker';
 import type { ProductRecord } from '@/lib/products/types';
 import type { AdVisualMode } from '@/lib/ad-visual-mode';
 import {
@@ -2018,15 +2018,7 @@ function StaticAdAppPage() {
               <div className="space-y-4">
                 <div>
                   <label className="dash-label mb-1.5">{t('mirror', 'copyLanguage')}</label>
-                  <DashCombobox
-                    value={copyLanguage}
-                    onChange={setCopyLanguage}
-                    options={COPY_LANGUAGES.map((lang) => ({
-                      value: lang.code,
-                      label: lang.label,
-                    }))}
-                    aria-label="Ad copy language"
-                  />
+                  <CopyLanguagePicker value={copyLanguage} onChange={setCopyLanguage} />
                   <p className="dash-muted-text mt-1.5">{t('mirror', 'copyLanguageHint')}</p>
                 </div>
                 {selectedProduct && (
