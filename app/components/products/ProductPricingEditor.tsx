@@ -10,9 +10,9 @@ import {
 import {
   formatProductPrice,
   parsePriceNumeric,
-  PRODUCT_CURRENCIES,
   sanitizePriceInput,
 } from '@/lib/products/currencies';
+import { ProductCurrencyPicker } from '@/app/components/products/ProductCurrencyPicker';
 
 type Props = {
   config: ProductPricingConfig;
@@ -92,21 +92,12 @@ export function ProductPricingEditor({ config, onChange, detectedPricing }: Prop
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <div className="sm:col-span-2">
-          <label className="mb-1 block text-[11px] text-slate-500">Currency</label>
-          <select
-            value={currency}
-            onChange={(e) => onChange({ ...synced, currency: e.target.value })}
-            className="dash-select w-full text-sm"
-          >
-            {PRODUCT_CURRENCIES.map((c) => (
-              <option key={c.code} value={c.code}>
-                {c.symbol} {c.code} — {c.label}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div>
+        <label className="mb-1.5 block text-[11px] font-medium text-slate-600">Currency</label>
+        <ProductCurrencyPicker
+          value={currency}
+          onChange={(code) => onChange({ ...synced, currency: code })}
+        />
       </div>
 
       {synced.mode === 'single' ? (
