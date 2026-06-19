@@ -1,4 +1,4 @@
-import type { AdaptationContext, CopywritingProfile, Line2CopyPattern } from './types';
+import type { AdaptationContext, CopyAdaptationResult, CopywritingProfile, Line2CopyPattern } from './types';
 import { detectSubheroCopyPattern } from './parse-reference-analysis';
 import { productCatalogFidelityBlock as productCatalogFidelityBlockImpl } from '@/lib/products/product-fidelity';
 export { productPlacementOnModelBlock } from './product-placement-rules';
@@ -316,33 +316,41 @@ Keep product + graphics only. No people, no faces, no lifestyle models.`;
 
 /**
  * Mirrors reference top-text layout (stacked center, eyebrow → hero → subhero).
+ * Uses approved copy text — never pastes reference competitor wording into the render prompt.
  */
-export function textLayoutBlock(ctx: AdaptationContext): string {
+export function textLayoutBlock(
+  ctx: AdaptationContext,
+  approvedCopy?: CopyAdaptationResult
+): string {
   const layout = ctx.referenceTextLayout;
-  const lines = ctx.referenceTextLines;
+  const copyLines = approvedCopy?.textLines ?? [];
   const lineList =
-    lines.length > 0
-      ? lines.map((l) => `  - [${l.role}]: mirror placement & tier`).join('\n')
+    copyLines.length > 0
+      ? copyLines.map((l) => `  - [${l.role}]: '${l.text.slice(0, 60)}${l.text.length > 60 ? '…' : ''}'`).join('\n')
       : '  - eyebrow (if any) → hero headline → subhero → modules below';
 
   const align = layout?.alignment ?? 'center';
   const stack = layout?.stackDirection ?? 'vertical';
+  const partnershipLine = copyLines.find((l) => /eyebrow|partnership/i.test(l.role));
   const eyebrow = layout?.hasEyebrow
-    ? `Eyebrow: ${layout.eyebrowStyle ?? 'smallest caps, wide tracking, above hero'}`
-    : 'No eyebrow line in reference — do not add one unless approved copy includes brandName as eyebrow.';
+    ? partnershipLine
+      ? `Eyebrow: render approved partnership line exactly: '${partnershipLine.text}' — smallest tier above hero.`
+      : 'Eyebrow: smallest partnership lockup above hero — render only if listed in approved copy above.'
+    : 'No eyebrow line in reference — do not add one unless approved copy includes it.';
 
   return `**TEXT LAYOUT & ALIGNMENT (CRITICAL — match reference structure):**
 - **Alignment:** All top copy **${align}-aligned** (same as reference — if reference is centered stack, every line centered; do NOT left-align a centered reference).
-- **Stack:** **${stack}** text flow — preserve top-to-bottom order: ${lineList}
+- **Stack:** **${stack}** text flow — preserve top-to-bottom order:
+${lineList}
 - ${eyebrow}
-- **Hero headline:** ${layout?.heroStyle ?? 'largest serif/display — only dominant text line'}
-- **Subhero:** ${layout?.subheroStyle ?? 'much smaller sans-serif directly under hero — must NOT match hero width/weight'}
-${layout?.layoutNotes ? `- Reference notes: ${layout.layoutNotes}` : ''}
+- **Hero headline:** bold display sans-serif — ONLY the single approved Headline line at largest tier.
+- **Subhero:** light/regular sans-serif at ~30% headline cap height directly under hero — ONLY the approved Subheadline line; must NOT match hero size/weight.
 
 **FORBIDDEN layout mistakes:**
 - Subhero rendered as wide as hero or same visual weight (breaks premium DTC look)
 - Reordering lines (e.g. putting credentials above emotional hook when reference had eyebrow → hook → benefits)
-- Adding extra text blocks not in reference`;
+- Adding extra text blocks not in approved copy
+- Using reference competitor brand names or lockup text — render user's approved copy only`;
 }
 
 /**
@@ -396,18 +404,29 @@ ${layoutProportionsBlock(ctx)}
 - Comparison module omitted when reference had one`;
 }
 
+/** Image models inflate subheads when reference analysis says ~50–75% — cap at ~⅓. */
+function clampSubheadRatio(ratio: string | null | undefined): string {
+  const fallback =
+    'subheadline roughly 28–38% of headline cap height (~⅓ visual size — clearly subordinate)';
+  const r = ratio?.trim();
+  if (!r) return fallback;
+  if (/\b(?:[5-9]\d|[6-9])\s*%|75%|70%|60%|50%|~75|~70|~60|~50|\bmedium\b/i.test(r)) {
+    return fallback;
+  }
+  return r;
+}
+
 /**
  * Enforces visual size ladder for all ad types — headline dominant, subheadline subordinate.
  */
 export function typographyHierarchyBlock(ctx: AdaptationContext): string {
   const h = ctx.typographyHierarchy;
-  const ratio =
-    h?.sizeRatioHeadlineToSub?.trim() ||
-    'subheadline roughly 28–38% of headline cap height (~⅓ visual size — clearly subordinate)';
-  const headlineTier = h?.headlineTier ?? 'largest — primary hook, dominant in the top text zone';
+  const ratio = clampSubheadRatio(h?.sizeRatioHeadlineToSub);
+  const headlineTier =
+    h?.headlineTier?.trim() ||
+    'largest — primary hook, dominant in the top text zone';
   const subTier =
-    h?.subheadlineTier ??
-    'clearly smaller than headline — lightweight supporting sans-serif, secondary information only';
+    'clearly smaller than headline — lightweight supporting sans-serif at ~30% cap height, secondary information only';
   const ladder =
     h?.lines && h.lines.length > 0
       ? h.lines.map((l) => `  - ${l.role}: ${l.sizeTier}${l.weight ? ` (${l.weight})` : ''}`).join('\n')

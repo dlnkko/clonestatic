@@ -3,6 +3,7 @@ import {
   textLayoutBlock,
   typographyHierarchyBlock,
 } from './adaptation-rules';
+import { enforceSingleHeadlineTier } from './copy-sanitize';
 import type { AdaptationContext, CopyAdaptationResult, VisualAdaptationResult } from './types';
 
 function escapeForPromptQuote(text: string): string {
@@ -77,6 +78,9 @@ function resolveBrandColorList(ctx: AdaptationContext): string[] {
 export function formatLiteralCopyLines(copy: CopyAdaptationResult): string[] {
   const lines: string[] = [];
   const seen = new Set<string>();
+  const orderedLines = copy.textLines?.length
+    ? enforceSingleHeadlineTier(copy.textLines)
+    : null;
 
   const add = (label: string, text: string | null | undefined, roleForHint = label) => {
     const t = text?.trim();
@@ -88,7 +92,11 @@ export function formatLiteralCopyLines(copy: CopyAdaptationResult): string[] {
     lines.push(`${label}: '${escapeForPromptQuote(t)}'${hint}`);
   };
 
-  if (copy.textLines && copy.textLines.length > 0) {
+  if (orderedLines && orderedLines.length > 0) {
+    for (const line of orderedLines) {
+      add(roleLabel(line.role), line.text, line.role);
+    }
+  } else if (copy.textLines && copy.textLines.length > 0) {
     for (const line of copy.textLines) {
       add(roleLabel(line.role), line.text, line.role);
     }
@@ -155,6 +163,33 @@ function visualMediumLine(ctx: AdaptationContext, visual: VisualAdaptationResult
   return 'Visual medium: clean photographic static ad.';
 }
 
+function sanitizeVisualForRender(
+  visual: VisualAdaptationResult,
+  copy: CopyAdaptationResult,
+  ctx: AdaptationContext
+): VisualAdaptationResult {
+  const badgeInCopy = copy.textLines?.find((l) => /badge/i.test(l.role));
+  const hasTrustBadgeImage = ctx.matchedProductVisuals.some((m) => m.role === 'trust_badge');
+
+  let trustBadgeNotes = visual.trustBadgeNotes?.trim() ?? '';
+  if (!badgeInCopy && !hasTrustBadgeImage) {
+    trustBadgeNotes = '';
+  } else if (badgeInCopy && trustBadgeNotes) {
+    trustBadgeNotes = trustBadgeNotes
+      .replace(/\b(?:reading|text)\s+['"][^'"]+['"]/gi, '')
+      .replace(/\bMELATONIN\b[^.]*\.?/gi, '')
+      .trim();
+    if (trustBadgeNotes) {
+      trustBadgeNotes = `Trust badge placement only — render approved Badge copy line exactly: '${badgeInCopy.text}'. ${trustBadgeNotes}`;
+    }
+  }
+
+  return {
+    ...visual,
+    trustBadgeNotes: trustBadgeNotes || undefined,
+  };
+}
+
 function layoutLine(visual: VisualAdaptationResult): string {
   const parts = [
     visual.compositionRules,
@@ -208,20 +243,25 @@ export function buildCompactImagePrompt(
   visual: VisualAdaptationResult,
   qaFeedback?: string[]
 ): string {
-  const copyLines = formatLiteralCopyLines(copy);
+  const sanitizedCopy: CopyAdaptationResult = {
+    ...copy,
+    textLines: copy.textLines?.length ? enforceSingleHeadlineTier(copy.textLines) : copy.textLines,
+  };
+  const sanitizedVisual = sanitizeVisualForRender(visual, sanitizedCopy, ctx);
+  const copyLines = formatLiteralCopyLines(sanitizedCopy);
   const sections = [
-    `Create a static ad. ${backgroundLine(ctx, visual)}`,
+    `Create a static ad. ${backgroundLine(ctx, sanitizedVisual)}`,
     productCatalogFidelityBlock(ctx),
-    productFidelityLine(ctx, visual),
+    productFidelityLine(ctx, sanitizedVisual),
     productForbiddensBlock(ctx),
     logoLine(ctx),
     copyLines.length
       ? `Text — render each line on its OWN visual row exactly as given (do not merge headline+subheadline, do not edit or rewrite):\n${copyLines.map((l) => `- ${l}`).join('\n')}`
       : null,
-    textLayoutBlock(ctx),
+    textLayoutBlock(ctx, sanitizedCopy),
     typographyHierarchyBlock(ctx),
-    `Layout: ${layoutLine(visual)}`,
-    visualMediumLine(ctx, visual),
+    `Layout: ${layoutLine(sanitizedVisual)}`,
+    visualMediumLine(ctx, sanitizedVisual),
     pricingLine(ctx),
     qaFeedback?.length
       ? `QA fixes (must apply):\n${qaFeedback.map((i) => `- ${i}`).join('\n')}`
