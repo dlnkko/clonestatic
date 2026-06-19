@@ -1,3 +1,8 @@
+import {
+  productCatalogFidelityBlock,
+  textLayoutBlock,
+  typographyHierarchyBlock,
+} from './adaptation-rules';
 import type { AdaptationContext, CopyAdaptationResult, VisualAdaptationResult } from './types';
 
 function escapeForPromptQuote(text: string): string {
@@ -15,7 +20,7 @@ function stripUrlsAndFilenames(text: string): string {
 function roleLabel(role: string): string {
   const r = role.toLowerCase();
   if (/headline|tagline|hook|punch/i.test(r)) return 'Headline';
-  if (/subhead|body|main|secondary/i.test(r)) return 'Subheadline';
+  if (/subhead|body|main|secondary|subhero/i.test(r)) return 'Subheadline';
   if (/badge|promo|offer/i.test(r)) return 'Badge';
   if (/cta|button/i.test(r)) return 'CTA';
   if (/brand-name(?!.*sub)/i.test(r)) return 'Brand name';
@@ -26,44 +31,87 @@ function roleLabel(role: string): string {
   return role.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+function typographyRenderHint(role: string): string {
+  const r = role.toLowerCase();
+  if (/headline|tagline|hook|punch/i.test(r)) {
+    return ' — LARGEST tier, bold/display, dominant hook';
+  }
+  if (/subhead|body|main|secondary|subhero/i.test(r)) {
+    return ' — SUBORDINATE: ~30% headline cap height, light/regular weight, own line below headline, max 2 lines — never same size/weight as headline';
+  }
+  if (/brand-name(?!.*sub)/i.test(r)) {
+    return ' — eyebrow/small caps tier above headline if reference had brand line there';
+  }
+  if (/subtagline|sub-tagline/i.test(r)) {
+    return ' — small supporting tier under brand name';
+  }
+  if (/spec|credential/i.test(r)) {
+    return ' — small sans-serif, below subheadline';
+  }
+  if (/badge|promo|offer/i.test(r)) {
+    return ' — only if listed here; do not invent award badges';
+  }
+  if (/review|testimonial/i.test(r)) {
+    return ' — smallest footer tier';
+  }
+  if (/icon/i.test(r)) {
+    return ' — icon label tier, 1–3 words';
+  }
+  return '';
+}
+
+function resolveBrandColorList(ctx: AdaptationContext): string[] {
+  const colors: string[] = [...(ctx.productBrandColors ?? [])];
+  const scraped = ctx.scrapedBranding?.colors;
+  if (scraped && typeof scraped === 'object') {
+    const primary = (scraped as { primary?: string[] }).primary;
+    if (Array.isArray(primary)) colors.push(...primary);
+    for (const [key, value] of Object.entries(scraped)) {
+      if (typeof value === 'string') colors.push(`${key}: ${value}`);
+    }
+  }
+  return [...new Set(colors.map((c) => c.trim()).filter(Boolean))];
+}
+
 /** Literal copy lines for the image model — render only, never write. */
 export function formatLiteralCopyLines(copy: CopyAdaptationResult): string[] {
   const lines: string[] = [];
   const seen = new Set<string>();
 
-  const add = (label: string, text: string | null | undefined) => {
+  const add = (label: string, text: string | null | undefined, roleForHint = label) => {
     const t = text?.trim();
     if (!t) return;
     const key = t.toLowerCase();
     if (seen.has(key)) return;
     seen.add(key);
-    lines.push(`${label}: '${escapeForPromptQuote(t)}'`);
+    const hint = typographyRenderHint(roleForHint);
+    lines.push(`${label}: '${escapeForPromptQuote(t)}'${hint}`);
   };
 
   if (copy.textLines && copy.textLines.length > 0) {
     for (const line of copy.textLines) {
-      add(roleLabel(line.role), line.text);
+      add(roleLabel(line.role), line.text, line.role);
     }
   } else {
-    add('Headline', copy.tagline);
-    add('Subheadline', copy.mainLine);
+    add('Headline', copy.tagline, 'headline');
+    add('Subheadline', copy.mainLine, 'subheadline');
   }
 
   if (copy.brandName && !copy.textLines?.some((l) => /brand/i.test(l.role))) {
-    add('Brand name', copy.brandName);
+    add('Brand name', copy.brandName, 'brand-name');
   }
   if (copy.brandSubtagline && !copy.textLines?.some((l) => /subtagline|sub-tagline/i.test(l.role))) {
-    add('Brand sub-tagline', copy.brandSubtagline);
+    add('Brand sub-tagline', copy.brandSubtagline, 'brand-subtagline');
   }
   if (copy.specLine && !copy.textLines?.some((l) => /spec/i.test(l.role))) {
-    add('Spec line', copy.specLine);
+    add('Spec line', copy.specLine, 'spec-line');
   }
-  if (copy.reviewText) add('Review', copy.reviewText);
-  if (copy.reviewNumericClaims) add('Review stats', copy.reviewNumericClaims);
+  if (copy.reviewText) add('Review', copy.reviewText, 'review');
+  if (copy.reviewNumericClaims) add('Review stats', copy.reviewNumericClaims, 'review');
 
   if (copy.featureIcons?.length) {
     copy.featureIcons.forEach((ic, i) => {
-      add(`Icon ${i + 1} label`, ic.label);
+      add(`Icon ${i + 1} label`, ic.label, 'icon-label');
     });
   }
 
@@ -72,10 +120,16 @@ export function formatLiteralCopyLines(copy: CopyAdaptationResult): string[] {
 
 function productFidelityLine(ctx: AdaptationContext, visual: VisualAdaptationResult): string {
   const name = ctx.productName?.trim() || visual.productType?.trim() || 'the product';
+  const brandColors = resolveBrandColorList(ctx);
+  const colorClause = brandColors.length
+    ? ` Packaging colors must match catalog (${brandColors.slice(0, 5).join(', ')}) — do NOT lighten, recolor, or substitute competitor hues.`
+    : ' Packaging colors must match attached catalog photos exactly — do NOT lighten, recolor, or invent new palette.';
+
   if (ctx.hasIllustrativeVisual) {
-    return `Product (${name}): packaging colors, logo, and label text must match attached catalog photos exactly. Re-angle and re-scale the product graphic in the layout; keep illustrated/stylized body elements in the reference medium — do not convert to hyperreal stock photography.`;
+    return `Product (${name}): logo, label text, and packaging colors from catalog photos.${colorClause} Re-angle and re-scale in layout; keep illustrated/stylized body elements in reference medium — do not convert to hyperreal stock photography.`;
   }
-  return `Product (${name}): hyperrealistic fidelity from attached catalog photos — exact packaging colors, logo, and label text. Full freedom to change pose, angle, position, scale, overlap, and lighting to match the layout below; do not copy the original catalog photo pose.`;
+
+  return `Product (${name}): hyperrealistic fidelity from attached catalog photos — exact container shape, label layout, logo, and packaging colors.${colorClause} Full freedom to change pose, angle, position, scale, overlap, lighting, and surface texture/finish to match the reference ad (matte/gloss, soft folds, sheen, condensation). FORBIDDEN: redesigning the label, changing can/bottle color, or inventing new graphics not on the catalog photo.`;
 }
 
 function logoLine(ctx: AdaptationContext): string | null {
@@ -95,6 +149,9 @@ function visualMediumLine(ctx: AdaptationContext, visual: VisualAdaptationResult
   if (ctx.hasPersonInReference) {
     return 'Visual medium: real photographic ad — candid smartphone-quality lighting, match reference framing.';
   }
+  if (ctx.referenceShowsPackaging) {
+    return 'Visual medium: clean photographic static product ad — hyperreal packaging render from catalog photos.';
+  }
   return 'Visual medium: clean photographic static ad.';
 }
 
@@ -113,27 +170,25 @@ function layoutLine(visual: VisualAdaptationResult): string {
 
 function backgroundLine(ctx: AdaptationContext, visual: VisualAdaptationResult): string {
   const branding = stripUrlsAndFilenames(visual.brandingNotes ?? '');
-  if (branding) return branding;
-  const colors = ctx.scrapedBranding
-    ? ((ctx.scrapedBranding.colors as { primary?: string[] } | undefined)?.primary ??
-      (ctx.scrapedBranding.colors as string[] | undefined))
-    : null;
-  if (Array.isArray(colors) && colors.length) {
-    return `Background and accents using product brand colors (${colors.slice(0, 3).join(', ')}), same mood as reference layout.`;
-  }
-  return 'Background and color mood matching reference layout using user product brand colors.';
+  const brandColors = resolveBrandColorList(ctx);
+  const colorNote =
+    brandColors.length > 0
+      ? ` Use product brand colors for background/accents (${brandColors.slice(0, 5).join(', ')}) — not competitor reference hues.`
+      : ' Use user product brand colors for background/accents — not competitor reference hues.';
+  if (branding) return `${branding}${colorNote}`;
+  return `Background and color mood matching reference layout.${colorNote}`;
 }
 
-function typographyLine(ctx: AdaptationContext): string | null {
-  const hint = ctx.typographyHierarchy?.sizeRatioHeadlineToSub;
-  if (ctx.referenceTypography?.trim()) {
-    const t = stripUrlsAndFilenames(ctx.referenceTypography).slice(0, 280);
-    return `Typography: ${t}${hint ? ` Headline dominant; subheadline ~${hint} of headline size.` : ''}`;
-  }
-  if (hint) {
-    return `Typography: headline largest; subheadline clearly smaller (~${hint} of headline cap height).`;
-  }
-  return null;
+function productForbiddensBlock(ctx: AdaptationContext): string {
+  const trustNote = ctx.referenceTrustBadge.present
+    ? ' Use only the user trust_badge image if provided.'
+    : ' Do not invent award seals, "medically vetted", or press badges.';
+  return `**PRODUCT RENDER FORBIDDENS:**
+- Do NOT change packaging color vs catalog (e.g. dark navy can → light blue)
+- Do NOT redesign label layout, typography on pack, or add flavor text not on catalog
+- Do NOT substitute competitor product shape${trustNote}
+- OK: adapt surface texture/material finish to match reference ad (matte pouch feel, glossy highlight, soft crumple, condensation)
+- Reference ad = layout zones + texture mood; catalog photos = brand truth (colors, label, shape)`;
 }
 
 function pricingLine(ctx: AdaptationContext): string | null {
@@ -144,26 +199,33 @@ function pricingLine(ctx: AdaptationContext): string | null {
 }
 
 /**
- * Compact Kie image prompt — single hierarchy, copy pre-resolved, product re-pose allowed.
+ * Compact Kie image prompt — copy pre-resolved, critical layout/typography rules inlined.
  * Built programmatically from copy + visual agents (no synthesis LLM).
  */
 export function buildCompactImagePrompt(
   ctx: AdaptationContext,
   copy: CopyAdaptationResult,
-  visual: VisualAdaptationResult
+  visual: VisualAdaptationResult,
+  qaFeedback?: string[]
 ): string {
   const copyLines = formatLiteralCopyLines(copy);
   const sections = [
     `Create a static ad. ${backgroundLine(ctx, visual)}`,
+    productCatalogFidelityBlock(ctx),
     productFidelityLine(ctx, visual),
+    productForbiddensBlock(ctx),
     logoLine(ctx),
     copyLines.length
-      ? `Text — render exactly as given, do not edit or rewrite:\n${copyLines.map((l) => `- ${l}`).join('\n')}`
+      ? `Text — render each line on its OWN visual row exactly as given (do not merge headline+subheadline, do not edit or rewrite):\n${copyLines.map((l) => `- ${l}`).join('\n')}`
       : null,
+    textLayoutBlock(ctx),
+    typographyHierarchyBlock(ctx),
     `Layout: ${layoutLine(visual)}`,
-    typographyLine(ctx),
     visualMediumLine(ctx, visual),
     pricingLine(ctx),
+    qaFeedback?.length
+      ? `QA fixes (must apply):\n${qaFeedback.map((i) => `- ${i}`).join('\n')}`
+      : null,
   ].filter(Boolean);
 
   return sections.join('\n\n').replace(/\n{3,}/g, '\n\n').trim();

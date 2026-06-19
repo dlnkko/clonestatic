@@ -78,9 +78,9 @@ async function runSynthesis(
   ctx: AdaptationContext,
   copy: CopyAdaptationResult,
   visual: VisualAdaptationResult,
-  _qaFeedback?: string[]
+  qaFeedback?: string[]
 ): Promise<{ finalPrompt: string; usage: ReturnType<typeof mergeStep2Usage> }> {
-  const finalPrompt = buildCompactImagePrompt(ctx, copy, visual);
+  const finalPrompt = buildCompactImagePrompt(ctx, copy, visual, qaFeedback);
   if (!finalPrompt.trim()) throw new Error('Compact prompt assembly returned empty');
   return { finalPrompt, usage: mergeStep2Usage([]) };
 }

@@ -231,6 +231,7 @@ export type AdaptationContext = {
   matchedProductVisuals: MatchedProductVisual[];
   productName: string | null;
   productDescription: string | null;
+  productBrandColors: string[];
   productUseProfile: import('@/lib/products/infer-product-use').ProductUseProfile | null;
   allowedPrice: string | null;
   pricingInstructions: string;

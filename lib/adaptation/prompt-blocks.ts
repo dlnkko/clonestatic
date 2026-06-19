@@ -50,6 +50,7 @@ ${structure ? `Reference structure: "${structure}"` : 'Match the reference ad te
 - Line 2+ must NOT become a generic spec dump or unrelated authority claim ("Dermatologist recommended") — match reference rhetorical device (transparency, wordplay, contrarian hook, etc.).
 - Max words per line: headline/tagline ≤ ${ctx.headlineWords}, main secondary line ≤ ${ctx.mainCopyWords} (other lines match reference length).
 - **Visual size (image):** headline = largest tier; subhero = clearly smaller (~28–38% of headline height, light weight only) even if word count is higher; footer/reviews = smallest.
+- **Separate lines:** headline and subheadline MUST be distinct \`textLines\` entries — never one concatenated string.
 - **Subhero pattern:** ${ctx.line2Pattern} — mirror reference rhetorical structure; never swap curiosity-gap for product pitch; never swap benefit-bridge for authority/spec tropes from scrape.`;
 }
 

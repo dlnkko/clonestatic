@@ -188,11 +188,17 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
   const multiUnitLayout = (referenceProductUnits?.unitCount ?? 1) > 1;
   const enforceOneMainElement =
     (oneHeroOnly || guidelinesAskSingleHero) && !referenceShowsPackaging && !multiUnitLayout;
+  const visualMedium = referenceVisualStyle?.visualMedium ?? '';
+  const illustrativeOnlyMediums = ['illustration', 'diagram', '3d-render', 'product-graphic-only'];
+  const photoProductStaticAd =
+    referenceShowsPackaging ||
+    visualMedium === 'photo' ||
+    (visualMedium === 'mixed' && referenceShowsPackaging);
   const hasIllustrativeVisual =
-    referenceVisualStyle?.hasIllustrationOrDiagram === true ||
-    ['illustration', 'diagram', '3d-render', 'mixed', 'product-graphic-only'].includes(
-      referenceVisualStyle?.visualMedium ?? ''
-    );
+    !photoProductStaticAd &&
+    (illustrativeOnlyMediums.includes(visualMedium) ||
+      referenceVisualStyle?.designType === 'illustration-led' ||
+      referenceVisualStyle?.designType === 'diagram-led');
   const hasPersonInReference =
     referenceVisualStyle?.hasPerson === true &&
     !hasIllustrativeVisual &&
@@ -332,6 +338,7 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     matchedProductVisuals,
     productName,
     productDescription,
+    productBrandColors,
     productUseProfile,
     allowedPrice,
     pricingInstructions,

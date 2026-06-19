@@ -31,7 +31,7 @@ export function catalogMatchDescription(
   const zone = layoutHintFromReference(referenceDescription);
   const kindLabel = KIND_LABEL[img.kind ?? 'other'] ?? 'product photo';
   const brandRule =
-    'Match packaging colors, logo, label text, and container shape from this photo; re-pose, re-angle, and re-scale freely for the ad layout';
+    'Match packaging colors, logo, label text, and container shape from this photo; re-pose, re-angle, and re-scale freely; surface texture/material finish may follow the reference ad lighting and mood';
 
   switch (role) {
     case 'packaging':
@@ -100,15 +100,18 @@ ${variantRule}
 Catalog:
 ${catalogLines}
 
-Reference ad supplies **layout zones and composition only** — not competitor product shape, not catalog photo pose.
-At render time: match brand exactly; freely re-angle, re-scale, re-light, and overlap units to fit the layout.`;
+Reference ad supplies **layout zones, composition, and surface texture/mood only** — not competitor product shape, not catalog photo pose.
+At render time: match brand colors, label, logo, and container type exactly; freely re-angle, re-scale, re-light, and overlap units. **Texture/finish** (matte, gloss, soft folds, metallic sheen, condensation) may adapt to match the reference ad's product rendering style.`;
 }
 
 /** Single Kie suffix — one priority stack, no redundant CRITICAL blocks. */
 export const KIE_RENDER_RULES_SUFFIX = `Render rules (in order):
-1. Product brand: attached catalog images define packaging colors, logo, label text, and container proportions — reproduce exactly. You may change pose, angle, position, scale, overlap, and lighting to fit the layout; do not paste the catalog photo pose unchanged.
-2. Copy: render quoted text in the prompt exactly — do not rewrite, translate, or invent lines.
-3. Layout: follow composition and visual medium in the prompt; do not copy competitor product shapes or off-category environments.`;
+1. Product brand: attached catalog images are the ONLY source for packaging color, label layout, logo, and container shape — reproduce exactly. You may change pose, angle, position, scale, overlap, lighting, and surface texture/finish to match the reference ad's product mood; do not paste the catalog photo pose unchanged.
+2. Copy: render each quoted line on its own visual row exactly as given — do not merge lines, rewrite, translate, or invent text (no fake badges, awards, or flavor claims).
+3. Typography: headline must be clearly largest; subheadline ~28–38% of headline cap height, light/regular weight — never equal size to headline.
+4. Layout: follow composition in the prompt; reference supplies zones and texture mood — not competitor product form or colors.
+
+FORBIDDEN: recoloring the product (e.g. navy can → light blue), redesigning labels, inventing trust badges, merging headline+subheadline into one line, subheadline as bold/large as headline.`;
 
 export function appendKieProductFidelityPrompt(
   prompt: string,

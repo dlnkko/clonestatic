@@ -298,7 +298,7 @@ export function packagingMirroringBlock(ctx: AdaptationContext): string {
 Reference may show packaging in a distinct zone (e.g. lower-right hero).
 - Place user's retail packaging from catalog in the same zone/scale relationship — re-angle and re-light as needed for composition.
 - Match container type from catalog (pouch, box, tub) — never copy reference competitor bottle shape.
-- Packaging labels and colors must match catalog exactly.`;
+- Packaging labels and colors must match catalog exactly; surface texture/finish may follow reference ad lighting and material mood.`;
 }
 
 export function noStockPhotoUnlessReferenceBlock(ctx: AdaptationContext): string {
