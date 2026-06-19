@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 
@@ -9,27 +9,19 @@ const inter = Inter({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-inter",
-  weight: ["400", "800", "900"],
-});
-
-const jetbrains = JetBrains_Mono({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-jetbrains",
-  weight: ["500"],
 });
 
 export const metadata: Metadata = {
-  title: "Admirror | Editorial Ad Cloning",
+  title: "admirror · Mirror winning static ads",
   description:
-    "Clone winning Meta static ads in 60 seconds. Mirror proven layouts with your product, copy, and brand colors.",
+    "Turn top performing Meta Ad Library statics into ready to publish creatives for your product. Reference, scrape, generate in minutes.",
 };
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrains.variable} scroll-smooth`}>
+    <html lang="en" className={inter.variable}>
       <Script
         id="google-tag-manager"
         strategy="beforeInteractive"
