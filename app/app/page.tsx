@@ -254,6 +254,7 @@ function StaticAdAppPage() {
   const [products, setProducts] = useState<ProductRecord[]>([]);
   const [productsLoading, setProductsLoading] = useState(hasSupabase);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [refreshProductPage, setRefreshProductPage] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
   const [detailProduct, setDetailProduct] = useState<ProductRecord | null>(null);
   const [creations, setCreations] = useState<CreationItem[]>([]);
@@ -509,6 +510,7 @@ function StaticAdAppPage() {
         };
         if (selectedProductId) asyncBody.productId = selectedProductId;
         else if (productImageUrl) asyncBody.productImageUrl = productImageUrl;
+        if (selectedProductId && refreshProductPage) asyncBody.refreshProductPage = true;
         if (copyUrl) asyncBody.copywritingUrl = copyUrl;
         else if (!useSavedProduct && copywriting.trim()) asyncBody.copywriting = copywriting.trim();
 
@@ -608,6 +610,7 @@ function StaticAdAppPage() {
       };
       if (selectedProductId) {
         promptBody.productId = selectedProductId;
+        if (refreshProductPage) promptBody.refreshProductPage = true;
       } else {
         promptBody.productImage = productBase64;
       }
@@ -1970,9 +1973,29 @@ function StaticAdAppPage() {
                         )}
                       </div>
                       {selectedProduct && (
-                        <p className="dash-muted-text text-center text-[var(--brand-indigo)]">
-                          {t('mirror', 'storedMeta', { count: selectedProduct.images.length })}
-                        </p>
+                        <div className="mt-2 space-y-2">
+                          <p className="dash-muted-text text-center text-[var(--brand-indigo)]">
+                            {t('mirror', 'storedMeta', { count: selectedProduct.images.length })}
+                          </p>
+                          {selectedProduct.product_url && (
+                            <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-[var(--dash-border)] bg-white/60 px-3 py-2.5">
+                              <input
+                                type="checkbox"
+                                checked={refreshProductPage}
+                                onChange={(e) => setRefreshProductPage(e.target.checked)}
+                                className="mt-0.5 h-4 w-4 rounded border-[var(--dash-border)] text-[var(--brand-indigo)]"
+                              />
+                              <span className="text-left">
+                                <span className="block text-xs font-medium text-[var(--dash-fg)]">
+                                  {t('mirror', 'refreshProductPage')}
+                                </span>
+                                <span className="mt-0.5 block text-[11px] leading-snug text-[var(--dash-muted)]">
+                                  {t('mirror', 'refreshProductPageHint')}
+                                </span>
+                              </span>
+                            </label>
+                          )}
+                        </div>
                       )}
                     </>
                   ) : (

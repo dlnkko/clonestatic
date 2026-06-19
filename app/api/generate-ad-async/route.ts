@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
       copyLanguage,
       aspectRatio: aspectRatioParam,
       creationId: creationIdParam,
+      refreshProductPage: refreshProductPageParam,
     } = body as {
       referenceImageUrl?: string;
       productImageUrl?: string;
@@ -74,6 +75,7 @@ export async function POST(request: NextRequest) {
       copyLanguage?: string;
       aspectRatio?: string;
       creationId?: string;
+      refreshProductPage?: boolean;
     };
 
     if (!referenceImageUrl || !isValidHttpUrl(referenceImageUrl)) {
@@ -180,6 +182,7 @@ export async function POST(request: NextRequest) {
           guidelines: typeof guidelines === 'string' ? guidelines : null,
           copyLanguage: typeof copyLanguage === 'string' ? copyLanguage : undefined,
           aspectRatio,
+          refreshProductPage: refreshProductPageParam === true,
         });
       } catch (err) {
         console.error('generate-ad-async after() failed:', err);

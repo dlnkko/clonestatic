@@ -2,8 +2,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AdVisualMode } from '@/lib/ad-visual-mode';
 import { internalJobHeaders, internalJobSecret } from '@/lib/internal-job';
 import { runAdImageGenerationJob } from '@/lib/creations/generate-job';
-import { productCopywritingPayload, rowToProduct } from '@/lib/products/db';
-import type { ProductImage } from '@/lib/products/types';
 import { getAppOrigin } from '@/lib/supabase/auth-config';
 
 export type FullAdGenerationParams = {
@@ -21,6 +19,8 @@ export type FullAdGenerationParams = {
   guidelines?: string | null;
   copyLanguage?: string;
   aspectRatio: string;
+  /** When true, re-scrape the saved product URL before prompt generation. */
+  refreshProductPage?: boolean;
 };
 
 async function markCreationFailed(
@@ -158,13 +158,12 @@ export async function runFullAdGenerationJob(params: FullAdGenerationParams): Pr
     guidelines,
     copyLanguage,
     aspectRatio,
+    refreshProductPage,
   } = params;
 
   try {
     let copywritingResolved = copywriting ?? null;
     let isUrlScraped = false;
-    let productCatalogImages: ProductImage[] | undefined;
-    let productDisplayName: string | undefined;
 
     if (copywritingUrl?.trim()) {
       const scraped = await scrapeCopywritingUrl(cookieHeader, copywritingUrl);
@@ -175,35 +174,23 @@ export async function runFullAdGenerationJob(params: FullAdGenerationParams): Pr
       isUrlScraped = true;
     }
 
-    if (productId) {
-      const { data: row, error: prodErr } = await admin
-        .from('products')
-        .select('*')
-        .eq('id', productId)
-        .eq('user_id', userId)
-        .single();
-      if (prodErr || !row) {
-        throw new Error('Product not found');
-      }
-      const savedProduct = rowToProduct(row as Record<string, unknown>);
-      copywritingResolved = productCopywritingPayload(savedProduct);
-      isUrlScraped = savedProduct.source === 'url' && !!savedProduct.scrape_cache;
-      productCatalogImages = savedProduct.images;
-      productDisplayName = savedProduct.name;
-    }
-
     const promptBody: Record<string, unknown> = {
       referenceImageUrl,
-      copywriting: copywritingResolved,
-      isUrlScraped,
       guidelines: guidelines ?? null,
       copyLanguage,
     };
-    if (productCatalogImages?.length) {
-      promptBody.productCatalogImages = productCatalogImages;
-      promptBody.productDisplayName = productDisplayName ?? 'Product';
-    } else if (productImageUrl) {
-      promptBody.productImageUrl = productImageUrl;
+
+    if (productId) {
+      promptBody.productId = productId;
+      if (refreshProductPage) {
+        promptBody.refreshProductPage = true;
+      }
+    } else {
+      promptBody.copywriting = copywritingResolved;
+      promptBody.isUrlScraped = isUrlScraped;
+      if (productImageUrl) {
+        promptBody.productImageUrl = productImageUrl;
+      }
     }
 
     const promptResult = await generatePrompt(cookieHeader, userId, promptBody);

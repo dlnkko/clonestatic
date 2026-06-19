@@ -9,7 +9,7 @@ import type { ProductImage, ProductScrapeCache } from '@/lib/products/types';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { assertCanAddProduct } from '@/lib/subscription-limits';
-import { pricingConfigFromExtracted } from '@/lib/products/pricing-config';
+import { buildScrapeCacheFromPageScrape } from '@/lib/products/build-scrape-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,6 +73,7 @@ type CreateUrlFromPreviewBody = {
   imageBase64List: string[];
   branding?: Record<string, unknown> | null;
   extractedPricing?: ProductScrapeCache['extractedPricing'];
+  markdown?: string | null;
 };
 
 export async function POST(request: NextRequest) {
@@ -159,7 +160,7 @@ export async function POST(request: NextRequest) {
       const scrapeCache: ProductScrapeCache = {
         summary: (b.description || b.name).trim(),
         branding: b.branding ?? null,
-        markdown: null,
+        markdown: b.markdown?.trim() ? b.markdown.trim().slice(0, 12000) : null,
         scrapedAt: new Date().toISOString(),
         productUrl: b.productUrl.trim(),
         extractedPricing: b.extractedPricing,
@@ -229,17 +230,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const scrapeCache: ProductScrapeCache = {
-        summary: scraped.summary,
-        branding: scraped.branding,
-        markdown: null,
-        scrapedAt: new Date().toISOString(),
-        productUrl: productUrl.trim(),
-        extractedPricing: scraped.extractedPricing,
-        priceDisplay:
-          scraped.extractedPricing.salePrice ?? scraped.extractedPricing.regularPrice ?? null,
-        pricingConfig: pricingConfigFromExtracted(scraped.extractedPricing),
-      };
+      const scrapeCache = buildScrapeCacheFromPageScrape(scraped, productUrl.trim());
 
       const productName =
         nameOverride?.trim() ||

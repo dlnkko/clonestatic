@@ -43,6 +43,7 @@ import {
 import { resolveCopyLanguage } from '@/lib/copy-languages';
 import { GEMINI_MODEL } from '@/lib/gemini-model';
 import { getProductAllowedPrice, getProductPricingInstructions, productCopywritingPayload, rowToProduct } from '@/lib/products/db';
+import { refreshProductPageScrape } from '@/lib/products/refresh-page-scrape';
 import { allowedPriceForAds, extractPricingFromText } from '@/lib/products/extract-pricing';
 import {
   ensureStandaloneLogoMatch,
@@ -153,6 +154,7 @@ export async function POST(request: NextRequest) {
       internalUserId,
       productCatalogImages: productCatalogImagesParam,
       productDisplayName,
+      refreshProductPage: refreshProductPageParam,
     } = body;
     const guidelinesTrimmed = typeof guidelines === 'string' ? guidelines.trim() : '';
     const resolvedCopyLang = resolveCopyLanguage(copyLanguage);
@@ -176,6 +178,9 @@ export async function POST(request: NextRequest) {
         : null;
 
     let savedProduct: ProductRecord | null = null;
+    let productOwnerUserId: string | null = null;
+    const refreshProductPage = refreshProductPageParam === true;
+
     if (productId) {
       const jobUserId =
         internalJob && typeof internalUserId === 'string' && internalUserId.trim()
@@ -183,6 +188,7 @@ export async function POST(request: NextRequest) {
           : null;
 
       if (jobUserId) {
+        productOwnerUserId = jobUserId;
         const admin = createAdminClient();
         const { data: row, error: prodErr } = await admin
           .from('products')
@@ -207,6 +213,7 @@ export async function POST(request: NextRequest) {
         if (!user) {
           return NextResponse.json({ error: 'Sign in required to use saved products' }, { status: 401 });
         }
+        productOwnerUserId = user.id;
         const { data: row, error: prodErr } = await supabase
           .from('products')
           .select('*')
@@ -217,6 +224,21 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Product not found' }, { status: 404 });
         }
         savedProduct = rowToProduct(row as Record<string, unknown>);
+      }
+    }
+
+    if (
+      refreshProductPage &&
+      savedProduct?.product_url?.trim() &&
+      productId &&
+      productOwnerUserId
+    ) {
+      try {
+        const admin = createAdminClient();
+        savedProduct = await refreshProductPageScrape(admin, productId, productOwnerUserId);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to refresh product page';
+        return NextResponse.json({ error: message }, { status: 500 });
       }
     }
 

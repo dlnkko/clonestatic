@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
         targetAudience: '',
         colorPalette: colorPalette?.colors?.join(', ') ?? '',
         branding: scraped.branding,
+        markdown: scraped.markdown,
         images: [],
         logoUrl: null,
         extractedPricing,

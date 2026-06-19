@@ -26,6 +26,7 @@ type ScrapePreview = {
   targetAudience: string;
   colorPalette: string;
   branding: Record<string, unknown> | null;
+  markdown: string | null;
   extractedPricing: ExtractedPricing;
   priceDisplay: string;
   pricingConfig: ProductPricingConfig;
@@ -221,6 +222,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
           logoBase64List,
           branding: preview.branding,
           extractedPricing: preview.extractedPricing,
+          markdown: preview.markdown,
         }),
       });
       const data = await res.json().catch(() => ({}));

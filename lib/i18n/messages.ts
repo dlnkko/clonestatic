@@ -69,6 +69,9 @@ const en: Messages = {
     copyLanguage: 'Ad copy language',
     copyLanguageHint: 'Headlines and text on the generated ad will be written in this language.',
     usingSavedProduct: 'Using saved product copy and branding from Products.',
+    refreshProductPage: 'Refresh from product page',
+    refreshProductPageHint:
+      'Re-scrape the live product URL for reviews, offers, and full page copy (uses one scrape credit).',
     generateImage: 'Generate Image',
     generatedImage: 'Generated image',
     previewEmpty: 'Your ad will appear here',
@@ -131,6 +134,10 @@ const en: Messages = {
     useInMirror: 'Use in Mirror',
     editHint: 'View & edit →',
     detectedPrice: 'Detected from page',
+    resyncFromUrl: 'Re-sync from URL',
+    resyncing: 'Re-syncing…',
+    resyncHint: 'Pull the latest page copy, reviews, and offers from the product URL.',
+    lastSynced: 'Last synced {date}',
   },
   team: {
     title: 'Team',
@@ -217,6 +224,9 @@ const es: Messages = {
     copyLanguage: 'Idioma del copy del ad',
     copyLanguageHint: 'Los titulares y textos del ad generado estarán en este idioma.',
     usingSavedProduct: 'Usando copy y branding del producto guardado en Productos.',
+    refreshProductPage: 'Refresh from product page',
+    refreshProductPageHint:
+      'Re-scrape the live product URL for reviews, offers, and full page copy (uses one scrape credit).',
     generateImage: 'Generar imagen',
     generatedImage: 'Imagen generada',
     previewEmpty: 'Tu ad aparecerá aquí',
@@ -279,6 +289,10 @@ const es: Messages = {
     useInMirror: 'Usar en Mirror',
     editHint: 'Ver y editar →',
     detectedPrice: 'Detectado de la página',
+    resyncFromUrl: 'Re-sync from URL',
+    resyncing: 'Re-syncing…',
+    resyncHint: 'Pull the latest page copy, reviews, and offers from the product URL.',
+    lastSynced: 'Last synced {date}',
   },
   team: {
     title: 'Equipo',
@@ -365,6 +379,9 @@ const pt: Messages = {
     copyLanguage: 'Idioma do copy do ad',
     copyLanguageHint: 'Títulos e textos do ad gerado serão neste idioma.',
     usingSavedProduct: 'Usando copy e branding do produto salvo em Produtos.',
+    refreshProductPage: 'Refresh from product page',
+    refreshProductPageHint:
+      'Re-scrape the live product URL for reviews, offers, and full page copy (uses one scrape credit).',
     generateImage: 'Gerar imagem',
     generatedImage: 'Imagem gerada',
     previewEmpty: 'Seu ad aparecerá aqui',
@@ -427,6 +444,10 @@ const pt: Messages = {
     useInMirror: 'Usar no Mirror',
     editHint: 'Ver e editar →',
     detectedPrice: 'Detectado da página',
+    resyncFromUrl: 'Re-sync from URL',
+    resyncing: 'Re-syncing…',
+    resyncHint: 'Pull the latest page copy, reviews, and offers from the product URL.',
+    lastSynced: 'Last synced {date}',
   },
   team: {
     title: 'Equipe',

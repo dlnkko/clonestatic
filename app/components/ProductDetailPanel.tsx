@@ -35,6 +35,7 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
   const [productImages, setProductImages] = useState<EditableProductImage[]>([]);
   const [logoImages, setLogoImages] = useState<EditableProductImage[]>([]);
   const [saving, setSaving] = useState(false);
+  const [resyncing, setResyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -108,6 +109,27 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
     }
   };
 
+  const handleResync = async () => {
+    if (!product.product_url) return;
+    setResyncing(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/products/${product.id}/resync`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to re-sync product page');
+      const updated = data.product as ProductRecord;
+      setDescription(updated.description ?? '');
+      onSaved(updated);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Re-sync failed');
+    } finally {
+      setResyncing(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!confirm('Delete this product?')) return;
     const res = await fetch(`/api/products/${product.id}`, { method: 'DELETE', credentials: 'include' });
@@ -156,8 +178,30 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
                 <p className="mt-2 text-xs text-slate-500">
                   {t('products', 'imagesStored', { count: imageCount })}
                 </p>
+                {product.scrape_cache?.scrapedAt && (
+                  <p className="mt-1 text-xs text-slate-400">
+                    {t('products', 'lastSynced', {
+                      date: new Date(product.scrape_cache.scrapedAt).toLocaleDateString(),
+                    })}
+                  </p>
+                )}
               </div>
             </div>
+
+            {product.product_url && (
+              <div className="rounded-2xl border border-sky-100 bg-sky-50/80 p-4">
+                <p className="text-sm font-medium text-slate-800">{t('products', 'resyncFromUrl')}</p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-600">{t('products', 'resyncHint')}</p>
+                <button
+                  type="button"
+                  onClick={handleResync}
+                  disabled={resyncing || saving}
+                  className="dash-btn dash-btn-secondary mt-3 text-xs"
+                >
+                  {resyncing ? t('products', 'resyncing') : t('products', 'resyncFromUrl')}
+                </button>
+              </div>
+            )}
 
             <div>
               <label className="dash-label mb-1.5">{t('products', 'name')}</label>
