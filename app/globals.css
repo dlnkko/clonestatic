@@ -283,6 +283,51 @@ pre::-webkit-scrollbar-thumb:hover {
   opacity: 1;
 }
 
+.landing-editorial .landing-reveal {
+  opacity: 0;
+  transition:
+    opacity 1.05s var(--landing-ease),
+    transform 1.05s var(--landing-ease);
+  will-change: opacity, transform;
+}
+
+.landing-editorial .landing-reveal-from-up {
+  transform: translate3d(0, 48px, 0);
+}
+
+.landing-editorial .landing-reveal-from-down {
+  transform: translate3d(0, -48px, 0);
+}
+
+.landing-editorial .landing-reveal.is-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-editorial .landing-reveal {
+    opacity: 1;
+    transform: none !important;
+    transition: none;
+  }
+}
+
+.landing-editorial .landing-tool-card {
+  transition:
+    background-color 0.35s var(--landing-ease),
+    transform 0.45s var(--landing-ease);
+}
+
+.landing-editorial .landing-tool-card:hover {
+  transform: scale(1.01);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-editorial .landing-tool-card:hover {
+    transform: none;
+  }
+}
+
 /* ─── Landing v2 (admirror) — legacy / legal pages ─── */
 
 .landing-root {

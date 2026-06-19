@@ -1,17 +1,22 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { cn } from '@/lib/cn';
 import { LandingPricing } from './LandingPricing';
 import { MaterialIcon } from './MaterialIcon';
+import { Reveal } from './Reveal';
+
+const LOGIN_APP = '/login?next=/app';
+const LOGIN = '/login';
 
 const NAV = [
   { label: 'Platform', href: '#platform' },
   { label: 'Process', href: '#process' },
   { label: 'Pricing', href: '#pricing' },
   { label: 'Showcase', href: '#showcase' },
-];
+] as const;
 
 const STEPS = [
   {
@@ -29,7 +34,7 @@ const STEPS = [
     title: 'Deploy',
     body: 'Generate HD statics in under a minute. Download and launch while competitors are still in revision.',
   },
-];
+] as const;
 
 const TOOLS = [
   {
@@ -52,7 +57,7 @@ const TOOLS = [
     title: 'HD export',
     body: 'Download publication-ready statics in seconds. No watermarks on paid plans.',
   },
-];
+] as const;
 
 const CATEGORIES = [
   { name: 'Beauty & skincare', count: '2,450+' },
@@ -60,7 +65,13 @@ const CATEGORIES = [
   { name: 'Fitness & sports', count: '3,100+' },
   { name: 'Sleep & recovery', count: '940+' },
   { name: 'Food & beverage', count: '1,150+' },
-];
+] as const;
+
+const btnPrimary =
+  'inline-flex items-center justify-center rounded bg-primary px-6 py-3 font-mono text-label-caps uppercase tracking-wider text-on-primary transition-all duration-300 hover:bg-surface-tint active:scale-[0.97]';
+const btnPrimaryLg = `${btnPrimary} px-8 py-4`;
+const btnGhost =
+  'hover-underline-anim inline-flex items-center justify-center px-6 py-3 font-mono text-label-caps uppercase tracking-wider text-primary transition-colors';
 
 export function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -72,17 +83,24 @@ export function LandingPage() {
     return () => window.removeEventListener('hashchange', close);
   }, [menuOpen]);
 
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [menuOpen]);
+
   return (
     <div className="landing-editorial min-h-screen overflow-x-hidden bg-surface font-sans text-on-surface antialiased selection:bg-secondary-container selection:text-on-secondary-fixed">
-      <nav className="sticky top-0 z-50 mx-auto flex h-20 w-full max-w-7xl items-center justify-between border-b border-outline-variant bg-surface px-gutter">
-        <a
-          href="#"
+      <nav className="sticky top-0 z-50 mx-auto flex h-20 w-full max-w-7xl items-center justify-between border-b border-outline-variant bg-surface/95 px-gutter backdrop-blur-sm">
+        <Link
+          href="/"
           className="text-headline-md font-extrabold tracking-tight text-primary transition-colors hover:text-on-surface-variant"
         >
           Admirror
-        </a>
+        </Link>
 
-        <div className="hidden items-center space-x-8 md:flex">
+        <div className="hidden items-center gap-8 md:flex">
           {NAV.map((link) => (
             <a
               key={link.href}
@@ -94,27 +112,31 @@ export function LandingPage() {
           ))}
         </div>
 
-        <div className="flex items-center gap-3 md:gap-0">
-          <a
-            href="/login?next=/app"
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Link
+            href={LOGIN}
             className="font-mono text-label-caps uppercase tracking-widest text-on-surface-variant transition-colors hover:text-primary md:hidden"
           >
             Log in
-          </a>
+          </Link>
 
-          <a
-            href="/login?next=/app"
-            className="hidden rounded bg-primary px-6 py-3 font-mono text-label-caps uppercase tracking-widest text-on-primary transition-colors hover:bg-surface-tint md:inline-flex"
+          <Link
+            href={LOGIN}
+            className="hover-underline-anim hidden pb-0.5 font-mono text-label-caps uppercase tracking-widest text-on-surface-variant transition-colors hover:text-primary md:inline-block"
           >
+            Log in
+          </Link>
+
+          <Link href={LOGIN_APP} className={cn(btnPrimary, 'hidden md:inline-flex')}>
             Get started
-          </a>
+          </Link>
 
           <button
             type="button"
-            aria-label="Menu"
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((o) => !o)}
-            className="text-primary md:hidden"
+            className="rounded p-1 text-primary transition-transform active:scale-95 md:hidden"
           >
             <MaterialIcon name={menuOpen ? 'close' : 'menu'} className="text-3xl" />
           </button>
@@ -133,33 +155,32 @@ export function LandingPage() {
               key={link.href}
               href={link.href}
               onClick={() => setMenuOpen(false)}
-              className="rounded-lg px-3 py-3 font-mono text-label-caps uppercase tracking-widest text-on-surface-variant hover:bg-surface-container-low"
+              className="rounded-lg px-3 py-3 font-mono text-label-caps uppercase tracking-widest text-on-surface-variant transition-colors hover:bg-surface-container-low"
             >
               {link.label}
             </a>
           ))}
-          <a
-            href="/login?next=/app"
+          <Link
+            href={LOGIN}
             onClick={() => setMenuOpen(false)}
-            className="rounded-lg px-3 py-3 font-mono text-label-caps uppercase tracking-widest text-on-surface-variant hover:bg-surface-container-low"
+            className="rounded-lg px-3 py-3 font-mono text-label-caps uppercase tracking-widest text-on-surface-variant transition-colors hover:bg-surface-container-low"
           >
             Log in
-          </a>
-          <a
-            href="/login?next=/app"
+          </Link>
+          <Link
+            href={LOGIN_APP}
             onClick={() => setMenuOpen(false)}
-            className="mt-2 rounded bg-primary px-6 py-3 text-center font-mono text-label-caps uppercase tracking-widest text-on-primary"
+            className={cn(btnPrimary, 'mt-2 w-full text-center')}
           >
             Get started
-          </a>
+          </Link>
         </div>
       </div>
 
       <main>
-        {/* Hero */}
         <section className="mx-auto max-w-7xl border-b border-outline-variant px-gutter py-section-v-padding-lg">
           <div className="grid grid-cols-1 items-center gap-gutter lg:grid-cols-12">
-            <div className="space-y-6 lg:col-span-7">
+            <Reveal className="space-y-6 lg:col-span-7" direction="up">
               <p className="flex items-center gap-2 font-mono text-eyebrow uppercase tracking-widest text-on-surface-variant">
                 <span className="inline-block h-2 w-2 rounded-full bg-accent-gold" />
                 Meta Ad Library · Refreshed monthly
@@ -175,26 +196,20 @@ export function LandingPage() {
                 colors — same layout, new brand, ready to publish.
               </p>
               <div className="flex flex-wrap gap-4 pt-2">
-                <a
-                  href="/login?next=/app"
-                  className="rounded bg-primary px-8 py-4 font-mono text-label-caps uppercase tracking-wider text-on-primary transition-colors hover:bg-surface-tint"
-                >
+                <Link href={LOGIN_APP} className={btnPrimaryLg}>
                   Start cloning
-                </a>
-                <a
-                  href="#showcase"
-                  className="hover-underline-anim px-8 py-4 font-mono text-label-caps uppercase tracking-wider text-primary"
-                >
+                </Link>
+                <a href="#showcase" className={btnGhost}>
                   View library
                 </a>
               </div>
-            </div>
+            </Reveal>
 
-            <div className="relative mt-12 lg:col-span-5 lg:mt-0">
+            <Reveal className="relative mt-12 lg:col-span-5 lg:mt-0" direction="down" delayMs={120}>
               <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-6 shadow-sm">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-3">
-                    <div className="border-b border-outline-variant pb-2 font-mono text-eyebrow uppercase tracking-widest text-on-surface-variant">
+                    <div className="border-b border-outline-variant pb-2 font-mono text-eyebrow uppercase tracking-[0.2em] text-on-surface-variant">
                       Reference
                     </div>
                     <div className="group relative aspect-[4/5] overflow-hidden rounded-lg bg-surface-variant">
@@ -202,17 +217,17 @@ export function LandingPage() {
                         src="/landing/hero-reference.png"
                         alt="Reference static ad"
                         fill
-                        className="object-cover opacity-90"
+                        className="object-cover opacity-90 transition-opacity duration-500 group-hover:opacity-100"
                         sizes="(max-width: 1024px) 40vw, 220px"
                         priority
                       />
-                      <div className="absolute inset-0 flex items-center justify-center bg-primary/10 opacity-0 transition-opacity group-hover:opacity-100">
+                      <div className="absolute inset-0 flex items-center justify-center bg-primary/10 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
                         <MaterialIcon name="search" className="text-4xl text-white" />
                       </div>
                     </div>
                   </div>
                   <div className="space-y-3">
-                    <div className="flex justify-between border-b border-primary pb-2 font-mono text-eyebrow uppercase tracking-widest text-primary">
+                    <div className="flex justify-between border-b border-primary pb-2 font-mono text-eyebrow uppercase tracking-[0.2em] text-primary">
                       <span>Your ad</span>
                       <MaterialIcon name="auto_awesome" className="text-sm" />
                     </div>
@@ -229,19 +244,24 @@ export function LandingPage() {
                   </div>
                 </div>
               </div>
-            </div>
+            </Reveal>
           </div>
         </section>
 
-        {/* Story */}
-        <section id="platform" className="mx-auto max-w-7xl border-b border-outline-variant px-gutter py-section-v-padding-md">
+        <section
+          id="platform"
+          className="mx-auto max-w-7xl border-b border-outline-variant px-gutter py-20 md:py-section-v-padding-md"
+        >
           <div className="grid grid-cols-1 gap-gutter md:grid-cols-12">
-            <div className="md:col-span-7 md:pr-12">
-              <h2 className="text-headline-lg font-extrabold tracking-tight text-primary">
+            <Reveal className="md:col-span-7 md:pr-12" direction="up">
+              <h2
+                className="font-extrabold tracking-tight text-primary"
+                style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', lineHeight: 1.1 }}
+              >
                 You know what works. Now you can replicate it.
               </h2>
-            </div>
-            <div className="space-y-6 pt-2 md:col-span-5">
+            </Reveal>
+            <Reveal className="space-y-6 pt-2 md:col-span-5" direction="down" delayMs={80}>
               <div className="border-b border-outline-variant pb-6">
                 <p className="text-body-lg text-on-surface-variant">
                   The secret to scaling isn&apos;t reinventing the wheel. It&apos;s executing proven frameworks with
@@ -263,153 +283,165 @@ export function LandingPage() {
                   <MaterialIcon name="arrow_forward" className="text-sm" />
                 </a>
               </div>
-            </div>
+            </Reveal>
           </div>
         </section>
 
-        {/* Steps */}
         <section
           id="process"
-          className="mx-auto my-12 max-w-7xl rounded-xl border-b border-outline-variant bg-surface-container-low px-gutter py-section-v-padding-md"
+          className="mx-auto my-12 max-w-7xl rounded-xl border border-outline-variant bg-surface-container-low px-gutter py-20 md:py-section-v-padding-md"
         >
-          <div className="mb-16 text-center">
+          <Reveal className="mb-16 text-center" direction="up">
             <h3 className="mb-4 text-headline-md font-extrabold text-primary">Three steps to production</h3>
             <p className="mx-auto max-w-2xl text-body-md text-on-surface-variant">
               A streamlined workflow designed for high-output creative teams.
             </p>
-          </div>
+          </Reveal>
           <div className="relative grid grid-cols-1 gap-8 md:grid-cols-3">
             <div
               className="absolute left-[16.666%] right-[16.666%] top-12 z-0 hidden h-px border-t border-dashed border-outline-variant md:block"
               aria-hidden
             />
-            {STEPS.map((step) => (
-              <div
-                key={step.n}
-                className="relative z-10 flex flex-col items-start rounded-lg border border-outline-variant bg-surface-container-lowest p-8 shadow-sm"
-              >
-                <div className="mb-6 rounded-full bg-secondary-container px-3 py-1 font-mono text-eyebrow text-on-secondary-fixed">
-                  {step.n}
+            {STEPS.map((step, i) => (
+              <Reveal key={step.n} direction={i % 2 === 0 ? 'up' : 'down'} delayMs={i * 90}>
+                <div className="relative z-10 flex h-full flex-col items-start rounded-lg border border-outline-variant bg-surface-container-lowest p-8 shadow-sm">
+                  <div className="mb-6 rounded-full border border-primary/10 bg-secondary-container px-3 py-1 font-mono text-eyebrow text-on-secondary-fixed">
+                    {step.n}
+                  </div>
+                  <h4 className="mb-3 text-xl font-extrabold text-primary">{step.title}</h4>
+                  <p className="text-body-md text-on-surface-variant">{step.body}</p>
                 </div>
-                <h4 className="mb-3 text-xl font-extrabold text-primary">{step.title}</h4>
-                <p className="text-body-md text-on-surface-variant">{step.body}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
         </section>
 
-        {/* Tools */}
-        <section className="border-y border-[#333] bg-[#141414] py-section-v-padding-md text-white">
+        <section className="border-y border-[#333] bg-[#141414] py-20 text-white md:py-section-v-padding-md">
           <div className="mx-auto max-w-7xl px-gutter">
-            <div className="mb-16">
-              <h2 className="text-headline-lg font-extrabold tracking-tight text-white">Precision tools.</h2>
+            <Reveal className="mb-16" direction="up">
+              <h2
+                className="font-extrabold tracking-tight text-white"
+                style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', lineHeight: 1.1 }}
+              >
+                Precision tools.
+              </h2>
               <p className="mt-4 max-w-xl text-body-lg text-[#888]">Built for media buyers who demand exactitude.</p>
-            </div>
-            <div className="grid grid-cols-1 gap-px border border-[#333] bg-[#333] md:grid-cols-2">
-              {TOOLS.map((tool) => (
-                <div
-                  key={tool.title}
-                  className="bg-[#141414] p-10 transition-colors hover:bg-[#1a1a1a]"
-                >
-                  <MaterialIcon name={tool.icon} className="mb-6 text-3xl text-accent-gold" />
-                  <h3 className="mb-4 text-2xl font-extrabold text-white">{tool.title}</h3>
-                  <p className="text-body-md text-[#888]">{tool.body}</p>
-                </div>
+            </Reveal>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-px md:border md:border-[#333] md:bg-[#333]">
+              {TOOLS.map((tool, i) => (
+                <Reveal key={tool.title} direction={i % 2 === 0 ? 'up' : 'down'} delayMs={i * 60}>
+                  <div className="landing-tool-card rounded-lg border border-[#333] bg-[#141414] p-10 hover:bg-[#1a1a1a] md:rounded-none md:border-0">
+                    <MaterialIcon name={tool.icon} className="mb-6 text-3xl text-accent-gold" />
+                    <h3 className="mb-4 text-2xl font-extrabold text-white">{tool.title}</h3>
+                    <p className="text-body-md text-[#888]">{tool.body}</p>
+                  </div>
+                </Reveal>
               ))}
             </div>
           </div>
         </section>
 
-        {/* Categories */}
-        <section id="showcase" className="mx-auto max-w-4xl px-gutter py-section-v-padding-md">
-          <div className="mb-12">
-            <h2 className="border-b border-outline-variant pb-6 text-headline-md font-extrabold text-primary">
-              Browse by category
-            </h2>
-          </div>
+        <section id="showcase" className="mx-auto max-w-4xl px-gutter py-20 md:py-section-v-padding-md">
+          <Reveal direction="up">
+            <div className="mb-12">
+              <h2 className="border-b border-outline-variant pb-6 text-headline-md font-extrabold text-primary">
+                Browse by category
+              </h2>
+            </div>
+          </Reveal>
           <ul className="flex flex-col">
-            {CATEGORIES.map((cat) => (
-              <li key={cat.name}>
-                <a
-                  href="/login?next=/app"
-                  className="-mx-4 group flex cursor-pointer items-center justify-between rounded-lg border-b border-outline-variant px-4 py-6 transition-colors hover:bg-surface-container-low"
-                >
-                  <span className="text-xl font-extrabold text-primary transition-transform group-hover:translate-x-2">
-                    {cat.name}
-                  </span>
-                  <span className="font-mono text-eyebrow uppercase tracking-widest text-on-surface-variant">
-                    {cat.count} ads
-                  </span>
-                </a>
-              </li>
+            {CATEGORIES.map((cat, i) => (
+              <Reveal key={cat.name} direction={i % 2 === 0 ? 'up' : 'down'} delayMs={i * 50}>
+                <li>
+                  <Link
+                    href={LOGIN_APP}
+                    className="-mx-4 group flex items-center justify-between rounded-lg border-b border-outline-variant px-4 py-6 transition-colors hover:bg-surface-container-low"
+                  >
+                    <span className="text-xl font-extrabold text-primary transition-transform duration-300 group-hover:translate-x-2">
+                      {cat.name}
+                    </span>
+                    <span className="font-mono text-eyebrow uppercase tracking-widest text-on-surface-variant">
+                      {cat.count} ads
+                    </span>
+                  </Link>
+                </li>
+              </Reveal>
             ))}
           </ul>
-          <div className="mt-8 text-center">
-            <a
-              href="/login?next=/app"
+          <Reveal className="mt-8 text-center" direction="up" delayMs={100}>
+            <Link
+              href={LOGIN_APP}
               className="hover-underline-anim inline-flex items-center gap-2 font-mono text-label-caps uppercase tracking-widest text-primary"
             >
               Explore the library
               <MaterialIcon name="arrow_forward" className="text-sm" />
-            </a>
-          </div>
+            </Link>
+          </Reveal>
         </section>
 
-        {/* Pricing */}
-        <section id="pricing" className="mx-auto max-w-7xl border-t border-outline-variant px-gutter py-section-v-padding-md">
-          <div className="mb-16 text-center">
-            <h2 className="mb-4 text-headline-lg font-extrabold tracking-tight text-primary">
+        <section
+          id="pricing"
+          className="mx-auto max-w-7xl border-t border-outline-variant px-gutter py-20 md:py-section-v-padding-md"
+        >
+          <Reveal className="mb-16 text-center" direction="down">
+            <h2
+              className="mb-4 font-extrabold tracking-tight text-primary"
+              style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', lineHeight: 1.1 }}
+            >
               Simple, transparent pricing.
             </h2>
             <p className="text-body-lg text-on-surface-variant">No complex tiers. Get exactly what you need.</p>
-          </div>
-          <LandingPricing />
+          </Reveal>
+          <Reveal direction="up" delayMs={80}>
+            <LandingPricing />
+          </Reveal>
         </section>
 
-        {/* CTA */}
         <section className="border-t border-[#333] bg-[#141414] px-gutter py-section-v-padding-lg text-center text-white">
-          <div className="mx-auto max-w-3xl">
+          <Reveal className="mx-auto max-w-3xl" direction="up">
             <h2
               className="mb-8 font-black tracking-tighter text-white"
               style={{ fontSize: 'clamp(2.5rem, 5vw, 4.5rem)', lineHeight: 1.05, letterSpacing: '-0.04em' }}
             >
               Ready to clone success?
             </h2>
-            <a
-              href="/login?next=/app"
-              className="inline-flex rounded-full bg-white px-10 py-5 font-mono text-label-caps font-bold uppercase tracking-wider text-[#141414] transition-colors hover:bg-surface-variant"
+            <Link
+              href={LOGIN_APP}
+              className="inline-flex rounded-full bg-white px-10 py-5 font-mono text-label-caps font-bold uppercase tracking-wider text-[#141414] transition-all duration-300 hover:bg-surface-variant active:scale-[0.97]"
             >
               Get started now
-            </a>
-          </div>
+            </Link>
+          </Reveal>
         </section>
       </main>
 
-      <footer className="flex w-full flex-col items-center bg-primary-container px-gutter py-section-v-padding-md text-center">
-        <div className="mb-8 text-headline-md font-extrabold text-on-primary-fixed">Admirror</div>
-        <div className="mb-8 flex flex-wrap justify-center gap-8">
-          <a
-            href="/terms"
-            className="text-body-md text-on-primary-fixed underline opacity-80 transition-opacity hover:opacity-100"
-          >
-            Terms
-          </a>
-          <a
-            href="/privacy"
-            className="text-body-md text-on-primary-fixed-variant opacity-80 transition-opacity hover:text-on-primary-fixed hover:opacity-100"
-          >
-            Privacy
-          </a>
-          <a
-            href="/login"
-            className="text-body-md text-on-primary-fixed-variant opacity-80 transition-opacity hover:text-on-primary-fixed hover:opacity-100"
-          >
-            Sign in
-          </a>
+      <footer className="border-t border-[#333] bg-[#141414] px-gutter py-section-v-padding-md text-white">
+        <div className="mx-auto flex w-full max-w-7xl flex-col items-center gap-8 text-center md:flex-row md:justify-between md:text-left">
+          <div className="text-headline-md font-extrabold tracking-tighter">Admirror</div>
+          <div className="flex flex-wrap justify-center gap-8 md:gap-12">
+            <Link
+              href="/terms"
+              className="font-mono text-label-caps uppercase tracking-widest text-white/60 transition-colors hover:text-white"
+            >
+              Terms
+            </Link>
+            <Link
+              href="/privacy"
+              className="font-mono text-label-caps uppercase tracking-widest text-white/60 transition-colors hover:text-white"
+            >
+              Privacy
+            </Link>
+            <Link
+              href={LOGIN}
+              className="font-mono text-label-caps uppercase tracking-widest text-white/60 transition-colors hover:text-white"
+            >
+              Sign in
+            </Link>
+          </div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/40">
+            © {new Date().getFullYear()} Admirror
+          </p>
         </div>
-        <p className="font-mono text-eyebrow uppercase tracking-widest text-on-primary-fixed-variant opacity-80">
-          © {new Date().getFullYear()} Admirror. Editorial precision in advertising.
-        </p>
       </footer>
     </div>
   );
