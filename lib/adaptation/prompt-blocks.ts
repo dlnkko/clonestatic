@@ -248,12 +248,12 @@ ${ctx.creativeBridge ? `5b. CREATIVE BRIDGE: Prompt must reflect adapted hook "$
 10. Line 2 same rhetorical function as reference (not unrelated spec dump)
 11. enforceOneMainElement → no packaging as second hero (only when referenceShowsPackaging is false)
 ${ctx.referenceShowsPackaging ? '11b. PACKAGING: Reference had packaging zone — prompt must show USER catalog packaging in same position; FAIL if reference competitor bottle/jar shape or wrong container type (e.g. bottle when catalog has pouch/gummies)' : ''}
-21. PRODUCT FIDELITY: Prompt must render user's product ONLY from catalog photos — FAIL if prompt describes reference competitor product, reskins reference bottle with user brand, or inventing packaging not in catalog
-22. PRODUCT-THEMED ENVIRONMENT: Prompt must describe setting/props on-theme for user's product category — FAIL if competitor environment copied (e.g. bedroom/bedsheets when product is creatine/fitness)
+21. PRODUCT FIDELITY: Prompt must render user's catalog product ONLY — FAIL if competitor product appears as hero, competitor category is reskinned (e.g. bedding package with user label when user sells a drink), or packaging not in catalog is invented
+22. PRODUCT-THEMED ENVIRONMENT: FAIL if competitor's sellable product category is shown; scene props OK when semantically fitting (e.g. rumpled sheets under user's sleep beverage can)
 23. PACKAGING LOGO: FAIL if prompt invents standalone footer/centered brand wordmark when reference was copy-only; logo must come from packaging print unless reference had standalone logo zone
 12. Logo placement rules respected
 13. Copy language: ${ctx.copyLanguageCode} (${ctx.copyLanguageName})
-14. Pricing: ${ctx.allowedPrice ? `only "${ctx.allowedPrice}"` : 'no dollar amounts'}
+14. Pricing: ${ctx.referenceHasPriceVisual ? (ctx.allowedPrice ? `reference had price badge — only "${ctx.allowedPrice}"` : 'reference had price badge but no verified product price — omit badge') : 'reference had NO price badge — FAIL if any $ amount, price sticker, or price tag appears'}
 ${ctx.referenceTrustBadge.present ? `12. TRUST BADGE: Reference had award seal — prompt must describe overlapping trust badge${ctx.matchedProductVisuals.some((m) => m.role === 'trust_badge') ? ' (product catalog includes trust_badge image)' : ' — FAIL if omitted'}` : ''}
 ${iconCheck}
 ${structureCheck}
@@ -274,6 +274,7 @@ ${ctx.referenceProductUnits && ctx.referenceProductUnits.unitCount > 1 ? `28. PR
 ${!ctx.referenceTextLines.some((l) => /cta|button/i.test(l.role) && /\bsubscribe\b/i.test(l.text)) ? '29. CTA: FAIL if prompt/footer includes "Subscribe", "Subscribe & Save", or auto-ship language when reference CTA did not' : ''}
 
 referenceHasPromoOfferLine: ${ctx.referenceHasPromoOfferLine}
+referenceHasPriceVisual: ${ctx.referenceHasPriceVisual}
 referenceVerbatimPhrases: ${JSON.stringify(ctx.referenceVerbatimPhrases)}
 
 promoClaimsUsed: ${JSON.stringify(copy.promoClaimsUsed)}

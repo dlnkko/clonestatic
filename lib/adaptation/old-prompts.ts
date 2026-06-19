@@ -270,6 +270,12 @@ Name the transferable idea underneath the ad — NOT a visual swap checklist.
 - Placement: [below headline / banner / corner — one phrase]
 (If no promo line exists, write "Present: no".)
 
+**PRICE BADGE / STICKER (REFERENCE AD):**
+- Present: [yes/no] — yes ONLY if a visible price badge/sticker/box shows a dollar amount (e.g. "$47.99" circle on product, corner price tag). NOT for "% OFF" promo text alone.
+- Style: [circular sticker on product | corner price box | strikethrough price | none]
+- Placement: [on hero product / bottom-right / below headline]
+(If no price badge exists, write "Present: no".)
+
 **TRUST BADGE / AWARD SEAL (REFERENCE AD):**
 - Present: [yes/no]
 - Description: [e.g. circular "Award Winner" press seal overlapping product]

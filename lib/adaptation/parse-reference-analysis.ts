@@ -23,10 +23,32 @@ export type ParsedTextLine = { role: string; text: string };
 
 export function parseHasPromoOfferLine(analysisText: string): boolean {
   const block = analysisText.match(
-    /\*\*PROMO \/ OFFER LINE \(REFERENCE AD\):\*\*\s*([\s\S]*?)(?=\*\*TRUST BADGE|\*\*ICON \/ FEATURE|\*\*SOCIAL PROOF|\*\*PRODUCT POSE|\*\*REFERENCE AD PROMPT:\*\*|$)/i
+    /\*\*PROMO \/ OFFER LINE \(REFERENCE AD\):\*\*\s*([\s\S]*?)(?=\*\*PRICE BADGE|\*\*TRUST BADGE|\*\*ICON \/ FEATURE|\*\*SOCIAL PROOF|\*\*PRODUCT POSE|\*\*REFERENCE AD PROMPT:\*\*|$)/i
   );
   if (!block) return false;
   return /Present:\s*yes/i.test(block[1]);
+}
+
+/** True when the reference ad shows a visible price badge/sticker (not just promo % text). */
+export function parseReferenceHasPriceVisual(
+  analysisText: string,
+  referencePrompt?: string
+): boolean {
+  const block = analysisText.match(
+    /\*\*PRICE BADGE \/ STICKER \(REFERENCE AD\):\*\*\s*([\s\S]*?)(?=\*\*TRUST BADGE|\*\*ICON \/ FEATURE|\*\*SOCIAL PROOF|\*\*PRODUCT POSE|\*\*REFERENCE AD PROMPT:\*\*|$)/i
+  );
+  if (block) {
+    if (/Present:\s*yes/i.test(block[1])) return true;
+    if (/Present:\s*no/i.test(block[1])) return false;
+  }
+
+  const ref = (referencePrompt ?? '').toLowerCase();
+  if (/\bprice\s*(sticker|badge|tag|label|bubble|circle)\b/.test(ref)) return true;
+  if (/\$\d+[\d.,]*.*(sticker|badge|on product|overlapping|corner)/.test(ref)) return true;
+  if (/(circular|round)\s+(white\s+)?sticker.*\$/.test(ref)) return true;
+  if (/price\s+(in|on)\s+(a\s+)?(corner|bottom-right|badge)/.test(ref)) return true;
+
+  return false;
 }
 
 export function parseReferenceTrustBadge(analysisText: string): ReferenceTrustBadge {

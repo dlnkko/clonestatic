@@ -250,10 +250,14 @@ ${graphicNote}
 **Environment still-life (no people):** replace surfaces/props/background to match product theme — preserve reference lighting mood and product placement zones only.
 
 **FORBIDDEN:**
-- Copying competitor category props (sheets, coffee, competitor lifestyle) when the user's product is a different category
-- Keeping a reference bedroom/kitchen scene just because it looks nice when the product is fitness/sports/supplements
+- Showing the reference competitor's product as the hero (e.g. bedding package when user sells a drink)
+- Reskinning competitor product shape with user branding
+- Copying competitor category props as the sellable product when user's product is a different category
 
-**REQUIRED in final prompt:** explicit on-theme environment, surfaces, and contextual props for the user's product category at the same aesthetic quality tier as the reference.`;
+**ALLOWED when semantically fitting:**
+- Reference scene surfaces/props as styling only (e.g. rumpled bedsheets under a sleep beverage can) — hero must still be user's catalog product
+
+**REQUIRED in final prompt:** explicit on-theme environment when category differs; when reference scene fits user's product story (sleep drink + bed), keep scene mood but swap hero to user's product.`;
 }
 
 export function backgroundColorAdaptationBlock(ctx: AdaptationContext): string {
@@ -484,7 +488,7 @@ Reference CTA/button text does NOT include "Subscribe", "Subscribe & Save", "aut
 - **FORBIDDEN in CTA/footer bar:** "Subscribe and Save", "Subscribe & Save", "Join and save", auto-ship, membership, recurring delivery
 ${refHasSaveOffer ? '- Reference had a save/discount line — mirror that structure with allowed pricing only' : '- Do NOT add "% off", "Save X%", or flash-sale language unless reference had a dedicated promo line'}
 - Use a **direct purchase CTA** aligned with reference tone (e.g. "Shop now", "Get yours", promo code bar) — NOT subscription commerce unless reference had it
-- If allowed price is set (${ctx.allowedPrice ?? 'none'}), price may appear once — never pair with fake subscription savings`;
+- If reference had a price badge (referenceHasPriceVisual=${ctx.referenceHasPriceVisual}) and allowed price is set (${ctx.allowedPrice ?? 'none'}), price may appear once — never pair with fake subscription savings`;
 }
 
 /** Real photographic people — match reference camera grammar (candid iPhone, not AI stock). */

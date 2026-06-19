@@ -14,6 +14,7 @@ import {
   parseAdCopyStyle,
   parseCreativeDeconstructionBlock,
   parseHasPromoOfferLine,
+  parseReferenceHasPriceVisual,
   parseLine2CopyPattern,
   parseMarketingAngleBlock,
   parseProductMentionedInCopy,
@@ -482,6 +483,7 @@ export async function POST(request: NextRequest) {
     let copywritingProfile = null;
     let rhetoricalFigures = null;
     let referenceHasPromoOfferLine = false;
+    let referenceHasPriceVisual = false;
     let referenceTrustBadge: ReferenceTrustBadge = {
       present: false,
       placement: '',
@@ -710,6 +712,9 @@ export async function POST(request: NextRequest) {
           referencePrompt = analysisText;
         }
 
+        referenceHasPriceVisual = parseReferenceHasPriceVisual(analysisText, referencePrompt);
+        console.log('\n=== REFERENCE PRICE BADGE ===', referenceHasPriceVisual);
+
         step1Usage = usageFromMetadata(
           (staticAdAnalysis as { usageMetadata?: unknown }).usageMetadata as
             | Parameters<typeof usageFromMetadata>[0]
@@ -900,6 +905,7 @@ export async function POST(request: NextRequest) {
           allowedPrice,
           pricingDetail,
           referenceHasPromoOfferLine,
+          referenceHasPriceVisual,
           referenceTrustBadge,
           referenceVerbatimPhrases,
           referenceTextLayoutBlock,

@@ -235,6 +235,7 @@ export type AdaptationContext = {
   allowedPrice: string | null;
   pricingInstructions: string;
   referenceHasPromoOfferLine: boolean;
+  referenceHasPriceVisual: boolean;
   referenceTrustBadge: ReferenceTrustBadge;
   referenceVerbatimPhrases: string[];
   trustBadgeInstructions: string;

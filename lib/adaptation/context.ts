@@ -101,6 +101,7 @@ export type BuildContextInput = {
   allowedPrice?: string | null;
   pricingDetail?: string | null;
   referenceHasPromoOfferLine?: boolean;
+  referenceHasPriceVisual?: boolean;
   referenceTrustBadge?: ReferenceTrustBadge;
   referenceVerbatimPhrases?: string[];
   referenceTextLayoutBlock?: string;
@@ -142,6 +143,7 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     allowedPrice = null,
     pricingDetail = null,
     referenceHasPromoOfferLine = false,
+    referenceHasPriceVisual = false,
     referenceTrustBadge = { present: false, placement: '', description: '' },
     referenceVerbatimPhrases = [],
     referenceTextLayoutBlock = '',
@@ -169,7 +171,11 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
       ? parseReferencePhotoStyle(referencePrompt)
       : null;
 
-  const pricingInstructions = buildPricingInstructions(allowedPrice, pricingDetail);
+  const pricingInstructions = buildPricingInstructions(
+    referenceHasPriceVisual ? allowedPrice : null,
+    referenceHasPriceVisual ? pricingDetail : null,
+    referenceHasPriceVisual
+  );
 
   const resolvedLang: CopyLanguageOption = resolveCopyLanguage(copyLanguage);
   const langInstruction = copyLanguageInstruction(resolvedLang);
@@ -333,9 +339,10 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     productName,
     productDescription,
     productUseProfile,
-    allowedPrice,
+    allowedPrice: referenceHasPriceVisual ? allowedPrice : null,
     pricingInstructions,
     referenceHasPromoOfferLine,
+    referenceHasPriceVisual,
     referenceTrustBadge,
     referenceVerbatimPhrases,
     trustBadgeInstructions,
@@ -584,6 +591,7 @@ export function contextSummaryForAgent(ctx: AdaptationContext): string {
       matchedProductVisuals: ctx.matchedProductVisuals,
       allowedPrice: ctx.allowedPrice,
       referenceHasPromoOfferLine: ctx.referenceHasPromoOfferLine,
+      referenceHasPriceVisual: ctx.referenceHasPriceVisual,
       referenceTrustBadge: ctx.referenceTrustBadge,
       referenceVerbatimPhrases: ctx.referenceVerbatimPhrases,
       marketingAngle: ctx.marketingAngle,
