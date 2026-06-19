@@ -29,7 +29,7 @@ export function catalogMatchDescription(
   const zone = layoutHintFromReference(referenceDescription);
   const kindLabel = KIND_LABEL[img.kind ?? 'other'] ?? 'product photo';
   const brandRule =
-    'Match packaging colors, logo, label from photo; re-pose freely; texture may follow reference lighting';
+    'Match packaging colors, logo, label from photo; render style (hyperreal, stylized, matte, gloss) follows reference ad; re-pose freely';
 
   switch (role) {
     case 'packaging':
@@ -95,11 +95,11 @@ export function productCatalogFidelityBlock(ctx: AdaptationContext): string {
 ${productLabel} from catalog photos only — colors, label, logo, container type.
 ${variantRule}
 ${catalogLines}
-Reference = layout zones only. Match brand exactly; re-pose/re-light freely.`;
+Reference = layout zones only. Match brand exactly; re-pose/re-light freely; product render style per reference ad.`;
 }
 
 /** Short Kie suffix — main prompt carries ad-specific detail. */
-export const KIE_RENDER_RULES_SUFFIX = `Rules: (1) Catalog = packaging color, label, logo, shape exact; pose/texture free. (2) Copy verbatim, one row each. (3) Headline largest, subhead ~30%. (4) Sharp render — not blurry. No recolor, no invented badges.`;
+export const KIE_RENDER_RULES_SUFFIX = `Rules: (1) Catalog = color, label, logo, shape exact; pose/angle/texture/render style per reference ad (hyperreal or stylized OK). (2) Copy verbatim, one row each. (3) Headline largest, subhead ~30%. No recolor, no invented badges.`;
 
 export function appendKieProductFidelityPrompt(
   prompt: string,
@@ -121,12 +121,8 @@ export function appendKieProductFidelityPrompt(
     extras.push('Logo attached: use exact mark.');
   }
 
-  // Only true illustration/diagram ads — never packaging photo statics
-  if (options?.hasIllustrativeVisual) {
-    const notes = options.illustrationNotes?.trim()
-      ? ` ${options.illustrationNotes.trim().slice(0, 60)}`
-      : '';
-    extras.push(`Stylized medium — not hyperreal gym photo.${notes}`);
+  if (options?.hasIllustrativeVisual && options.illustrationNotes?.trim()) {
+    extras.push(`Reference style: ${options.illustrationNotes.trim().slice(0, 80)}.`);
   } else if (options?.hasPersonInReference) {
     extras.push('Candid smartphone photo; product on model correctly.');
     if (options?.productUseProfile && options.productUseProfile.confidence !== 'low') {

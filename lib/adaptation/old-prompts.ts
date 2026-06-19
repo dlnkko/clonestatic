@@ -519,13 +519,8 @@ function buildAgentSynthesisPrompt(
 ): string {
   const copy = options.approvedCopy!;
   const visual = options.visual;
-  const photoPackaging = ctx.referenceShowsPackaging && !ctx.hasIllustrativeVisual;
-
-  const mediumRule = photoPackaging
-    ? 'Sharp clean product-photo ad — hyperreal packaging from catalog, studio lighting, crisp text. NOT blurry, NOT illustrated anatomy.'
-    : ctx.hasIllustrativeVisual
-      ? `Stylized ${ctx.referenceVisualStyle?.visualMedium ?? 'illustration'} — match reference medium, not gym photo realism.`
-      : 'Clean photographic static ad.';
+  const refMedium = ctx.referenceVisualStyle?.visualMedium ?? visual?.visualMediumNotes?.slice(0, 80) ?? 'photo';
+  const mediumRule = `Product render: match reference ad style (${refMedium}) — hyperreal, stylized, soft 3D, matte/gloss, or mixed as reference shows. Catalog = brand truth (colors/label/shape).`;
 
   const visualLines = visual
     ? [
@@ -545,14 +540,13 @@ function buildAgentSynthesisPrompt(
 
   return `You write Kie image prompts. Output ONLY the final prompt — no analysis, no "**CRITICAL**" headers, max 800 characters.
 
-${photoPackaging ? 'PACKAGING AD: catalog photos = exact colors/label/shape. Reference = layout only. Ignore illustration/anatomy rules.\n' : ''}
 ${formatApprovedCopyBlock(copy, ctx.copywritingProfile, ctx.referenceTextLayout)}
 
 Layout: ${visualLines}
 ${logoNote}
 ${ctx.pricingInstructions}
 
-Rules: ${mediumRule} Catalog = brand truth; free pose/angle/texture. Headline [XL] only; subhead [sm ~30%] light on own row. Quote each copy line once. No competitor brand names.
+Rules: ${mediumRule} Free pose/angle/texture. Headline [XL] only; subhead [sm ~30%] light on own row. Quote each copy line once. No competitor brand names.
 ${options.extraBlocks ?? ''}
 
 OUTPUT: One concise prompt (~800 chars). Structure: Scene (1 line) | Product placement | Copy: each line quoted with tier | Type hierarchy note.`;

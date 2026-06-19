@@ -268,23 +268,15 @@ ${hasBranding ? '- Product brand colors are in Brand Integration below — prior
 }
 
 export function illustrativeVisualBlock(ctx: AdaptationContext): string {
-  if (!ctx.hasIllustrativeVisual || ctx.referenceShowsPackaging) return '';
-
   const vs = ctx.referenceVisualStyle;
-  const notes = vs?.illustrationNotes || 'illustration/diagram as in reference';
+  const medium = vs?.visualMedium ?? 'photo';
+  const notes = vs?.illustrationNotes?.trim() || 'match reference ad';
 
-  return `**ILLUSTRATION / DIAGRAM VISUAL (CRITICAL — NOT a real person photo):**
-The reference ad uses **${vs?.visualMedium ?? 'illustration'}** — NOT a stock photo of a real person.
-- **Do NOT** generate a hyperrealistic photograph, sweaty fitness model, glossy muscle macro, or lifestyle scene when the reference uses stylized/illustrated anatomy or graphics.
-- **Do NOT** "upgrade" a soft stylized arm/body graphic into photoreal skin, pores, or gym photography — keep the same illustrated/animated rendering style.
-- **DO** recreate the same **visual medium**: stylized illustration, anatomical diagram, cutaway, 3D render, animated/educational graphic, or icon-led layout.
-- Adapt the illustration **concept** to the user's product category while keeping reference composition:
-  * Reference: anatomical head/brain + product → User product: equivalent diagram (fabric layers, sleep science graphic, thread cross-section, etc.) + user's product centered
-  * Reference: ingredient callout lines to drink → User: callout lines to product features/materials from scraped data
-  * Reference: circular portrait crop → If reference is illustration-based, use illustrated/stylized product hero — NOT a real face photo
-- Match reference: line weights, transparency effects, glow, diagram labels, product placement zone.
-- Notes from reference: ${notes}
-- Image generation mode: **design/graphic** — describe as illustration, diagram, or stylized render explicitly in the prompt.`;
+  return `**PRODUCT RENDER STYLE (follow reference ad dynamically):**
+Catalog photos = brand truth (colors, label, logo, container shape). **Render style** for the product hero follows whatever the reference ad uses — hyperreal studio photo, soft 3D, stylized graphic, matte pouch, glossy sheen, illustrated pack, or mixed (photoreal product + graphic background). Never force a style the reference did not use; never ban hyperreal when reference is photoreal.
+
+**Layout/graphics medium:** ${medium}. ${notes}
+${ctx.hasIllustrativeVisual ? `- Non-product elements (diagrams, illustrated body parts, icons, backgrounds): match reference treatment — illustrated anatomy stays illustrated; do not add stock photo people unless reference had real photos.` : '- Match reference lighting, texture, and composition mood for the full ad.'}`;
 }
 
 export function productCatalogFidelityBlock(ctx: AdaptationContext): string {

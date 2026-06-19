@@ -97,9 +97,7 @@ async function runSynthesis(
 
   const { text, usage } = await generateText(ai, prompt);
   if (!text) throw new Error('Synthesis returned empty prompt');
-  const finalPrompt = sanitizeImagePromptForKie(text, {
-    hasIllustrativeVisual: ctx.hasIllustrativeVisual,
-  });
+  const finalPrompt = sanitizeImagePromptForKie(text);
   return { finalPrompt, usage };
 }
 
