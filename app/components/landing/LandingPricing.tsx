@@ -21,15 +21,15 @@ function BillingToggle({
   onChange: (b: BillingPeriod) => void;
 }) {
   return (
-    <div className="inline-flex items-center gap-1 rounded border border-outline-variant bg-surface-container-lowest p-1">
+    <div className="inline-flex items-center gap-1 rounded-full border border-outline-variant/30 bg-surface-container-lowest p-1 shadow-sm">
       <button
         type="button"
         onClick={() => onChange('monthly')}
         className={cn(
-          'rounded px-5 py-2 font-mono text-label-caps uppercase tracking-widest transition-colors',
+          'rounded-full px-6 py-2.5 font-mono text-label-caps uppercase tracking-widest transition-all duration-300',
           billing === 'monthly'
-            ? 'bg-primary text-on-primary'
-            : 'text-on-surface-variant hover:text-primary'
+            ? 'bg-primary text-on-primary shadow-md'
+            : 'text-on-surface-variant hover:text-primary hover:bg-surface-variant/50'
         )}
       >
         Monthly
@@ -38,10 +38,10 @@ function BillingToggle({
         type="button"
         onClick={() => onChange('yearly')}
         className={cn(
-          'rounded px-5 py-2 font-mono text-label-caps uppercase tracking-widest transition-colors',
+          'rounded-full px-6 py-2.5 font-mono text-label-caps uppercase tracking-widest transition-all duration-300',
           billing === 'yearly'
-            ? 'bg-primary text-on-primary'
-            : 'text-on-surface-variant hover:text-primary'
+            ? 'bg-primary text-on-primary shadow-md'
+            : 'text-on-surface-variant hover:text-primary hover:bg-surface-variant/50'
         )}
       >
         Annual · 20% off
@@ -56,30 +56,30 @@ export function LandingPricing() {
   return (
     <>
       <div className="mb-10 flex justify-center">
-        <article className="w-full max-w-lg rounded-xl border border-outline-variant bg-surface-container-low p-6">
+        <article className="w-full max-w-lg rounded-2xl border border-outline-variant/50 bg-white/60 p-8 shadow-sm backdrop-blur-md transition-all duration-300 hover:shadow-md hover:border-primary/20">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="font-mono text-eyebrow uppercase tracking-widest text-on-surface-variant">
+              <p className="font-mono text-eyebrow uppercase tracking-widest text-primary">
                 {ONE_TIME_PACK.name}
               </p>
-              <p className="mt-1 text-body-md text-on-surface-variant">{ONE_TIME_PACK.tagline}</p>
+              <p className="mt-2 text-body-md text-on-surface-variant font-medium">{ONE_TIME_PACK.tagline}</p>
             </div>
             <div className="text-left sm:text-right">
-              <p className="text-headline-md font-extrabold text-primary">${ONE_TIME_PACK.priceUsd}</p>
-              <p className="text-body-md text-on-surface-variant">one-time</p>
+              <p className="text-headline-md font-black text-primary">${ONE_TIME_PACK.priceUsd}</p>
+              <p className="text-body-md text-on-surface-variant font-mono text-[10px] uppercase tracking-widest">one-time</p>
             </div>
           </div>
-          <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-body-md text-on-surface-variant">
+          <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-body-md text-on-surface-variant">
             {oneTimePlanFeatureList().slice(0, 4).map((f) => (
-              <li key={f} className="flex items-center gap-1.5">
-                <MaterialIcon name="check" className="text-sm text-outline" />
+              <li key={f} className="flex items-center gap-2">
+                <MaterialIcon name="check_circle" className="text-sm text-[#C8B89A]" />
                 {f}
               </li>
             ))}
           </ul>
           <a
             href={`/login?next=checkout&plan=${ONE_TIME_PACK.checkoutKey}`}
-            className="mt-5 inline-flex w-full items-center justify-center rounded bg-primary px-6 py-3 font-mono text-label-caps uppercase tracking-wider text-on-primary transition-colors hover:bg-surface-tint sm:w-auto"
+            className="mt-8 inline-flex w-full items-center justify-center rounded-full bg-primary px-8 py-4 font-mono text-label-caps uppercase tracking-wider text-on-primary transition-all duration-300 hover:bg-surface-tint hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] sm:w-auto"
           >
             Buy 10 ads
           </a>
@@ -100,15 +100,15 @@ export function LandingPricing() {
             <article
               key={plan.key}
               className={cn(
-                'relative flex h-full flex-col rounded-xl p-8',
+                'relative flex h-full flex-col rounded-3xl p-8 transition-all duration-500 hover:-translate-y-2 hover:shadow-xl',
                 isFeatured
-                  ? 'border-2 border-primary bg-surface'
-                  : 'border border-outline-variant bg-surface'
+                  ? 'border-2 border-primary bg-white shadow-lg scale-105 z-10'
+                  : 'border border-outline-variant/50 bg-white/60 backdrop-blur-sm'
               )}
             >
               {isFeatured && (
-                <div className="absolute right-0 top-0 -translate-y-2 translate-x-2">
-                  <span className="rounded-full border border-primary bg-accent-gold px-3 py-1 font-mono text-eyebrow uppercase tracking-widest text-primary">
+                <div className="absolute right-0 top-0 -translate-y-1/2 translate-x-4">
+                  <span className="rounded-full border border-primary bg-primary px-4 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-white shadow-md">
                     Recommended
                   </span>
                 </div>
@@ -116,29 +116,29 @@ export function LandingPricing() {
               <div className="mb-8">
                 <h3
                   className={cn(
-                    'mb-2 font-mono text-eyebrow uppercase tracking-widest',
+                    'mb-4 font-mono text-eyebrow uppercase tracking-widest',
                     isFeatured ? 'text-primary' : 'text-on-surface-variant'
                   )}
                 >
                   {plan.name}
                 </h3>
-                <div className="text-headline-lg font-extrabold text-primary">
+                <div className="text-[3rem] font-black leading-none tracking-tighter text-primary">
                   ${price.amount}
-                  <span className="text-body-md font-normal text-on-surface-variant">{price.suffix}</span>
+                  <span className="ml-1 text-body-md font-normal text-on-surface-variant">{price.suffix}</span>
                 </div>
                 {price.sublabel && (
-                  <p className="mt-1 text-body-md text-on-surface-variant">{price.sublabel}</p>
+                  <p className="mt-2 text-body-sm font-medium text-primary/60">{price.sublabel}</p>
                 )}
-                <p className="mt-4 text-body-md text-on-surface-variant">{plan.tagline}</p>
+                <p className="mt-6 text-body-md text-on-surface-variant leading-relaxed">{plan.tagline}</p>
               </div>
-              <ul className="mb-8 flex-grow space-y-4">
+              <ul className="mb-10 flex-grow space-y-4">
                 {planFeatureList(plan).map((f) => (
                   <li key={f} className="flex items-start gap-3">
                     <MaterialIcon
-                      name="check"
-                      className={cn('mt-1 text-sm', isFeatured ? 'text-primary' : 'text-outline')}
+                      name="check_circle"
+                      className={cn('mt-0.5 text-base', isFeatured ? 'text-[#C8B89A]' : 'text-outline-variant')}
                     />
-                    <span className={cn('text-body-md', isFeatured && f.includes('Priority') ? 'font-bold text-primary' : 'text-on-surface')}>
+                    <span className={cn('text-body-md leading-tight', isFeatured && f.includes('Priority') ? 'font-bold text-primary' : 'text-on-surface')}>
                       {f}
                     </span>
                   </li>
@@ -147,10 +147,10 @@ export function LandingPricing() {
               <a
                 href={href}
                 className={cn(
-                  'w-full rounded py-4 text-center font-mono text-label-caps uppercase tracking-wider transition-colors',
+                  'w-full rounded-full py-4 text-center font-mono text-label-caps uppercase tracking-wider transition-all duration-300 active:scale-[0.98]',
                   isFeatured
-                    ? 'bg-primary text-on-primary hover:bg-surface-tint'
-                    : 'border border-outline-variant text-primary hover:bg-surface-container-low'
+                    ? 'bg-primary text-on-primary shadow-md hover:bg-surface-tint hover:shadow-lg'
+                    : 'border border-outline-variant text-primary hover:bg-surface-container-low hover:border-primary/30'
                 )}
               >
                 Get started
@@ -160,33 +160,33 @@ export function LandingPricing() {
         })}
       </div>
 
-      <article className="mx-auto mt-8 max-w-5xl rounded-xl border border-outline-variant bg-surface p-8">
-        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h3 className="font-mono text-eyebrow uppercase tracking-widest text-on-surface-variant">
+      <article className="mx-auto mt-16 max-w-5xl rounded-3xl border border-outline-variant/30 bg-gradient-to-br from-white/80 to-white/40 p-10 shadow-lg backdrop-blur-xl">
+        <div className="flex flex-col gap-8 md:flex-row md:items-center md:justify-between">
+          <div className="md:w-1/3">
+            <h3 className="font-mono text-eyebrow uppercase tracking-widest text-primary/60">
               {AGENCY_PLAN_DISPLAY.name}
             </h3>
-            <p className="mt-2 text-headline-md font-extrabold text-primary">Custom</p>
-            <p className="mt-2 text-body-md text-on-surface-variant">{AGENCY_PLAN_DISPLAY.tagline}</p>
+            <p className="mt-3 text-4xl font-black tracking-tighter text-primary">Custom</p>
+            <p className="mt-4 text-body-md text-on-surface-variant leading-relaxed">{AGENCY_PLAN_DISPLAY.tagline}</p>
           </div>
-          <ul className="grid gap-2 sm:grid-cols-2">
+          <ul className="grid gap-x-8 gap-y-4 sm:grid-cols-2 md:w-1/2">
             {AGENCY_PLAN_DISPLAY.features.slice(0, 4).map((f) => (
-              <li key={f} className="flex items-center gap-2 text-body-md text-on-surface-variant">
-                <MaterialIcon name="check" className="text-sm text-outline" />
+              <li key={f} className="flex items-center gap-3 text-body-md text-on-surface-variant">
+                <MaterialIcon name="check_circle" className="text-base text-[#C8B89A]" />
                 {f}
               </li>
             ))}
           </ul>
           <a
             href="mailto:support@admirror.io"
-            className="shrink-0 rounded border border-outline-variant px-6 py-4 text-center font-mono text-label-caps uppercase tracking-wider text-primary transition-colors hover:bg-surface-container-low"
+            className="shrink-0 rounded-full border-2 border-primary px-8 py-4 text-center font-mono text-label-caps font-bold uppercase tracking-wider text-primary transition-all duration-300 hover:bg-primary hover:text-white active:scale-[0.98]"
           >
             Contact sales
           </a>
         </div>
       </article>
 
-      <p className="mt-8 text-center font-mono text-eyebrow uppercase tracking-widest text-on-surface-variant opacity-80">
+      <p className="mt-12 text-center font-mono text-[10px] uppercase tracking-[0.2em] text-on-surface-variant opacity-60">
         1 credit = 1 image · Subscriptions cancel anytime
       </p>
     </>
