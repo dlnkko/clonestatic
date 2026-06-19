@@ -68,17 +68,13 @@ export function synthesisTaskBlock(
 }
 
 export function copyAgentPrompt(ctx: AdaptationContext): string {
-  return `You are a copy adaptation specialist for static ads (oldprompts finalPromptGeneration §6).
+  return `You are the copy agent. Output FINAL ad text only — the image model will render your strings verbatim; it does not write copy.
 
-Clone the REFERENCE ad's text architecture for the USER's product — same number of lines, same roles (brand name, sub-tagline, headline, spec line, icon labels, etc.), same brevity per line.
+Clone the reference ad's text architecture for the user's product: same number of lines, same roles (headline, subheadline, badge, icon labels, etc.).
 
 ${productCategoryAnchorBlock(ctx)}
 
 ${creativeBridgeBlock(ctx.creativeBridge)}
-
-${productCreativeProfileBlock(ctx)}
-
-${textArchitectureRulesBlock(ctx)}
 
 ${marketingAngleExtrapolationBlock(ctx)}
 
@@ -88,30 +84,22 @@ ${subheroCopyPatternBlock(ctx)}
 
 ${ctaSubscriptionGuardBlock(ctx)}
 
-${textLayoutBlock(ctx)}
-
 ${copyStructureRulesBlock(ctx)}
 
-RULES:
-- tagline: main headline (max ${ctx.headlineWords} words) — same rhetorical role as reference headline but NEW wording (not verbatim from reference)
-- mainLine: subhero/body (max ${ctx.mainCopyWords} words) — pattern **${ctx.line2Pattern}**${ctx.line2Pattern === 'product-helps-you' ? '; MUST use "[Product] helps you [outcome] & [outcome]" only because reference did' : ctx.line2Pattern === 'curiosity-gap' || ctx.line2Pattern === 'pain-agitation' ? '; MUST NOT name product or use "helps you"' : ''}
-- brandName / brandSubtagline / specLine / textLines / featureIcons: as in reference structure
-- promoClaimsUsed / promoClaimsOmitted: ${ctx.referenceHasPromoOfferLine ? 'only promos explicitly in scraped data' : 'MUST be [] — reference has no promo line; do not add flash sales or % off'}
-- reviewText / reviewNumericClaims
+Rules:
+- tagline/headline: max ${ctx.headlineWords} words — NEW wording, same rhetorical role as reference
+- mainLine/subheadline: max ${ctx.mainCopyWords} words — pattern **${ctx.line2Pattern}**
+- promoClaimsUsed: ${ctx.referenceHasPromoOfferLine ? 'only from scraped data' : '[] — reference has no promo line'}
+- Never copy reference phrases verbatim${ctx.referenceVerbatimPhrases.length ? `: ${ctx.referenceVerbatimPhrases.join(', ')}` : ''}
 ${ctx.pricingInstructions}
-- NEVER copy competitor numbers, prices, hooks, or offers from reference
-${ctx.referenceVerbatimPhrases.length ? `- Forbidden verbatim phrases: ${ctx.referenceVerbatimPhrases.join(', ')}` : ''}
+${ctx.copyLanguageInstruction}
 
 ${buildCopyAgentInstructions(ctx)}
 
 Context:
 ${contextSummaryForAgent(ctx)}
-${ctx.referenceFeatureRow ? `Feature row blueprint:\n${ctx.referenceFeatureRow.slice(0, 1500)}` : ''}
 
-${ctx.manualCopywriting ? `User copy (adapt, keep structure):\n"${ctx.manualCopywriting}"` : ''}
-
-${logoPlacementRulesBlock(ctx)}
-${ctx.copyLanguageInstruction}
+${ctx.manualCopywriting ? `User copy seed:\n"${ctx.manualCopywriting}"` : ''}
 
 Output JSON only:
 {
@@ -133,71 +121,49 @@ Output JSON only:
 export function visualAgentPrompt(ctx: AdaptationContext): string {
   const multiImageNote =
     ctx.matchedProductVisuals.length > 1
-      ? `\nMultiple product images (${ctx.matchedProductVisuals.length}), roles:\n${ctx.matchedProductVisuals.map((m) => `- ${m.role}: ${m.description}`).join('\n')}`
+      ? `Catalog images (${ctx.matchedProductVisuals.length}): ${ctx.matchedProductVisuals.map((m) => m.role).join(', ')}`
       : '';
 
-  return `You are a visual adaptation specialist for AI image generation prompts (oldprompts finalPromptGeneration §§2, 4).
+  return `You are the visual/composition agent. Define HOW the ad looks — not the copy text.
 
-Define how the USER's product appears in a CLONED ad — identical layout to reference, new product/brand.
+Output layout, background, composition, and visual medium for a cloned ad. Reference ad = composition + style only. User catalog = brand truth (colors, logo, label) — NOT fixed catalog photo pose.
+
 ${multiImageNote}
-
-${productCategoryAnchorBlock(ctx)}
-
-${creativeBridgeBlock(ctx.creativeBridge)}
-
-${productCreativeProfileBlock(ctx)}
-
-${visualMetaphorExtrapolationBlock(ctx)}
-
-${marketingAngleExtrapolationBlock(ctx)}
 
 ${productCatalogFidelityBlock(ctx)}
 
-${productVariantMatchingBlock(ctx)}
+${visualMetaphorExtrapolationBlock(ctx)}
 
 ${productThemedEnvironmentBlock(ctx)}
 
 ${productPlacementOnModelBlock(ctx)}
 
-${realPersonPhotoStyleBlock(ctx)}
-
 ${illustrativeVisualBlock(ctx)}
 
-${noStockPhotoUnlessReferenceBlock(ctx)}
-
-${packagingMirroringBlock(ctx)}
+${realPersonPhotoStyleBlock(ctx)}
 
 ${backgroundColorAdaptationBlock(ctx)}
 
-${featureRowInstructionsBlock(ctx)}
-
-${buildVisualAgentInstructions(ctx)}
+${layoutProportionsBlock(ctx)}
 
 ${typographyHierarchyBlock(ctx)}
 
 ${textLayoutBlock(ctx)}
 
-${layoutProportionsBlock(ctx)}
+${buildVisualAgentInstructions(ctx)}
 
-${beforeAfterComparisonBlock(ctx)}
+Key rules for JSON fields:
+- visualMediumNotes: photo | illustration | diagram | mixed — match reference, never default to stock gym photo when reference is graphic
+- poseAndArrangementParagraph: describe layout zones and unit arrangement from reference (overlap, diagonal row, centered hero) — say product may be re-posed/re-angled/re-scaled at render; do NOT require copying catalog photo pose
+- peopleAndSceneRules: on-theme environment for user's product category; match reference framing/mood
+- compositionRules: text zones, product row, icon row, vertical bands — no copy text
+- brandingNotes: background gradient/colors using user brand hues
+- iconRowNotes / trustBadgeNotes: placement only if reference had them
 
-RULES (JSON output):
-- visualMediumNotes: state whether final ad is illustration/diagram/3d-render OR real photo — must match reference, never default to stock lifestyle photo when reference is graphic
-- poseAndArrangementParagraph: mirror reference LAYOUT zones only; user's product form comes from catalog photos — if reference had a bottle but user has gummy pouch, describe the pouch in that zone; NEVER describe a bottle/jar unless catalog shows one${ctx.hasPersonInReference && ctx.productUseProfile ? `; **${ctx.productUseProfile.category}:** ${ctx.productUseProfile.placementInstruction}` : ctx.hasPersonInReference ? '; describe correct anatomical placement on model (not floating on wrong body part)' : ''}
-- peopleAndSceneRules: must state on-theme environment/props for user's product category; clone reference framing/mood/aesthetic, NOT competitor-category setting when categories differ${ctx.hasPersonInReference ? '; **specify authentic product-on-body placement** (wear/apply/hold/consume correctly); for real photos: **iPhone candid snapshot** — match reference close-up distance, expression, motion/handheld feel — NOT stock sunset catalog polish' : ''}
-- compositionRules / brandingNotes / iconRowNotes / trustBadgeNotes
-- compositionRules: visual hierarchy (headline → icon/feature row → product row → CTA bar); preserve reference **vertical band proportions** and text block geometry; product row with **exact unit count** from reference (use distinct catalog variants when reference shows different flavors/colors); award seal overlaps product per reference; **typography size ladder** — headline largest, subheadline clearly smaller, footer/CTA smallest
-${ctx.referenceTrustBadge.present ? `- trustBadgeNotes: describe placing user's award seal (${ctx.referenceTrustBadge.placement || 'overlap on hero product'})` : ''}
-${ctx.trustBadgeInstructions ? ctx.trustBadgeInstructions : ''}
-
-${ctx.referenceProductPoseAndArrangement ? `Reference pose:\n${ctx.referenceProductPoseAndArrangement}` : ''}
-${ctx.referencePhotoStyle ? `\nReference photography style:\n${ctx.referencePhotoStyle}` : ''}
+${ctx.referenceProductPoseAndArrangement ? `Reference layout notes (composition only, not rigid pose):\n${ctx.referenceProductPoseAndArrangement.slice(0, 1200)}` : ''}
 
 Context:
 ${contextSummaryForAgent(ctx)}
-
-${logoPlacementRulesBlock(ctx)}
-${ctx.copyLanguageInstruction}
 
 Output JSON only:
 {
@@ -209,8 +175,7 @@ Output JSON only:
   "compositionRules": string,
   "brandingNotes": string,
   "iconRowNotes": string,
-  "trustBadgeNotes": string | null,
-  "comparisonModuleNotes": string | null
+  "trustBadgeNotes": string | null
 }`;
 }
 

@@ -294,19 +294,11 @@ export function productCatalogFidelityBlock(ctx: AdaptationContext): string {
 export function packagingMirroringBlock(ctx: AdaptationContext): string {
   if (!ctx.referenceShowsPackaging) return '';
 
-  const packagingMatch = ctx.matchedProductVisuals.find((m) => m.role === 'packaging');
-  const packagingNote = packagingMatch
-    ? `Use the provided **packaging** product image (${packagingMatch.description}).`
-    : 'Use a product catalog image that shows **retail packaging** (box, pouch, bottle, jar) — not a loose product flat lay.';
-
-  return `**PACKAGING IN LAYOUT (CRITICAL — mirror reference POSITION only):**
-The reference ad may show retail packaging in a distinct layout position (e.g. lower-right hero, beside the stack).
-- Mirror the **same zone/scale/angle placement** as the reference — but render the **user's actual packaging from catalog photos** (pouch, bag, box, tub — whatever THEIR images show).
-- ${packagingNote}
-- **FORBIDDEN:** Copying the reference competitor's container type (e.g. reference supplement bottle → user gummy pouch: show the POUCH, never a bottle). Never "reskin" reference packaging with user brand.
-- **FORBIDDEN:** Replacing the packaging slot with another loose product view when catalog has packaging photos.
-- The loose/units hero uses the **product** catalog image; the packaging slot uses the **packaging** catalog image — two distinct visuals from user's store, same layout grammar as reference.
-- Packaging labels, logo, and colors must match the user's packaging photo exactly — do not invent a generic box or bottle.`;
+  return `**PACKAGING IN LAYOUT (position only — re-pose freely):**
+Reference may show packaging in a distinct zone (e.g. lower-right hero).
+- Place user's retail packaging from catalog in the same zone/scale relationship — re-angle and re-light as needed for composition.
+- Match container type from catalog (pouch, box, tub) — never copy reference competitor bottle shape.
+- Packaging labels and colors must match catalog exactly.`;
 }
 
 export function noStockPhotoUnlessReferenceBlock(ctx: AdaptationContext): string {

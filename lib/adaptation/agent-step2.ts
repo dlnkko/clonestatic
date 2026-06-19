@@ -1,4 +1,5 @@
 import type { GoogleGenAI } from '@google/genai';
+import { buildCompactImagePrompt } from './compact-image-prompt';
 import { costFromUsage, mergeStep2Usage } from './cost';
 import { generateText, generateWithProductImages, parseJson } from './gemini';
 import { logoPlacementRulesBlock } from './logo-rules';
@@ -10,7 +11,6 @@ import {
 import {
   copyAgentPrompt,
   qaRulesBlock,
-  synthesisTaskBlock,
   visualAgentPrompt,
 } from './prompt-blocks';
 import type {
@@ -75,28 +75,14 @@ ${ctx.copyLanguageInstruction}`;
 }
 
 async function runSynthesis(
-  ai: GoogleGenAI,
   ctx: AdaptationContext,
   copy: CopyAdaptationResult,
   visual: VisualAdaptationResult,
-  qaFeedback?: string[]
+  _qaFeedback?: string[]
 ): Promise<{ finalPrompt: string; usage: ReturnType<typeof mergeStep2Usage> }> {
-  const feedbackBlock =
-    qaFeedback && qaFeedback.length > 0
-      ? `\n**FIX THESE QA ISSUES:**\n${qaFeedback.map((i) => `- ${i}`).join('\n')}\n`
-      : '';
-
-  const textGuard = `\n**TEXT RENDER GUARD:** Approved copy has exactly ${copy.textLines?.length ?? 0} lines — quote each ONCE in top-to-bottom order. Never repeat strikethrough dismissals or the punch headline.\n`;
-  const prompt = synthesisTaskBlock(
-    ctx,
-    copy,
-    visual,
-    `${textGuard}${feedbackBlock ?? ''}` || undefined
-  );
-
-  const { text, usage } = await generateText(ai, prompt);
-  if (!text) throw new Error('Synthesis returned empty prompt');
-  return { finalPrompt: text, usage };
+  const finalPrompt = buildCompactImagePrompt(ctx, copy, visual);
+  if (!finalPrompt.trim()) throw new Error('Compact prompt assembly returned empty');
+  return { finalPrompt, usage: mergeStep2Usage([]) };
 }
 
 async function runQa(
@@ -130,7 +116,7 @@ export async function runAdaptationAgent(
   const { visual, usage: visualUsage } = await runVisualAgent(ai, ctx, productFiles);
   usages.push(visualUsage);
 
-  let { finalPrompt, usage: synthUsage } = await runSynthesis(ai, ctx, copy, visual);
+  let { finalPrompt, usage: synthUsage } = await runSynthesis(ctx, copy, visual);
   usages.push(synthUsage);
 
   let { qa, usage: qaUsage } = await runQa(ai, ctx, copy, finalPrompt);
@@ -146,7 +132,7 @@ export async function runAdaptationAgent(
   if (!qa.pass && qa.issues.length > 0) {
     retried = true;
     console.log('\n=== ADAPTATION AGENT: QA retry synthesis ===');
-    const retry = await runSynthesis(ai, ctx, copy, visual, qa.issues);
+    const retry = await runSynthesis(ctx, copy, visual, qa.issues);
     finalPrompt = retry.finalPrompt;
     usages.push(retry.usage);
     const retryQa = await runQa(ai, ctx, copy, finalPrompt);
