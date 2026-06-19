@@ -19,7 +19,6 @@ export {
   parseReferenceLogoPlacement,
   type BuildContextInput,
 };
-export { buildCompactImagePrompt, formatLiteralCopyLines } from './compact-image-prompt';
 export {
   buildFinalPromptGeneration,
   getStaticAdAnalysisPrompt,

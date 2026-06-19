@@ -1,4 +1,4 @@
-import type { AdaptationContext, CopyAdaptationResult, CopywritingProfile, Line2CopyPattern } from './types';
+import type { AdaptationContext, CopywritingProfile, Line2CopyPattern } from './types';
 import { detectSubheroCopyPattern } from './parse-reference-analysis';
 import { productCatalogFidelityBlock as productCatalogFidelityBlockImpl } from '@/lib/products/product-fidelity';
 export { productPlacementOnModelBlock } from './product-placement-rules';
@@ -294,11 +294,19 @@ export function productCatalogFidelityBlock(ctx: AdaptationContext): string {
 export function packagingMirroringBlock(ctx: AdaptationContext): string {
   if (!ctx.referenceShowsPackaging) return '';
 
-  return `**PACKAGING IN LAYOUT (position only — re-pose freely):**
-Reference may show packaging in a distinct zone (e.g. lower-right hero).
-- Place user's retail packaging from catalog in the same zone/scale relationship — re-angle and re-light as needed for composition.
-- Match container type from catalog (pouch, box, tub) — never copy reference competitor bottle shape.
-- Packaging labels and colors must match catalog exactly; surface texture/finish may follow reference ad lighting and material mood.`;
+  const packagingMatch = ctx.matchedProductVisuals.find((m) => m.role === 'packaging');
+  const packagingNote = packagingMatch
+    ? `Use the provided **packaging** product image (${packagingMatch.description}).`
+    : 'Use a product catalog image that shows **retail packaging** (box, pouch, bottle, jar) — not a loose product flat lay.';
+
+  return `**PACKAGING IN LAYOUT (CRITICAL — mirror reference POSITION only):**
+The reference ad may show retail packaging in a distinct layout position (e.g. lower-right hero, beside the stack).
+- Mirror the **same zone/scale/angle placement** as the reference — but render the **user's actual packaging from catalog photos** (pouch, bag, box, tub — whatever THEIR images show).
+- ${packagingNote}
+- **FORBIDDEN:** Copying the reference competitor's container type (e.g. reference supplement bottle → user gummy pouch: show the POUCH, never a bottle). Never "reskin" reference packaging with user brand.
+- **FORBIDDEN:** Replacing the packaging slot with another loose product view when catalog has packaging photos.
+- The loose/units hero uses the **product** catalog image; the packaging slot uses the **packaging** catalog image — two distinct visuals from user's store, same layout grammar as reference.
+- Packaging labels, logo, and colors must match the user's packaging photo exactly — do not invent a generic box or bottle.`;
 }
 
 export function noStockPhotoUnlessReferenceBlock(ctx: AdaptationContext): string {
@@ -316,41 +324,33 @@ Keep product + graphics only. No people, no faces, no lifestyle models.`;
 
 /**
  * Mirrors reference top-text layout (stacked center, eyebrow → hero → subhero).
- * Uses approved copy text — never pastes reference competitor wording into the render prompt.
  */
-export function textLayoutBlock(
-  ctx: AdaptationContext,
-  approvedCopy?: CopyAdaptationResult
-): string {
+export function textLayoutBlock(ctx: AdaptationContext): string {
   const layout = ctx.referenceTextLayout;
-  const copyLines = approvedCopy?.textLines ?? [];
+  const lines = ctx.referenceTextLines;
   const lineList =
-    copyLines.length > 0
-      ? copyLines.map((l) => `  - [${l.role}]: '${l.text.slice(0, 60)}${l.text.length > 60 ? '…' : ''}'`).join('\n')
+    lines.length > 0
+      ? lines.map((l) => `  - [${l.role}]: mirror placement & tier`).join('\n')
       : '  - eyebrow (if any) → hero headline → subhero → modules below';
 
   const align = layout?.alignment ?? 'center';
   const stack = layout?.stackDirection ?? 'vertical';
-  const partnershipLine = copyLines.find((l) => /eyebrow|partnership/i.test(l.role));
   const eyebrow = layout?.hasEyebrow
-    ? partnershipLine
-      ? `Eyebrow: render approved partnership line exactly: '${partnershipLine.text}' — smallest tier above hero.`
-      : 'Eyebrow: smallest partnership lockup above hero — render only if listed in approved copy above.'
-    : 'No eyebrow line in reference — do not add one unless approved copy includes it.';
+    ? `Eyebrow: ${layout.eyebrowStyle ?? 'smallest caps, wide tracking, above hero'}`
+    : 'No eyebrow line in reference — do not add one unless approved copy includes brandName as eyebrow.';
 
   return `**TEXT LAYOUT & ALIGNMENT (CRITICAL — match reference structure):**
 - **Alignment:** All top copy **${align}-aligned** (same as reference — if reference is centered stack, every line centered; do NOT left-align a centered reference).
-- **Stack:** **${stack}** text flow — preserve top-to-bottom order:
-${lineList}
+- **Stack:** **${stack}** text flow — preserve top-to-bottom order: ${lineList}
 - ${eyebrow}
-- **Hero headline:** bold display sans-serif — ONLY the single approved Headline line at largest tier.
-- **Subhero:** light/regular sans-serif at ~30% headline cap height directly under hero — ONLY the approved Subheadline line; must NOT match hero size/weight.
+- **Hero headline:** ${layout?.heroStyle ?? 'largest serif/display — only dominant text line'}
+- **Subhero:** ${layout?.subheroStyle ?? 'much smaller sans-serif directly under hero — must NOT match hero width/weight'}
+${layout?.layoutNotes ? `- Reference notes: ${layout.layoutNotes}` : ''}
 
 **FORBIDDEN layout mistakes:**
 - Subhero rendered as wide as hero or same visual weight (breaks premium DTC look)
 - Reordering lines (e.g. putting credentials above emotional hook when reference had eyebrow → hook → benefits)
-- Adding extra text blocks not in approved copy
-- Using reference competitor brand names or lockup text — render user's approved copy only`;
+- Adding extra text blocks not in reference`;
 }
 
 /**
@@ -404,29 +404,18 @@ ${layoutProportionsBlock(ctx)}
 - Comparison module omitted when reference had one`;
 }
 
-/** Image models inflate subheads when reference analysis says ~50–75% — cap at ~⅓. */
-function clampSubheadRatio(ratio: string | null | undefined): string {
-  const fallback =
-    'subheadline roughly 28–38% of headline cap height (~⅓ visual size — clearly subordinate)';
-  const r = ratio?.trim();
-  if (!r) return fallback;
-  if (/\b(?:[5-9]\d|[6-9])\s*%|75%|70%|60%|50%|~75|~70|~60|~50|\bmedium\b/i.test(r)) {
-    return fallback;
-  }
-  return r;
-}
-
 /**
  * Enforces visual size ladder for all ad types — headline dominant, subheadline subordinate.
  */
 export function typographyHierarchyBlock(ctx: AdaptationContext): string {
   const h = ctx.typographyHierarchy;
-  const ratio = clampSubheadRatio(h?.sizeRatioHeadlineToSub);
-  const headlineTier =
-    h?.headlineTier?.trim() ||
-    'largest — primary hook, dominant in the top text zone';
+  const ratio =
+    h?.sizeRatioHeadlineToSub?.trim() ||
+    'subheadline roughly 28–38% of headline cap height (~⅓ visual size — clearly subordinate)';
+  const headlineTier = h?.headlineTier ?? 'largest — primary hook, dominant in the top text zone';
   const subTier =
-    'clearly smaller than headline — lightweight supporting sans-serif at ~30% cap height, secondary information only';
+    h?.subheadlineTier ??
+    'clearly smaller than headline — lightweight supporting sans-serif, secondary information only';
   const ladder =
     h?.lines && h.lines.length > 0
       ? h.lines.map((l) => `  - ${l.role}: ${l.sizeTier}${l.weight ? ` (${l.weight})` : ''}`).join('\n')

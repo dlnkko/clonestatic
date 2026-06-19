@@ -65,7 +65,7 @@ export function formatApprovedCopyBlock(
 
   const lineCount = copy.textLines?.length ?? 0;
 
-  return `**Approved copy — render exactly as given (do not edit or rewrite). Each line once:**
+  return `**Approved copy — use EXACTLY this visible text in the ad (each line ONCE, ${lineCount} lines total — NEVER repeat any line):**
 ${lines}
 ${subheroRender}
 ${copy.brandName && !copy.textLines?.some((l) => /brand/i.test(l.role)) ? `- Brand name: "${copy.brandName}"` : ''}
@@ -111,11 +111,11 @@ Your task:
     - If NO real photo person and NO gym: "graphic-product-only" or "illustration-led"
     - If it HAS a **real photographic** person: keep same shot type; user's product in authentic use
 
-4. **PRODUCT COMPOSITION IN REFERENCE (layout zones — not catalog pose):**
-    - **Layout arrangement:** How many product units appear? Overlap, diagonal row, centered hero, scattered? Describe zones (top/center/bottom) and spatial relationships.
-    - **Scale relationship:** Relative size of product vs text blocks and frame.
-    - **Lighting mood:** Direction, softness, shadows — for composition matching, not for locking catalog photo angle.
-    - Summarize: "Composition: [N units], [arrangement], [zone], [lighting mood]." This guides layout — the render model may re-pose/re-angle the user's product freely while keeping brand fidelity.
+4. **PRODUCT POSE, POSITION AND PLACEMENT (CRITICAL — identify exactly for replication):**
+    - **Product pose/orientation:** How is the product displayed? (e.g. **lying down** flat or at an angle, **standing upright**, on its side, **scattered** at various angles, grouped in a row, stacked). Describe precisely: "lying down and slightly angled", "standing upright facing camera", "multiple items scattered with different tilts", etc. This MUST be replicated in the generated ad so the new product appears in the SAME pose — e.g. if the reference shows earplugs lying down and scattered, the new product must also be shown lying down and at similar angles, NOT standing upright.
+    - Is the product **inclined/tilted**? Describe the angle (e.g. leaning down and to the right, tilted left, diagonal). Exact orientation matters.
+    - Is the product **"submerged" or nestled** among the background elements? (e.g. fruit/objects surrounding the product, wrapping around its base and sides, partially covering its edges, product sitting inside the pile rather than on top). Describe: do the background elements rise around the product, partially obscure it, create depth so the product looks integrated into the scene?
+    - Summarize in one clear line: "Product pose: [lying down / standing upright / scattered / etc.]; Position: [inclined/tilted yes/no, direction]; Placement: [submerged/nestled among X / sitting on top of X / floating]." This will be copied into the final prompt.
 
 5. **Generate a DETAILED Prompt** that recreates EVERY visual element:
     - EXACT composition and layout (where every element is positioned: person, product, text, buttons, etc.). Note whether the background/surrounding elements (e.g. fruits, objects, scenery) fill the entire frame edge to edge with the product centered (full-bleed, no blank margins) — describe this so it can be replicated.
@@ -668,13 +668,33 @@ ${ctx.copywritingInstructions}
 **Line 2 pattern:** ${ctx.line2Pattern}`;
 }
 
-/** Visual agent — composition and layout only */
+/** Visual agent — secciones 2 y 4 de finalPromptGeneration */
 export function buildVisualAgentInstructions(ctx: AdaptationContext): string {
-  return `Reference supplies composition zones only. Catalog supplies brand truth. At image render, product may be re-posed, re-scaled, and re-lit — never lock to catalog photo pose.
+  return `${visualMetaphorExtrapolationBlock(ctx)}
+
+${marketingAngleExtrapolationBlock(ctx)}
 
 ${layoutProportionsBlock(ctx)}
 
+${textLayoutBlock(ctx)}
+
 ${beforeAfterComparisonBlock(ctx)}
 
-${packagingMirroringBlock(ctx)}`;
+${illustrativeVisualBlock(ctx)}
+
+${noStockPhotoUnlessReferenceBlock(ctx)}
+
+${packagingMirroringBlock(ctx)}
+
+${backgroundColorAdaptationBlock(ctx)}
+
+${productThemedEnvironmentBlock(ctx)}
+
+${productUseCaseAdaptationBlock(ctx)}
+
+${realPersonPhotoStyleBlock(ctx)}
+
+${maintainDesignElementsBlock(ctx)}
+
+${replaceAdaptProductBlock(ctx)}`;
 }

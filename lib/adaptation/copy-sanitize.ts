@@ -27,27 +27,12 @@ function normalizeRole(role: string): string {
   const r = role.toLowerCase();
   if (/dismiss|strikethrough|cross.?out|excuse|false/i.test(r)) return 'dismissal';
   if (/headline|punch|hook|tagline|hero/i.test(r)) return 'headline';
-  if (/subhead|subhero|body|main copy|paragraph|secondary|support/i.test(r)) return 'body';
+  if (/body|main copy|subhero|paragraph|secondary|support/i.test(r)) return 'body';
   if (/cta|button|call/i.test(r)) return 'cta';
   if (/brand-name(?!.*sub)/i.test(r)) return 'brand';
   if (/subtagline|sub-tagline/i.test(r)) return 'brand-sub';
   if (/spec|credential/i.test(r)) return 'spec';
-  if (/eyebrow|partnership/i.test(r)) return 'eyebrow';
-  if (/badge|promo|offer/i.test(r)) return 'badge';
   return r;
-}
-
-/** Only one line may render as headline tier; demote extras to subheadline. */
-export function enforceSingleHeadlineTier(lines: AdaptedTextLine[]): AdaptedTextLine[] {
-  let headlineSeen = false;
-  return lines.map((line) => {
-    if (normalizeRole(line.role) !== 'headline') return line;
-    if (!headlineSeen) {
-      headlineSeen = true;
-      return line;
-    }
-    return { ...line, role: 'subheadline' };
-  });
 }
 
 /** Order adapted lines to match reference roles; one slot per reference line. */
@@ -152,11 +137,8 @@ export function findDuplicateCopyIssues(copy: CopyAdaptationResult): string[] {
       issues.push(`Duplicate visible line (${n}×): "${text.slice(0, 80)}"`);
     }
   }
-  const headlineRoles = lines.filter((l) => normalizeRole(l.role) === 'headline');
-  if (headlineRoles.length > 1) {
-    issues.push('Multiple headline-role lines — only one may be headline tier');
-  }
   if (lines.length > 0 && copy.tagline) {
+    const headlineRoles = lines.filter((l) => normalizeRole(l.role) === 'headline');
     if (
       headlineRoles.some((l) => normCopyText(l.text) === normCopyText(copy.tagline)) &&
       headlineRoles.length > 1
@@ -188,8 +170,6 @@ export function sanitizeAdaptedCopy(
   } else {
     textLines = dedupeTextLines(textLines);
   }
-
-  textLines = enforceSingleHeadlineTier(textLines);
 
   const headlineLine = textLines.find((l) => normalizeRole(l.role) === 'headline');
   const bodyLine = textLines.find((l) => normalizeRole(l.role) === 'body');
