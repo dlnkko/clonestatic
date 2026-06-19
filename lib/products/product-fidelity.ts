@@ -1,6 +1,11 @@
 import type { AdaptationContext } from '@/lib/adaptation/types';
 import type { MatchedProductImage, ProductImage, ProductImageKind } from './types';
 
+function truncateIllustrationNotes(text: string, max = 80): string {
+  const t = text.trim();
+  return t.length <= max ? t : `${t.slice(0, max - 1)}…`;
+}
+
 const LAYOUT_ZONE_RE =
   /\b(lower|upper|top|bottom|left|right|center|corner|beside|foreground|background|overlap|hero|side)[\w\s,-]*/i;
 
@@ -104,14 +109,8 @@ Reference ad supplies **layout zones, composition, and surface texture/mood only
 At render time: match brand colors, label, logo, and container type exactly; freely re-angle, re-scale, re-light, and overlap units. **Texture/finish** (matte, gloss, soft folds, metallic sheen, condensation) may adapt to match the reference ad's product rendering style.`;
 }
 
-/** Single Kie suffix — one priority stack, no redundant CRITICAL blocks. */
-export const KIE_RENDER_RULES_SUFFIX = `Render rules (in order):
-1. Product brand: attached catalog images are the ONLY source for packaging color, label layout, logo, and container shape — reproduce exactly. You may change pose, angle, position, scale, overlap, lighting, and surface texture/finish to match the reference ad's product mood; do not paste the catalog photo pose unchanged.
-2. Copy: render each quoted line on its own visual row exactly as given — do not merge lines, rewrite, translate, or invent text (no fake badges, awards, or flavor claims).
-3. Typography: headline must be clearly largest; subheadline ~28–38% of headline cap height, light/regular weight — never equal size to headline.
-4. Layout: follow composition in the prompt; reference supplies zones and texture mood — not competitor product form or colors.
-
-FORBIDDEN: recoloring the product (e.g. navy can → light blue), redesigning labels, inventing trust badges, merging headline+subheadline into one line, subheadline as bold/large as headline.`;
+/** Kie suffix — short enforcer; main prompt carries ad-specific detail. */
+export const KIE_RENDER_RULES_SUFFIX = `Rules: (1) Catalog = packaging color, label, logo, shape — exact; pose/texture free. (2) Copy verbatim, one row each. (3) Headline [XL], subhead [sm ~30%]. (4) No recolor, no invented badges, no merged lines.`;
 
 export function appendKieProductFidelityPrompt(
   prompt: string,
@@ -130,26 +129,18 @@ export function appendKieProductFidelityPrompt(
   const extras: string[] = [];
 
   if (options?.hasDedicatedLogo) {
-    extras.push(
-      'Logo file attached: reproduce that exact mark in the logo zone — not plain typed text.'
-    );
+    extras.push('Logo attached: use exact mark, not typed text.');
   }
 
   if (options?.hasIllustrativeVisual) {
-    const medium = options.visualMedium ? ` Medium: ${options.visualMedium}.` : '';
     const notes = options.illustrationNotes?.trim()
-      ? ` Style: ${options.illustrationNotes.trim()}.`
+      ? ` ${truncateIllustrationNotes(options.illustrationNotes)}`
       : '';
-    extras.push(
-      `Keep illustrated/diagram elements stylized like the reference — do not convert to hyperreal gym photography.${medium}${notes}`
-    );
+    extras.push(`Stylized/illustrated — not hyperreal photo.${notes}`);
   } else if (options?.hasPersonInReference) {
-    extras.push(
-      'Real photo people: candid smartphone feel; product worn/applied/held correctly on model.'
-    );
+    extras.push('Candid smartphone photo; product on model correctly.');
     if (options?.productUseProfile && options.productUseProfile.confidence !== 'low') {
-      const p = options.productUseProfile;
-      extras.push(`Placement: ${p.placementInstruction}`);
+      extras.push(truncateIllustrationNotes(options.productUseProfile.placementInstruction));
     }
   }
 
