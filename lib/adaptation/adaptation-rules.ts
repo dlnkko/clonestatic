@@ -268,7 +268,7 @@ ${hasBranding ? '- Product brand colors are in Brand Integration below — prior
 }
 
 export function illustrativeVisualBlock(ctx: AdaptationContext): string {
-  if (!ctx.hasIllustrativeVisual) return '';
+  if (!ctx.hasIllustrativeVisual || ctx.referenceShowsPackaging) return '';
 
   const vs = ctx.referenceVisualStyle;
   const notes = vs?.illustrationNotes || 'illustration/diagram as in reference';

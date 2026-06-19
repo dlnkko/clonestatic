@@ -7,6 +7,7 @@ import {
   findDuplicateLinesInPrompt,
   sanitizeAdaptedCopy,
 } from './copy-sanitize';
+import { sanitizeImagePromptForKie } from './sanitize-image-prompt';
 import {
   copyAgentPrompt,
   qaRulesBlock,
@@ -96,7 +97,10 @@ async function runSynthesis(
 
   const { text, usage } = await generateText(ai, prompt);
   if (!text) throw new Error('Synthesis returned empty prompt');
-  return { finalPrompt: text, usage };
+  const finalPrompt = sanitizeImagePromptForKie(text, {
+    hasIllustrativeVisual: ctx.hasIllustrativeVisual,
+  });
+  return { finalPrompt, usage };
 }
 
 async function runQa(

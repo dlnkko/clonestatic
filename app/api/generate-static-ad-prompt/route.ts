@@ -1001,8 +1001,12 @@ export async function POST(request: NextRequest) {
         useFullCatalog: savedProduct ? isUserUploadedProduct(savedProduct) : false,
       }),
       hasDedicatedLogo: matchedProductVisuals.some((m) => m.role === 'logo'),
-      hasPersonInReference: effectiveHasPersonInReference(referenceVisualStyle),
-      hasIllustrativeVisual: isIllustrativeVisualStyle(referenceVisualStyle),
+      hasPersonInReference: effectiveHasPersonInReference(referenceVisualStyle, {
+        matchedProductVisuals,
+      }),
+      hasIllustrativeVisual: isIllustrativeVisualStyle(referenceVisualStyle, {
+        matchedProductVisuals,
+      }),
       visualMedium: referenceVisualStyle?.visualMedium ?? null,
       illustrationNotes: referenceVisualStyle?.illustrationNotes?.trim() || null,
       productUseProfile,

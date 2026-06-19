@@ -4,6 +4,7 @@ import {
   type CopyLanguageOption,
 } from '@/lib/copy-languages';
 import { inferProductUseProfile } from '@/lib/products/infer-product-use';
+import { effectiveHasPersonInReference, isIllustrativeVisualStyle } from '@/lib/ad-visual-mode';
 import { buildCreativeBridge } from './creative-bridge';
 import { buildPricingInstructions } from './pricing-rules';
 import {
@@ -188,15 +189,14 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
   const multiUnitLayout = (referenceProductUnits?.unitCount ?? 1) > 1;
   const enforceOneMainElement =
     (oneHeroOnly || guidelinesAskSingleHero) && !referenceShowsPackaging && !multiUnitLayout;
-  const hasIllustrativeVisual =
-    referenceVisualStyle?.hasIllustrationOrDiagram === true ||
-    ['illustration', 'diagram', '3d-render', 'mixed', 'product-graphic-only'].includes(
-      referenceVisualStyle?.visualMedium ?? ''
-    );
-  const hasPersonInReference =
-    referenceVisualStyle?.hasPerson === true &&
-    !hasIllustrativeVisual &&
-    referenceVisualStyle?.visualMedium === 'photo';
+  const hasIllustrativeVisual = isIllustrativeVisualStyle(referenceVisualStyle, {
+    referenceShowsPackaging,
+    matchedProductVisuals,
+  });
+  const hasPersonInReference = effectiveHasPersonInReference(referenceVisualStyle, {
+    referenceShowsPackaging,
+    matchedProductVisuals,
+  });
 
   const referenceTextLines =
     copywritingProfile?.referenceAllTextLines?.length
