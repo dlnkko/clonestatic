@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 const LOADING_LINES = [
   { title: 'Getting your ad ready', subtitle: 'Mirroring the winning layout for your brand.' },
   { title: 'Crafting your creative', subtitle: 'This usually takes about a minute.' },
-  { title: 'Polishing the details', subtitle: 'Your ad will show up here when it\'s done.' },
+  { title: 'Polishing the details', subtitle: "Your ad will show up here when it's done." },
   { title: 'Almost there', subtitle: 'Good creatives are worth the wait.' },
 ] as const;
 
@@ -32,7 +32,7 @@ export function AdPreviewLoading({ phase = 'generate' }: Props) {
 
   return (
     <div
-      className="flex w-full flex-col items-center px-4 text-center"
+      className="flex w-full flex-col items-center px-4 text-center dash-animate-in"
       role="status"
       aria-live="polite"
       aria-busy="true"
@@ -46,8 +46,12 @@ export function AdPreviewLoading({ phase = 'generate' }: Props) {
           <div className="dash-preview-skeleton-line dash-preview-skeleton-line--xs" />
         </div>
       </div>
-      <p className="mt-5 text-sm font-semibold text-slate-800">{line.title}</p>
-      <p className="mt-1 max-w-[300px] text-xs leading-relaxed text-slate-500">{line.subtitle}</p>
+      <p className="mt-5 text-sm font-semibold text-[var(--dash-fg)] transition-opacity duration-500">
+        {line.title}
+      </p>
+      <p className="dash-text-muted-sm mt-1 max-w-[300px] transition-opacity duration-500">
+        {line.subtitle}
+      </p>
     </div>
   );
 }

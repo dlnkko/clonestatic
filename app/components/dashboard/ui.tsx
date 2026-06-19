@@ -69,6 +69,8 @@ export function SectionHeader({
   );
 }
 
+export { StepHeader } from './StepHeader';
+
 export function FieldLabel({ children, hint }: { children: React.ReactNode; hint?: string }) {
   return (
     <div className="mb-2">
