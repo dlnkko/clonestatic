@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import type { ExtractedPricing, ProductPricingConfig, ProductRecord } from '@/lib/products/types';
+import type { ExtractedPricing, ProductImage, ProductPricingConfig, ProductRecord } from '@/lib/products/types';
 import { BrandColorPicker } from '@/app/components/products/BrandColorPicker';
 import { ImageUploadSlots } from '@/app/components/products/ImageUploadSlots';
 import { ProductPricingEditor } from '@/app/components/products/ProductPricingEditor';
+import { ScrapedImagePicker } from '@/app/components/products/ScrapedImagePicker';
 import {
   USER_MESSAGES,
   userMessageForProductSave,
@@ -17,7 +18,7 @@ import {
 } from '@/lib/products/pricing-config';
 
 type Mode = 'url' | 'manual';
-type UrlStep = 'input' | 'info' | 'assets';
+type UrlStep = 'input' | 'info' | 'logo' | 'products';
 
 type ScrapePreview = {
   productUrl: string;
@@ -27,6 +28,8 @@ type ScrapePreview = {
   colorPalette: string;
   branding: Record<string, unknown> | null;
   markdown: string | null;
+  images: ProductImage[];
+  logoUrl: string | null;
   extractedPricing: ExtractedPricing;
   priceDisplay: string;
   pricingConfig: ProductPricingConfig;
@@ -42,6 +45,9 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
   const [mode, setMode] = useState<Mode>('url');
   const [urlStep, setUrlStep] = useState<UrlStep>('input');
   const [preview, setPreview] = useState<ScrapePreview | null>(null);
+  const [scrapedImages, setScrapedImages] = useState<ProductImage[]>([]);
+  const [selectedLogoUrls, setSelectedLogoUrls] = useState<string[]>([]);
+  const [selectedProductUrls, setSelectedProductUrls] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -99,7 +105,8 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
   };
 
   const appendImages = (incoming: File[]) => {
-    const room = 10 - imageFiles.length;
+    const scrapedCount = mode === 'url' ? selectedProductUrls.length : 0;
+    const room = 10 - scrapedCount - imageFiles.length;
     if (room <= 0) return;
     const next = incoming.slice(0, room);
     setImageFiles((prev) => [...prev, ...next]);
@@ -116,6 +123,9 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     setError(null);
     setUrlStep('input');
     setPreview(null);
+    setScrapedImages([]);
+    setSelectedLogoUrls([]);
+    setSelectedProductUrls([]);
     setProductUrl('');
     setName('');
     setDescription('');
@@ -132,6 +142,13 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
 
   const applyScrapedPricing = (p: ScrapePreview) => {
     setPricingConfig(pricingConfigFromExtracted(p.extractedPricing));
+  };
+
+  const preselectScrapedImages = (images: ProductImage[]) => {
+    const logoCandidate =
+      images.find((img) => img.kind === 'logo')?.url ?? null;
+    setSelectedLogoUrls(logoCandidate ? [logoCandidate] : []);
+    setSelectedProductUrls([]);
   };
 
   const handleScrapePreview = async () => {
@@ -160,7 +177,10 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
         return;
       }
       const p = data.preview as ScrapePreview;
+      const images = Array.isArray(p.images) ? p.images : [];
       setPreview(p);
+      setScrapedImages(images);
+      preselectScrapedImages(images);
       setName(p.name);
       setDescription(p.description);
       setTargetAudience(p.targetAudience);
@@ -174,7 +194,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     }
   };
 
-  const handleContinueToAssets = () => {
+  const handleContinueToLogo = () => {
     if (!name.trim()) {
       setError('Product name is required');
       return;
@@ -188,19 +208,25 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
       return;
     }
     setError(null);
-    setUrlStep('assets');
+    setUrlStep('logo');
+  };
+
+  const handleContinueToProducts = () => {
+    setError(null);
+    setUrlStep('products');
   };
 
   const handleSaveFromPreview = async () => {
     if (!preview) return;
-    if (imageFiles.length < 1) {
-      setError('Upload at least one product image');
+    if (selectedProductUrls.length + imageFiles.length < 1) {
+      setError('Select or upload at least one product image');
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const imageBase64List = await Promise.all(imageFiles.map(readFileAsDataUrl));
+      const imageBase64List =
+        imageFiles.length > 0 ? await Promise.all(imageFiles.map(readFileAsDataUrl)) : undefined;
       const logoBase64List =
         logoFiles.length > 0 ? await Promise.all(logoFiles.map(readFileAsDataUrl)) : undefined;
       const syncedPricing = finalizePricingConfig(pricingConfig);
@@ -218,6 +244,8 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
           colorPalette: paletteColors.join(', '),
           priceDisplay: syncedPricing.priceDisplay,
           pricingConfig: syncedPricing,
+          selectedLogoUrls: selectedLogoUrls,
+          selectedProductUrls: selectedProductUrls,
           imageBase64List,
           logoBase64List,
           branding: preview.branding,
@@ -298,8 +326,8 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
 
   const logoUpload = (
     <ImageUploadSlots
-      label="Logo images (optional, up to 2)"
-      hint="PNG or SVG with transparent background works best."
+      label="Upload logo instead (optional)"
+      hint="If your logo is not in the scraped images above."
       max={2}
       previews={logoPreviews}
       onChange={appendLogos}
@@ -310,9 +338,9 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
 
   const productImageUpload = (
     <ImageUploadSlots
-      label="Product images (1–10)"
-      hint="Upload packaging, product shots, lifestyle photos, and trust badges."
-      max={10}
+      label="Upload extra product images (optional)"
+      hint="Add packaging shots, lifestyle photos, or trust badges not found on the page."
+      max={Math.max(0, 10 - selectedProductUrls.length)}
       previews={imagePreviews}
       onChange={appendImages}
       onRemove={removeImage}
@@ -322,7 +350,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
   const infoFields = (
     <div className="product-modal-scroll space-y-5 max-h-[58vh] overflow-y-auto pr-1">
       <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-4 py-3 text-xs leading-relaxed text-indigo-900">
-        Review scraped copy, pricing, and brand colors. On the next step you will upload logo and product images.
+        Review scraped copy, pricing, and brand colors. Next you will pick your logo and product images from the page.
       </div>
       <div className="product-modal-section space-y-4">
         <div>
@@ -343,13 +371,48 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     </div>
   );
 
-  const assetFields = (
+  const logoStepFields = (
     <div className="product-modal-scroll space-y-5 max-h-[58vh] overflow-y-auto pr-1">
       <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-4 py-3 text-xs leading-relaxed text-indigo-900">
-        Upload your logo and product shots. We do not scrape images from the page — use the best assets you have on hand.
+        Step 1 of 2 — Tap the image that is your brand logo. You can skip if the logo only appears on your product packaging.
+      </div>
+      <div className="product-modal-section space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <label className="text-xs font-medium text-slate-600">Select your logo</label>
+          <span className="text-[10px] text-slate-400">{selectedLogoUrls.length}/1</span>
+        </div>
+        <ScrapedImagePicker
+          mode="logo"
+          images={scrapedImages}
+          selectedUrls={selectedLogoUrls}
+          max={1}
+          onChange={setSelectedLogoUrls}
+        />
+        {logoUpload}
+      </div>
+    </div>
+  );
+
+  const productStepFields = (
+    <div className="product-modal-scroll space-y-5 max-h-[58vh] overflow-y-auto pr-1">
+      <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-4 py-3 text-xs leading-relaxed text-indigo-900">
+        Step 2 of 2 — Select product photos from the page (packaging, hero shots, lifestyle). Images marked as logo are excluded.
       </div>
       <div className="product-modal-section space-y-4">
-        {logoUpload}
+        <div className="flex items-center justify-between gap-2">
+          <label className="text-xs font-medium text-slate-600">Select product images</label>
+          <span className="text-[10px] text-slate-400">
+            {selectedProductUrls.length + imageFiles.length}/10
+          </span>
+        </div>
+        <ScrapedImagePicker
+          mode="product"
+          images={scrapedImages}
+          selectedUrls={selectedProductUrls}
+          reservedUrls={selectedLogoUrls}
+          max={10 - imageFiles.length}
+          onChange={setSelectedProductUrls}
+        />
         {productImageUpload}
       </div>
     </div>
@@ -371,8 +434,23 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
         <input type="text" value={targetAudience} onChange={(e) => setTargetAudience(e.target.value)} className="dash-input" />
       </div>
       <BrandColorPicker colors={paletteColors} onChange={setPaletteColors} />
-      {logoUpload}
-      {productImageUpload}
+      <ImageUploadSlots
+        label="Logo images (optional, up to 2)"
+        hint="PNG or SVG with transparent background works best."
+        max={2}
+        previews={logoPreviews}
+        onChange={appendLogos}
+        onRemove={removeLogo}
+        objectFit="contain"
+      />
+      <ImageUploadSlots
+        label="Product images (1–10)"
+        hint="Upload packaging, product shots, lifestyle photos, and trust badges."
+        max={10}
+        previews={imagePreviews}
+        onChange={appendImages}
+        onRemove={removeImage}
+      />
     </div>
   );
 
@@ -396,18 +474,37 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
             {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
             <div className="mt-5 flex gap-2">
               <button type="button" onClick={() => setUrlStep('input')} className="dash-btn dash-btn-secondary">Back</button>
-              <button type="button" onClick={handleContinueToAssets} className="dash-btn dash-btn-primary flex-1">
+              <button type="button" onClick={handleContinueToLogo} className="dash-btn dash-btn-primary flex-1">
+                Continue to images
+              </button>
+            </div>
+          </>
+        ) : mode === 'url' && urlStep === 'logo' ? (
+          <>
+            <h3 className="mb-3 text-sm font-semibold text-slate-800">Choose your logo</h3>
+            {logoStepFields}
+            {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+            <div className="mt-5 flex gap-2">
+              <button type="button" onClick={() => setUrlStep('info')} className="dash-btn dash-btn-secondary">Back</button>
+              <button
+                type="button"
+                onClick={() => { setSelectedLogoUrls([]); handleContinueToProducts(); }}
+                className="dash-btn dash-btn-secondary"
+              >
+                Skip logo
+              </button>
+              <button type="button" onClick={handleContinueToProducts} className="dash-btn dash-btn-primary flex-1">
                 Continue
               </button>
             </div>
           </>
-        ) : mode === 'url' && urlStep === 'assets' ? (
+        ) : mode === 'url' && urlStep === 'products' ? (
           <>
-            <h3 className="mb-3 text-sm font-semibold text-slate-800">Upload images</h3>
-            {assetFields}
+            <h3 className="mb-3 text-sm font-semibold text-slate-800">Choose product images</h3>
+            {productStepFields}
             {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
             <div className="mt-5 flex gap-2">
-              <button type="button" onClick={() => setUrlStep('info')} className="dash-btn dash-btn-secondary">Back</button>
+              <button type="button" onClick={() => setUrlStep('logo')} className="dash-btn dash-btn-secondary">Back</button>
               <button type="button" onClick={handleSaveFromPreview} disabled={loading} className="dash-btn dash-btn-primary flex-1">
                 {loading ? 'Saving…' : 'Save product'}
               </button>
@@ -423,7 +520,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
             {mode === 'url' ? (
               <div className="product-modal-section space-y-3">
                 <p className="text-xs leading-relaxed text-slate-500">
-                  Paste a product page URL. We scrape copy, branding, and pricing — then you upload logo and product images yourself.
+                  Paste a product page URL. We scrape copy, branding, pricing, and images — then you pick your logo and product photos.
                 </p>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-slate-600">Product page URL</label>
@@ -442,7 +539,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
               disabled={loading}
               className="dash-btn dash-btn-primary mt-5 w-full"
             >
-              {loading ? (mode === 'url' ? 'Scraping…' : 'Saving…') : mode === 'url' ? 'Scrape product info' : 'Save product'}
+              {loading ? (mode === 'url' ? 'Scraping…' : 'Saving…') : mode === 'url' ? 'Scrape product' : 'Save product'}
             </button>
           </>
         )}

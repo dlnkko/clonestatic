@@ -1,7 +1,7 @@
 import { errorMessageFromUnknown } from '@/lib/api-error-message';
 import getFirecrawlInstance from '@/lib/firecrawl';
 import { classifyProductImagesHeuristic } from './classify-images';
-import { filterCatalogProductImages } from './filter-catalog-images';
+import { filterCatalogProductImages, isUiChromeImage } from './filter-catalog-images';
 import { extractProductPricing } from './extract-pricing';
 import type { ExtractedPricing, ProductImage } from './types';
 
@@ -118,6 +118,33 @@ function orderProductImages(images: ProductImage[]): ProductImage[] {
   return filterCatalogProductImages(classified, 10);
 }
 
+/** Broader list for user image picker — keeps logos + product shots, drops UI chrome only. */
+function orderBroadPreviewImages(images: ProductImage[], max: number): ProductImage[] {
+  const classified = classifyProductImagesHeuristic(
+    images.filter((img) => !isUiChromeImage(img.url, img.alt || ''))
+  );
+  const deduped: ProductImage[] = [];
+  const seen = new Set<string>();
+  const sorted = [...classified].sort((a, b) => {
+    const rank = (img: ProductImage) => {
+      if (img.kind === 'logo') return 0;
+      if (img.kind === 'packaging') return 1;
+      if (img.kind === 'product') return 2;
+      if (img.kind === 'trust_badge') return 3;
+      return 4;
+    };
+    return rank(a) - rank(b);
+  });
+  for (const img of sorted) {
+    const key = img.url.split('?')[0];
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(img);
+    if (deduped.length >= max) break;
+  }
+  return deduped;
+}
+
 export type ProductPageScrapeResult = {
   summary: string;
   branding: Record<string, unknown> | null;
@@ -131,6 +158,10 @@ export type ProductPageScrapeResult = {
 export type ScrapeProductPageOptions = {
   /** Skip collecting/downloading page images (copy/branding/pricing only). */
   skipImages?: boolean;
+  /** Return a broader image list for user picker (less aggressive filtering). */
+  broadImagePick?: boolean;
+  /** Max images when broadImagePick is true (default 36). */
+  imageLimit?: number;
 };
 
 export async function scrapeProductPage(
@@ -138,6 +169,8 @@ export async function scrapeProductPage(
   options?: ScrapeProductPageOptions
 ): Promise<ProductPageScrapeResult> {
   const skipImages = options?.skipImages === true;
+  const broadImagePick = options?.broadImagePick === true;
+  const imageLimit = options?.imageLimit ?? (broadImagePick ? 36 : 10);
   const firecrawl = getFirecrawlInstance();
   const fc = firecrawl as {
     scrape?: (u: string, o: object) => Promise<unknown>;
@@ -279,7 +312,9 @@ export async function scrapeProductPage(
     })),
   ];
 
-  const images = orderProductImages(rawImages);
+  const images = broadImagePick
+    ? orderBroadPreviewImages(rawImages, imageLimit)
+    : orderProductImages(rawImages);
   const logoUrl = images.find((i) => i.kind === 'logo')?.url ?? [...logoUrlSet][0] ?? null;
 
   return {

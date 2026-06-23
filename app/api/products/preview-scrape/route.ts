@@ -40,7 +40,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: userMessageForProductScrape(503) }, { status: 503 });
     }
 
-    const scraped = await scrapeProductPage(productUrl.trim(), { skipImages: true });
+    const scraped = await scrapeProductPage(productUrl.trim(), {
+      broadImagePick: true,
+      imageLimit: 36,
+    });
     const extractedPricing = scraped.extractedPricing;
     const pricingConfig = pricingConfigFromExtracted(extractedPricing);
 
@@ -66,8 +69,8 @@ export async function POST(request: NextRequest) {
         colorPalette: colorPalette?.colors?.join(', ') ?? '',
         branding: scraped.branding,
         markdown: scraped.markdown,
-        images: [],
-        logoUrl: null,
+        images: scraped.images,
+        logoUrl: scraped.logoUrl,
         extractedPricing,
         priceDisplay: pricingConfig.priceDisplay ?? '',
         pricingConfig,

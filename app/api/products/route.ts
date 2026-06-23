@@ -10,6 +10,7 @@ import { checkRateLimit } from '@/lib/rate-limit';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { assertCanAddProduct } from '@/lib/subscription-limits';
 import { buildScrapeCacheFromPageScrape } from '@/lib/products/build-scrape-cache';
+import { hostExternalImageUrls } from '@/lib/products/host-scraped-image';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,7 +71,9 @@ type CreateUrlFromPreviewBody = {
   priceDisplay?: string;
   pricingConfig?: ProductScrapeCache['pricingConfig'];
   logoBase64List?: string[];
-  imageBase64List: string[];
+  imageBase64List?: string[];
+  selectedLogoUrls?: string[];
+  selectedProductUrls?: string[];
   branding?: Record<string, unknown> | null;
   extractedPricing?: ProductScrapeCache['extractedPricing'];
   markdown?: string | null;
@@ -111,36 +114,60 @@ export async function POST(request: NextRequest) {
 
     if (source === 'url' && body.saveFromPreview) {
       const b = body as CreateUrlFromPreviewBody;
-      if (
-        !b.productUrl?.trim() ||
-        !b.name?.trim() ||
-        !Array.isArray(b.imageBase64List) ||
-        b.imageBase64List.length < 1
-      ) {
+      if (!b.productUrl?.trim() || !b.name?.trim()) {
         return NextResponse.json({ error: 'Invalid preview save payload' }, { status: 400 });
       }
-      if (b.imageBase64List.length > 10) {
+
+      const productUrlList = Array.isArray(b.selectedProductUrls)
+        ? b.selectedProductUrls.filter((u) => typeof u === 'string' && u.trim())
+        : [];
+      const logoUrlList = Array.isArray(b.selectedLogoUrls)
+        ? b.selectedLogoUrls.filter((u) => typeof u === 'string' && u.trim()).slice(0, 2)
+        : [];
+      const base64Products = Array.isArray(b.imageBase64List) ? b.imageBase64List : [];
+      const base64Logos = Array.isArray(b.logoBase64List) ? b.logoBase64List : [];
+
+      if (productUrlList.length + base64Products.length < 1) {
+        return NextResponse.json({ error: 'Select or upload at least one product image' }, { status: 400 });
+      }
+      if (productUrlList.length + base64Products.length > 10) {
         return NextResponse.json({ error: 'Maximum 10 product images' }, { status: 400 });
       }
 
       const images: ProductImage[] = [];
-      for (let i = 0; i < b.imageBase64List.length; i++) {
-        const url = await uploadBase64ToImgBB(b.imageBase64List[i]);
+
+      const hostedProducts = await hostExternalImageUrls(productUrlList.slice(0, 10));
+      for (let i = 0; i < hostedProducts.length; i++) {
         images.push({
-          url,
+          url: hostedProducts[i],
           kind: i === 0 ? 'product' : 'packaging',
           alt: `${b.name.trim()} image ${i + 1}`,
         });
       }
 
+
+      for (let i = 0; i < base64Products.length; i++) {
+        const nonLogoCount = images.filter((img) => img.kind !== 'logo').length;
+        if (nonLogoCount >= 10) break;
+        const url = await uploadBase64ToImgBB(base64Products[i]);
+        images.push({
+          url,
+          kind: nonLogoCount === 0 ? 'product' : 'packaging',
+          alt: `${b.name.trim()} image ${nonLogoCount + 1}`,
+        });
+      }
+
       const logoUrls: string[] = [];
-      if (Array.isArray(b.logoBase64List)) {
-        for (const base64 of b.logoBase64List.slice(0, 2)) {
-          if (!base64) continue;
-          const url = await uploadBase64ToImgBB(base64);
-          logoUrls.push(url);
-          images.push({ url, kind: 'logo', alt: `${b.name.trim()} logo` });
-        }
+      const hostedLogos = await hostExternalImageUrls(logoUrlList);
+      for (const url of hostedLogos) {
+        logoUrls.push(url);
+        images.push({ url, kind: 'logo', alt: `${b.name.trim()} logo` });
+      }
+      for (const base64 of base64Logos.slice(0, 2)) {
+        if (!base64) continue;
+        const url = await uploadBase64ToImgBB(base64);
+        logoUrls.push(url);
+        images.push({ url, kind: 'logo', alt: `${b.name.trim()} logo` });
       }
 
       const classifiedImages = classifyProductImagesHeuristic(images);
