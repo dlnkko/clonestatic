@@ -23,6 +23,7 @@ type UrlStep = 'input' | 'info' | 'logo' | 'products';
 type ScrapePreview = {
   productUrl: string;
   name: string;
+  summary: string;
   description: string;
   targetAudience: string;
   colorPalette: string;
@@ -144,9 +145,11 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     setPricingConfig(pricingConfigFromExtracted(p.extractedPricing));
   };
 
-  const preselectScrapedImages = (images: ProductImage[]) => {
+  const preselectScrapedImages = (images: ProductImage[], logoUrl?: string | null) => {
     const logoCandidate =
-      images.find((img) => img.kind === 'logo')?.url ?? null;
+      logoUrl?.trim() ||
+      images.find((img) => img.kind === 'logo')?.url ||
+      null;
     setSelectedLogoUrls(logoCandidate ? [logoCandidate] : []);
     setSelectedProductUrls([]);
   };
@@ -180,7 +183,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
       const images = Array.isArray(p.images) ? p.images : [];
       setPreview(p);
       setScrapedImages(images);
-      preselectScrapedImages(images);
+      preselectScrapedImages(images, p.logoUrl);
       setName(p.name);
       setDescription(p.description);
       setTargetAudience(p.targetAudience);
@@ -197,10 +200,6 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
   const handleContinueToLogo = () => {
     if (!name.trim()) {
       setError('Product name is required');
-      return;
-    }
-    if (!description.trim()) {
-      setError('Product description is required');
       return;
     }
     if (paletteColors.length < 1) {
@@ -248,6 +247,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
           selectedProductUrls: selectedProductUrls,
           imageBase64List,
           logoBase64List,
+          scrapeSummary: preview.summary,
           branding: preview.branding,
           extractedPricing: preview.extractedPricing,
           markdown: preview.markdown,
@@ -350,7 +350,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
   const infoFields = (
     <div className="product-modal-scroll space-y-5 max-h-[58vh] overflow-y-auto pr-1">
       <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-4 py-3 text-xs leading-relaxed text-indigo-900">
-        Review scraped copy, pricing, and brand colors. Next you will pick your logo and product images from the page.
+        Review scraped pricing and brand colors. Page copy for AI is saved automatically — not shown here. Next: pick logo and product images.
       </div>
       <div className="product-modal-section space-y-4">
         <div>
@@ -359,8 +359,8 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
         </div>
         {pricingFields}
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600">Description</label>
-          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} className="dash-input" />
+          <label className="mb-1 block text-xs font-medium text-slate-600">Short description (optional)</label>
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="dash-input" placeholder="Your own product blurb — AI uses scraped page data separately." />
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-600">Target audience (optional)</label>

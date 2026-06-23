@@ -236,7 +236,7 @@ export async function POST(request: NextRequest) {
     ) {
       try {
         const admin = createAdminClient();
-        savedProduct = await refreshProductPageScrape(admin, productId, productOwnerUserId);
+        savedProduct = (await refreshProductPageScrape(admin, productId, productOwnerUserId)).product;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to refresh product page';
         return NextResponse.json({ error: message }, { status: 500 });
@@ -1026,7 +1026,7 @@ export async function POST(request: NextRequest) {
       matchedProductImageUrls: buildKieProductImageUrls({
         matchedVisuals: matchedProductVisuals,
         catalogImages,
-        useFullCatalog: savedProduct ? isUserUploadedProduct(savedProduct) : false,
+        useFullCatalog: false,
       }),
       hasDedicatedLogo: matchedProductVisuals.some((m) => m.role === 'logo'),
       hasPersonInReference: effectiveHasPersonInReference(referenceVisualStyle, {

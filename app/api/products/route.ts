@@ -10,6 +10,7 @@ import { checkRateLimit } from '@/lib/rate-limit';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { assertCanAddProduct } from '@/lib/subscription-limits';
 import { buildScrapeCacheFromPageScrape } from '@/lib/products/build-scrape-cache';
+import { pageDescriptionFromMetadata } from '@/lib/products/compare-scrape-cache';
 import { hostExternalImageUrls } from '@/lib/products/host-scraped-image';
 
 export const dynamic = 'force-dynamic';
@@ -77,6 +78,7 @@ type CreateUrlFromPreviewBody = {
   branding?: Record<string, unknown> | null;
   extractedPricing?: ProductScrapeCache['extractedPricing'];
   markdown?: string | null;
+  scrapeSummary?: string | null;
 };
 
 export async function POST(request: NextRequest) {
@@ -185,7 +187,7 @@ export async function POST(request: NextRequest) {
       const mergedImages = classifiedImages;
 
       const scrapeCache: ProductScrapeCache = {
-        summary: (b.description || b.name).trim(),
+        summary: (b.scrapeSummary || b.description || b.name).trim(),
         branding: b.branding ?? null,
         markdown: b.markdown?.trim() ? b.markdown.trim().slice(0, 12000) : null,
         scrapedAt: new Date().toISOString(),
@@ -202,7 +204,7 @@ export async function POST(request: NextRequest) {
           name: b.name.trim().slice(0, 200),
           source: 'url',
           product_url: b.productUrl.trim(),
-          description: (b.description || b.name).trim().slice(0, 4000),
+          description: (b.description || '').trim().slice(0, 4000) || null,
           target_audience: b.targetAudience?.trim().slice(0, 1000) || null,
           color_palette: colors?.length ? { colors } : null,
           logo_url: logoUrls[0] ?? null,
@@ -276,7 +278,7 @@ export async function POST(request: NextRequest) {
           name: productName.slice(0, 200),
           source: 'url',
           product_url: productUrl.trim(),
-          description: scraped.summary.slice(0, 4000),
+          description: pageDescriptionFromMetadata(scraped.metadata).slice(0, 4000) || null,
           target_audience: null,
           color_palette: colorPalette,
           logo_url: logoImages[0]?.url ?? scraped.logoUrl ?? null,

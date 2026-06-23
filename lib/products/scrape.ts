@@ -89,9 +89,17 @@ function extractLogoFromBranding(branding: Record<string, unknown> | null): stri
 function extractLogoFromMetadata(metadata: Record<string, unknown> | null): string[] {
   if (!metadata) return [];
   const out: string[] = [];
-  for (const key of ['logo', 'ogLogo', 'twitterImage', 'appleTouchIcon']) {
+  const directLogo = readStringField(metadata.logo);
+  if (directLogo) out.push(directLogo);
+  for (const key of ['ogLogo', 'ogSiteLogo', 'siteLogo']) {
     const u = readStringField(metadata[key]);
-    if (u && isLikelyLogoUrl(u)) out.push(u);
+    if (u) out.push(u);
+  }
+  for (const key of ['twitterImage', 'appleTouchIcon', 'favicon']) {
+    const u = readStringField(metadata[key]);
+    if (u && (LOGO_EXT.test(u) || isLikelyLogoUrl(u) || /logo|brand|wordmark/i.test(u))) {
+      out.push(u);
+    }
   }
   return out;
 }
@@ -286,7 +294,7 @@ export async function scrapeProductPage(
   collectFromUnknown(data, productUrlSet);
 
   for (const u of extractLogoFromBranding(branding)) {
-    if (isLikelyLogoUrl(u) || LOGO_EXT.test(u)) logoUrlSet.add(u);
+    logoUrlSet.add(u);
   }
   for (const u of extractLogoFromMetadata(metadata)) {
     logoUrlSet.add(u);

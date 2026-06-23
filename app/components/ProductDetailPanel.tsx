@@ -36,10 +36,12 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
   const [logoImages, setLogoImages] = useState<EditableProductImage[]>([]);
   const [saving, setSaving] = useState(false);
   const [resyncing, setResyncing] = useState(false);
+  const [pageSyncStatus, setPageSyncStatus] = useState<'idle' | 'updated' | 'uptodate'>('idle');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!product) return;
+    setPageSyncStatus('idle');
     setName(product.name);
     setDescription(product.description ?? '');
     setTargetAudience(product.target_audience ?? '');
@@ -121,8 +123,12 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to re-sync product page');
       const updated = data.product as ProductRecord;
-      setDescription(updated.description ?? '');
-      onSaved(updated);
+      if (data.updated) {
+        setPageSyncStatus('updated');
+        onSaved(updated);
+      } else {
+        setPageSyncStatus('uptodate');
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Re-sync failed');
     } finally {
@@ -189,17 +195,40 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
             </div>
 
             {product.product_url && (
-              <div className="rounded-2xl border border-sky-100 bg-sky-50/80 p-4">
-                <p className="text-sm font-medium text-slate-800">{t('products', 'resyncFromUrl')}</p>
-                <p className="mt-1 text-xs leading-relaxed text-slate-600">{t('products', 'resyncHint')}</p>
+              <div className="rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-800">{t('products', 'pageCopySync')}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-600">{t('products', 'pageCopySyncHint')}</p>
+                  </div>
+                  {pageSyncStatus === 'updated' && (
+                    <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-800">
+                      {t('products', 'pageCopyUpdated')}
+                    </span>
+                  )}
+                  {pageSyncStatus === 'uptodate' && (
+                    <span className="shrink-0 rounded-full bg-slate-200/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                      {t('products', 'pageCopyUpToDate')}
+                    </span>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={handleResync}
-                  disabled={resyncing || saving}
-                  className="dash-btn dash-btn-secondary mt-3 text-xs"
+                  disabled={resyncing || saving || pageSyncStatus === 'uptodate'}
+                  className="dash-btn dash-btn-secondary mt-3 text-xs disabled:opacity-50"
                 >
-                  {resyncing ? t('products', 'resyncing') : t('products', 'resyncFromUrl')}
+                  {resyncing ? t('products', 'resyncing') : t('products', 'syncPageData')}
                 </button>
+                {pageSyncStatus === 'uptodate' && (
+                  <button
+                    type="button"
+                    onClick={() => setPageSyncStatus('idle')}
+                    className="mt-2 text-[11px] font-medium text-sky-700 hover:underline"
+                  >
+                    Check again
+                  </button>
+                )}
               </div>
             )}
 
@@ -209,6 +238,7 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
             </div>
             <div>
               <label className="dash-label mb-1.5">{t('products', 'description')}</label>
+              <p className="mb-1.5 text-[11px] leading-relaxed text-slate-500">{t('products', 'descriptionHint')}</p>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}

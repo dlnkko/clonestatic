@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { errorMessageFromUnknown, userMessageForProductScrape } from '@/lib/api-error-message';
 import { createClient } from '@/lib/supabase/server';
 import { scrapeProductPage } from '@/lib/products/scrape';
+import { pageDescriptionFromMetadata } from '@/lib/products/compare-scrape-cache';
 import { pricingConfigFromExtracted } from '@/lib/products/pricing-config';
 import { checkRateLimit } from '@/lib/rate-limit';
 
@@ -60,11 +61,14 @@ export async function POST(request: NextRequest) {
         }
       : null;
 
+    const pageDescription = pageDescriptionFromMetadata(scraped.metadata);
+
     return NextResponse.json({
       preview: {
         productUrl: productUrl.trim(),
         name: productName,
-        description: scraped.summary,
+        summary: scraped.summary,
+        description: pageDescription,
         targetAudience: '',
         colorPalette: colorPalette?.colors?.join(', ') ?? '',
         branding: scraped.branding,

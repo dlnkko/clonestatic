@@ -32,7 +32,7 @@ export async function POST(
     }
 
     const product = await refreshProductPageScrape(supabase, id, user.id);
-    return NextResponse.json({ product });
+    return NextResponse.json({ product: product.product, updated: product.updated });
   } catch (err) {
     const message = errorMessageFromUnknown(err);
     console.error('[products/resync]', message);
