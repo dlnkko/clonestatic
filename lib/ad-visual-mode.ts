@@ -65,16 +65,16 @@ export function classifyAdVisualMode(params: {
   } = params;
 
   const illustrativeOptsEarly = { referenceShowsPackaging };
-  // A real photographic scene (person or location/sport environment in a photo/mixed ad)
-  // takes priority — annotation callouts / feature rows can coexist with a real photo and
-  // must NOT downgrade it to a flat studio "design" render.
-  if (
-    vs &&
-    !isIllustrativeVisualStyle(vs, illustrativeOptsEarly) &&
-    (effectiveHasPersonInReference(vs, illustrativeOptsEarly) ||
-      (vs.hasEnvironment && (vs.visualMedium === 'photo' || vs.visualMedium === 'mixed')))
-  ) {
-    return 'realistic';
+  // Realistic (GPT Image 2) is reserved for ads that need photoreal humans/scenes:
+  //   - a real photographic PERSON (photo or mixed medium), OR
+  //   - a real photographic LOCATION/lifestyle scene shot as a pure PHOTO.
+  // A "mixed"/graphic/3d background WITHOUT a real person is design-focused → Nano Banana Pro.
+  // This real-scene case takes priority over feature/annotation rows so a real photo is not
+  // downgraded to a flat studio "design" render.
+  if (vs && !isIllustrativeVisualStyle(vs, illustrativeOptsEarly)) {
+    const realPerson = effectiveHasPersonInReference(vs, illustrativeOptsEarly);
+    const realPhotoEnvironment = vs.hasEnvironment && vs.visualMedium === 'photo';
+    if (realPerson || realPhotoEnvironment) return 'realistic';
   }
 
   if (hasReferenceFeatureRow) return 'design';
@@ -105,9 +105,15 @@ export function classifyAdVisualMode(params: {
     return 'design';
   }
 
-  if (effectiveHasPersonInReference(vs, illustrativeOpts) || vs.hasEnvironment) return 'realistic';
+  // Real person → realistic. A real-photo environment → realistic; a graphic/mixed/3d
+  // "environment" without a real person is design-focused (Nano Banana Pro).
+  if (effectiveHasPersonInReference(vs, illustrativeOpts)) return 'realistic';
+  if (vs.hasEnvironment && vs.visualMedium === 'photo') return 'realistic';
 
-  if (dt === 'has-person' || dt === 'has-environment' || dt === 'has-person-or-environment') {
+  if (dt === 'has-person' || dt === 'has-person-or-environment') {
+    return 'realistic';
+  }
+  if (dt === 'has-environment' && vs.visualMedium === 'photo') {
     return 'realistic';
   }
 

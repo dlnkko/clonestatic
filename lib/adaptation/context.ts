@@ -204,15 +204,14 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     referenceShowsPackaging,
     matchedProductVisuals,
   });
-  // Reference is a real photographic scene if it has a real person OR a real location/sport
-  // environment in a photo/mixed medium (not illustration/diagram/graphic-only).
+  // Reference is a real photographic scene if it has a real person (photo/mixed medium) OR a
+  // real location/sport environment shot as a pure photo (not illustration/diagram/graphic).
   const hasReferenceRealScene =
     !hasIllustrativeVisual &&
     !isGraphicOnly &&
     (hasPersonInReference ||
       (referenceVisualStyle?.hasEnvironment === true &&
-        (referenceVisualStyle.visualMedium === 'photo' ||
-          referenceVisualStyle.visualMedium === 'mixed')));
+        referenceVisualStyle.visualMedium === 'photo'));
 
   const referenceTextLines =
     copywritingProfile?.referenceAllTextLines?.length
