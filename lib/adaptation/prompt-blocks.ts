@@ -235,7 +235,7 @@ export function qaRulesBlock(
 Check the final prompt. Return JSON: { "pass": boolean, "issues": string[] }
 
 Rules:
-1. No competitor promo numbers unless in promoClaimsUsed; if referenceHasPromoOfferLine is false, promoClaimsUsed must be empty and prompt must not mention flash sale / % off
+1. No competitor promo numbers unless in promoClaimsUsed; if referenceHasPromoOfferLine is false, promoClaimsUsed must be empty and prompt must not mention flash sale / % off. ${ctx.referenceHasPriceVisual ? '' : 'referenceHasPriceVisual is false → prompt must NOT contain any dollar amount, strikethrough price, "$X / $Y", or "SPECIAL DEAL $X" (a "% OFF" promo line is OK, a price is NOT).'}
 2. Tagline must not match referenceVerbatimPhrases (no plagiarized hooks)
 3. Product pose from reference (not upload) — oldprompts §2 product POSE AND ARRANGEMENT
 4. hasIllustrativeVisual without real people → no stock photo people/faces unless reference had them; product render may be hyperreal OR stylized per reference — FAIL only if prompt adds real photo models when reference had none

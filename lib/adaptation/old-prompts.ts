@@ -676,7 +676,7 @@ ${typographyHierarchySection}
 ${replaceAdaptProductBlock(ctx)}
 
 5. **STRICT DATA RULE — Match reference STRUCTURE; scraped data fills allowed slots only:**
-- **Promo/offer lines:** ${ctx.referenceHasPromoOfferLine ? 'Reference HAS a promo line — you may use scraped discount/offer text in that slot only (exact numbers from scrape).' : 'Reference has NO promo line — do NOT add "FLASH SALE", "% OFF", checkout offers, or any sale banner even if the product page mentions them.'}
+- **Promo/offer lines:** ${ctx.referenceHasPromoOfferLine ? `Reference HAS a promo line — you may use scraped discount/offer text in that slot only (exact numbers from scrape).${ctx.referenceHasPriceVisual ? '' : ' The reference promo is offer/discount text (e.g. "47% OFF", "FREE SHIPPING") with NO price badge — keep it as a percentage/offer phrase; NEVER output a dollar amount, strikethrough price, "$X / $Y" or "SPECIAL DEAL $X".'}` : 'Reference has NO promo line — do NOT add "FLASH SALE", "% OFF", checkout offers, or any sale banner even if the product page mentions them.'}
 - **Original copy:** Never reuse reference headline/hook phrases verbatim${ctx.referenceVerbatimPhrases.length ? ` (forbidden: ${ctx.referenceVerbatimPhrases.map((p) => `"${p}"`).join(', ')})` : ''}. Same rhetorical pattern, new words for the user's product.
 - **When scraped data has benefits/specs** — use them in spec lines, icon labels, footers. Do NOT invent claims.
 - **When scraped data does NOT have a fact** — omit. Never copy competitor copy or numbers from the reference.

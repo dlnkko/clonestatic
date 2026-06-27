@@ -35,6 +35,7 @@ import { TeamMembersPanel } from '../components/dashboard/TeamMembersPanel';
 async function createGeneratingCreation(
   aspectRatio: string,
   prompt: string,
+  referenceImageUrl?: string | null,
   retries = 3
 ): Promise<string | null> {
   for (let attempt = 0; attempt < retries; attempt++) {
@@ -47,6 +48,7 @@ async function createGeneratingCreation(
           status: 'generating',
           aspect_ratio: aspectRatio,
           prompt,
+          reference_image_url: referenceImageUrl ?? null,
         }),
       });
       const createData = await createRes.json();
@@ -186,6 +188,7 @@ export type CreationItem = {
   created_at: string;
   status?: 'generating' | 'completed' | 'failed';
   error_message?: string | null;
+  reference_image_url?: string | null;
 };
 
 export type LibraryAdCard = {
@@ -259,6 +262,7 @@ function StaticAdAppPage() {
   const [detailProduct, setDetailProduct] = useState<ProductRecord | null>(null);
   const [creations, setCreations] = useState<CreationItem[]>([]);
   const [creationsLoading, setCreationsLoading] = useState(false);
+  const [referencePreviewUrl, setReferencePreviewUrl] = useState<string | null>(null);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
   const [pendingPreviewCreationId, setPendingPreviewCreationId] = useState<string | null>(null);
   const [user, setUser] = useState<{ email: string; name?: string } | null>(null);
@@ -550,6 +554,7 @@ function StaticAdAppPage() {
           aspect_ratio: aspect,
           created_at: new Date().toISOString(),
           status: 'generating',
+          reference_image_url: refData.url,
         };
         setCreations((prev) => {
           const next = [optimistic, ...prev.filter((c) => c.id !== creationId)];
@@ -1355,6 +1360,40 @@ function StaticAdAppPage() {
         onBillingChange={setPricingBilling}
       />
 
+      {referencePreviewUrl && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setReferencePreviewUrl(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="relative flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+              <span className="text-sm font-semibold text-slate-800">Reference ad used</span>
+              <button
+                type="button"
+                onClick={() => setReferencePreviewUrl(null)}
+                className="dash-icon-btn-sm"
+                title="Close"
+              >
+                <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <div className="flex items-center justify-center overflow-auto bg-slate-50 p-4">
+              <ProxiedImage
+                src={referencePreviewUrl}
+                alt="Reference ad"
+                className="max-h-[70vh] w-auto rounded-lg object-contain"
+                fallbackClassName="aspect-[9/16] w-full"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       <DashboardShell
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -1423,6 +1462,9 @@ function StaticAdAppPage() {
                         <span className="dash-text-muted-sm truncate">{c.aspect_ratio || '—'} · {new Date(c.created_at).toLocaleDateString()}</span>
                         {!isGenerating && !isFailed && (
                           <div className="flex shrink-0 gap-1">
+                            {c.reference_image_url && (
+                              <button type="button" onClick={() => setReferencePreviewUrl(c.reference_image_url!)} className="dash-icon-btn-sm" title="View reference ad"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></button>
+                            )}
                             <a href={c.image_url!} target="_blank" rel="noopener noreferrer" className="dash-icon-btn-sm" title="Open"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
                             <button type="button" onClick={() => handleDownloadImage(c.image_url!, 'generated-ad.jpg')} className="dash-btn dash-btn-primary !px-2 !py-1.5" title="Download"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
                           </div>

@@ -145,6 +145,7 @@ export async function POST(request: NextRequest) {
           aspect_ratio: aspectRatio,
           prompt: null,
           status: 'generating',
+          reference_image_url: referenceImageUrl,
         })
         .select('id')
         .single();

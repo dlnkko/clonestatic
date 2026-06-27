@@ -34,7 +34,7 @@ export async function GET() {
     const cutoff = creationsRetentionCutoff();
     const { data, error } = await supabase
       .from('creations')
-      .select('id, image_url, aspect_ratio, created_at, status, error_message')
+      .select('id, image_url, aspect_ratio, created_at, status, error_message, reference_image_url')
       .eq('user_id', user.id)
       .gte('created_at', cutoff)
       .order('created_at', { ascending: false })
@@ -65,12 +65,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
     const body = await request.json();
-    const { image_url, aspect_ratio, prompt, status: statusParam } = body as {
+    const { image_url, aspect_ratio, prompt, status: statusParam, reference_image_url } = body as {
       image_url?: string;
       aspect_ratio?: string;
       prompt?: string;
       status?: 'generating' | 'completed' | 'failed';
+      reference_image_url?: string;
     };
+    const referenceUrl =
+      typeof reference_image_url === 'string' && reference_image_url.startsWith('http')
+        ? reference_image_url
+        : null;
     const status =
       statusParam === 'generating'
         ? 'generating'
@@ -91,8 +96,9 @@ export async function POST(request: NextRequest) {
         aspect_ratio: aspect_ratio ?? null,
         prompt: prompt ?? null,
         status,
+        reference_image_url: referenceUrl,
       })
-      .select('id, created_at, status, aspect_ratio, image_url')
+      .select('id, created_at, status, aspect_ratio, image_url, reference_image_url')
       .single();
     if (error) {
       console.error('Supabase creations insert error:', error);

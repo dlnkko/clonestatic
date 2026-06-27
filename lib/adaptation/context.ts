@@ -279,6 +279,7 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
       headlineWords,
       mainCopyWords,
       referenceHasPromoOfferLine,
+      referenceHasPriceVisual,
       referenceVerbatimPhrases,
       line2Pattern,
     }) +
@@ -461,6 +462,7 @@ function buildCopywritingInstructions(opts: {
   headlineWords: number;
   mainCopyWords: number;
   referenceHasPromoOfferLine: boolean;
+  referenceHasPriceVisual: boolean;
   referenceVerbatimPhrases: string[];
   line2Pattern: Line2CopyPattern;
 }): string {
@@ -474,6 +476,7 @@ function buildCopywritingInstructions(opts: {
     headlineWords,
     mainCopyWords,
     referenceHasPromoOfferLine,
+    referenceHasPriceVisual,
     referenceVerbatimPhrases,
     line2Pattern,
   } = opts;
@@ -484,7 +487,11 @@ function buildCopywritingInstructions(opts: {
       : `**ORIGINAL COPY (CRITICAL):** Do NOT reuse the reference ad's exact headline or hook wording. Paraphrase with the same tone, brevity, and rhetorical structure for the user's product.`;
 
   const promoStructureBlock = referenceHasPromoOfferLine
-    ? `**PROMO LINES:** The reference includes a dedicated promo/offer line. You MAY add a promo line ONLY if the scraped product page explicitly mentions that offer (discount %, sale name, etc.). Use exact wording/numbers from scrape only.`
+    ? `**PROMO LINES:** The reference includes a dedicated promo/offer line. You MAY add a promo line ONLY if the scraped product page explicitly mentions that offer (discount %, sale name, free shipping, etc.). Use exact wording/numbers from scrape only.${
+        referenceHasPriceVisual
+          ? ''
+          : ' **NO DOLLAR PRICES (CRITICAL):** The reference promo line is offer/discount text (e.g. "UP TO 47% OFF", "FREE SHIPPING") with NO visible price badge. Match that style only — never output a dollar amount, strikethrough price, "$X / $Y", or "SPECIAL DEAL $X". Keep the promo as a percentage/offer phrase, not a price.'
+      }`
     : `**PROMO LINES (CRITICAL):** The reference ad has NO separate promo/offer/discount line (no "X% OFF", no "FLASH SALE", no checkout offer under the headline). Do NOT add any promo line, sale banner, or discount text — even if the product page mentions discounts. Scraped offers are omitted unless the reference layout includes a promo slot.`;
 
   if (isUrlScraped && scrapedSummary && copywritingProfile && rhetoricalFigures) {

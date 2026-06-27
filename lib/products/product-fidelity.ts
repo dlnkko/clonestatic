@@ -99,13 +99,14 @@ Reference = layout zones only. Match brand exactly; re-pose/re-light freely; pro
 
 **HERO PRODUCT (CRITICAL):** The ad is ALWAYS about ${productLabel} — NEVER the reference competitor's product.
 - Replace the reference product hero with the user's exact catalog product (shape, label, packaging from photos).
+- **CONTAINER / FORMAT LOCK:** Reproduce the EXACT container/format shown in the attached photo (pouch stays a pouch, jar stays a jar, bottle stays a bottle, can stays a can). NEVER invent, swap, or "imagine" a different container, and NEVER borrow the reference's container shape. If the photo shows a stand-up pouch, the ad must show that same stand-up pouch — not a tub, jar, or bottle.
 - FORBIDDEN: showing the competitor's product category (reference sells sheets → do NOT show bedding packages; reference sells pills → do NOT show competitor bottle shape unless catalog is pills).
 - FORBIDDEN: reskinning the reference product — same container type as competitor with user's label only.
 - Scene props from reference (rumpled sheets, bed, surfaces) may stay as background/styling when they support mood — but the sellable hero must be the user's product only (e.g. sleep drink can on bedsheets, NOT a sheets package).`;
 }
 
 /** Short Kie suffix — main prompt carries ad-specific detail. */
-export const KIE_RENDER_RULES_SUFFIX = `Rules: (1) Catalog = color, label, logo, shape exact; pose/angle/texture/render style per reference ad (hyperreal or stylized OK). (2) Copy verbatim, one row each. (3) Headline largest, subhead ~30%. (4) Hero = user catalog product only — never competitor product category. (5) No price unless reference had price badge.`;
+export const KIE_RENDER_RULES_SUFFIX = `Rules: (1) Catalog = color, label, logo, container/format + shape EXACT from the attached photo — never invent or swap the container (pouch stays a pouch, not a jar); only pose/angle/texture/render style follow the reference ad (hyperreal or stylized OK). (2) Copy verbatim, one row each. (3) Headline largest, subhead ~30%. (4) Hero = user catalog product only — never competitor product category or its container shape. (5) No price unless reference had price badge.`;
 
 export function appendKieProductFidelityPrompt(
   prompt: string,
