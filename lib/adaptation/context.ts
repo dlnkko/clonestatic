@@ -167,7 +167,8 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     : null;
 
   const referencePhotoStyle =
-    referenceVisualStyle?.hasPerson && referenceVisualStyle.visualMedium === 'photo'
+    referenceVisualStyle?.hasPerson &&
+    (referenceVisualStyle.visualMedium === 'photo' || referenceVisualStyle.visualMedium === 'mixed')
       ? parseReferencePhotoStyle(referencePrompt)
       : null;
 
@@ -203,6 +204,15 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     referenceShowsPackaging,
     matchedProductVisuals,
   });
+  // Reference is a real photographic scene if it has a real person OR a real location/sport
+  // environment in a photo/mixed medium (not illustration/diagram/graphic-only).
+  const hasReferenceRealScene =
+    !hasIllustrativeVisual &&
+    !isGraphicOnly &&
+    (hasPersonInReference ||
+      (referenceVisualStyle?.hasEnvironment === true &&
+        (referenceVisualStyle.visualMedium === 'photo' ||
+          referenceVisualStyle.visualMedium === 'mixed')));
 
   const referenceTextLines =
     copywritingProfile?.referenceAllTextLines?.length
@@ -326,6 +336,7 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     referenceShowsPackaging,
     hasPersonInReference,
     hasIllustrativeVisual,
+    hasReferenceRealScene,
     referenceTextLines,
     line2Pattern,
     headlineWords,
@@ -560,6 +571,7 @@ export function contextSummaryForAgent(ctx: AdaptationContext): string {
         isGraphicOnly: ctx.isGraphicOnly,
         hasPersonInReference: ctx.hasPersonInReference,
         hasIllustrativeVisual: ctx.hasIllustrativeVisual,
+        hasReferenceRealScene: ctx.hasReferenceRealScene,
         enforceOneMainElement: ctx.enforceOneMainElement,
         referenceShowsPackaging: ctx.referenceShowsPackaging,
         headlineWords: ctx.headlineWords,

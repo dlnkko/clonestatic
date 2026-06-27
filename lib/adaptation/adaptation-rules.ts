@@ -228,8 +228,23 @@ export function productThemedEnvironmentBlock(ctx: AdaptationContext): string {
       ? `- **Graphic/illustration ads:** swap props, motifs, and background graphics to the user's product category while keeping the same visual medium. Do NOT keep competitor-category graphics (bedding, coffee, etc.) when the product is fitness, beauty, etc.`
       : `- **Photo/environment ads:** replace setting, surfaces, architecture, and props when they belong to a different category than the user's product.`;
 
-  return `**PRODUCT-THEMED ENVIRONMENT (CRITICAL — every ad, every category):**
-Analyze the user's product${productHint} — category, use case, audience — and make the scene **100% on-theme for THAT product**, not the reference competitor's world.
+  const realSceneLock = ctx.hasReferenceRealScene
+    ? `**REAL SCENE LOCK (CRITICAL — reference is a real photographic scene):**
+The reference is a **real photographic scene** (a person and/or a real location/action/sport environment with depth, lighting, and atmosphere). The generated ad MUST be an **equivalent real photographic scene of the same type and energy**.
+- **FORBIDDEN:** collapsing it into a flat studio backdrop, plain gradient, seamless paper sweep, floating product on solid color, or "soft abstract waves / 3D shapes" background. That is a different ad, not a clone.
+- Keep the reference's **scene type + camera energy** (e.g. outdoor running/action shot stays an outdoor running/action shot; kitchen-counter lifestyle stays a kitchen-counter lifestyle), same depth-of-field, motion, and lighting mood.
+- Keep any **annotation callout lines / dotted leader lines** pointing from benefit labels to the product if the reference used them — reproduce that exact annotation style and positions; do NOT convert them into a separate side icon column unless the reference used a side icon column.
+- Only the **subject/setting specifics** shift to the user's product category (below) — the realism, scene format, and composition grammar stay.
+
+`
+    : '';
+
+  return `${realSceneLock}**PRODUCT-THEMED ENVIRONMENT (CRITICAL — every ad, every category):**
+Analyze the user's product${productHint} — category, use case, audience — and make the scene **100% on-theme for THAT product**, not the reference competitor's world.${
+    ctx.hasReferenceRealScene
+      ? ' When the reference category already matches the user (e.g. both fitness/creatine), **keep the same real environment** (gym/track/outdoor training) — do NOT neutralize it into a studio.'
+      : ''
+  }
 
 **Keep from reference (always):**
 - Layout structure, text zones, composition grammar, camera angle family, full-bleed framing

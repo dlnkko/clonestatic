@@ -46,7 +46,9 @@ export function effectiveHasPersonInReference(
 ): boolean {
   if (!vs?.hasPerson) return false;
   if (isIllustrativeVisualStyle(vs, options)) return false;
-  return vs.visualMedium === 'photo';
+  // "mixed" ads (real photo person/scene + product graphic overlay) still feature a
+  // real human — preserve it, don't drop the person just because graphics are present.
+  return vs.visualMedium === 'photo' || vs.visualMedium === 'mixed';
 }
 
 export function classifyAdVisualMode(params: {
@@ -61,6 +63,19 @@ export function classifyAdVisualMode(params: {
     referencePrompt = '',
     referenceShowsPackaging = false,
   } = params;
+
+  const illustrativeOptsEarly = { referenceShowsPackaging };
+  // A real photographic scene (person or location/sport environment in a photo/mixed ad)
+  // takes priority — annotation callouts / feature rows can coexist with a real photo and
+  // must NOT downgrade it to a flat studio "design" render.
+  if (
+    vs &&
+    !isIllustrativeVisualStyle(vs, illustrativeOptsEarly) &&
+    (effectiveHasPersonInReference(vs, illustrativeOptsEarly) ||
+      (vs.hasEnvironment && (vs.visualMedium === 'photo' || vs.visualMedium === 'mixed')))
+  ) {
+    return 'realistic';
+  }
 
   if (hasReferenceFeatureRow) return 'design';
 

@@ -250,6 +250,7 @@ ${ctx.creativeBridge ? `5b. CREATIVE BRIDGE: Prompt must reflect adapted hook "$
 ${ctx.referenceShowsPackaging ? '11b. PACKAGING: Reference had packaging zone — prompt must show USER catalog packaging in same position; FAIL if reference competitor bottle/jar shape or wrong container type (e.g. bottle when catalog has pouch/gummies)' : ''}
 21. PRODUCT FIDELITY: Prompt must render user's catalog product ONLY — FAIL if competitor product appears as hero, competitor category is reskinned (e.g. bedding package with user label when user sells a drink), or packaging not in catalog is invented
 22. PRODUCT-THEMED ENVIRONMENT: FAIL if competitor's sellable product category is shown; scene props OK when semantically fitting (e.g. rumpled sheets under user's sleep beverage can)
+${ctx.hasReferenceRealScene ? '22b. REAL SCENE LOCK: Reference is a real photographic scene (person/action/location). FAIL if the prompt collapses it into a flat studio backdrop, plain gradient, seamless sweep, or "soft abstract waves / 3D shapes" — output must keep an equivalent real photographic scene of the same type/energy. FAIL if annotation callout / dotted leader lines from the reference were dropped or converted into a side icon column.' : ''}
 23. PACKAGING LOGO: FAIL if prompt invents standalone footer/centered brand wordmark when reference was copy-only; logo must come from packaging print unless reference had standalone logo zone
 12. Logo placement rules respected
 13. Copy language: ${ctx.copyLanguageCode} (${ctx.copyLanguageName})

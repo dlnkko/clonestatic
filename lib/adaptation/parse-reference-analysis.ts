@@ -645,13 +645,20 @@ export function parseReferenceVisualStyle(vsText: string): import('./types').Ref
   );
   const mainElementsMatch = vsText.match(/Main elements:\s*(one-hero-only|multiple)/i);
 
-  const illustrativeMedium = ['illustration', 'diagram', '3d-render', 'mixed', 'product-graphic-only'].includes(
+  // Only PURE non-photo mediums suppress a real person. A "mixed" ad (real photo
+  // background/person + product graphic overlay + annotation callouts) is extremely
+  // common in DTC ads — the photographic person is still REAL and must be preserved.
+  const pureNonPhotoMedium = ['illustration', 'diagram', '3d-render', 'product-graphic-only'].includes(
     visualMedium
   );
+  const photoOrMixedMedium = visualMedium === 'photo' || visualMedium === 'mixed';
   const hasPerson =
-    (hasRealPhotoPerson || (legacyPerson && visualMedium === 'photo')) &&
-    !hasIllustration &&
-    !illustrativeMedium;
+    (hasRealPhotoPerson || (legacyPerson && photoOrMixedMedium)) &&
+    !pureNonPhotoMedium &&
+    // For "mixed", trust the explicit "real photographic person" signal even if the ad
+    // also has graphic overlays; only block when there's no real photo person at all.
+    (visualMedium !== 'mixed' || hasRealPhotoPerson || legacyPerson) &&
+    (hasRealPhotoPerson || !hasIllustration);
 
   let designType = designMatch?.[1]?.toLowerCase() ?? '';
   if (!designType) {

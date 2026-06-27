@@ -218,6 +218,8 @@ export type AdaptationContext = {
   referenceShowsPackaging: boolean;
   hasPersonInReference: boolean;
   hasIllustrativeVisual: boolean;
+  /** Reference is a real photographic scene (person OR location/sport environment in a photo/mixed ad). */
+  hasReferenceRealScene: boolean;
   referenceTextLines: { role: string; text: string }[];
   line2Pattern: Line2CopyPattern;
   headlineWords: number;
