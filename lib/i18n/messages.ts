@@ -12,6 +12,7 @@ type Messages = {
   onboarding: Record<string, string>;
   mirror: Record<string, string>;
   library: Record<string, string>;
+  history: Record<string, string>;
   products: Record<string, string>;
   team: Record<string, string>;
   common: Record<string, string>;
@@ -102,6 +103,17 @@ const en: Messages = {
     clone: 'Mirror',
     impressions: 'impressions',
     categoryLabel: 'Category',
+  },
+  history: {
+    retention: 'Images are kept for 30 days, then removed from History.',
+    empty: 'No creations yet. Generate an image in Mirror.',
+    referenceHint: 'Tap Reference on any ad to see the template it was cloned from.',
+    viewReference: 'Reference',
+    referenceAdUsed: 'Reference ad used',
+    generatedAd: 'Generated ad',
+    generating: 'Generating…',
+    failed: 'Generation failed',
+    tryAgain: 'Try again from Mirror',
   },
   products: {
     title: 'Products',
@@ -264,6 +276,17 @@ const es: Messages = {
     impressions: 'impresiones',
     categoryLabel: 'Categoría',
   },
+  history: {
+    retention: 'Las imágenes se guardan 30 días y luego se eliminan del historial.',
+    empty: 'Aún no hay creaciones. Genera una imagen en Mirror.',
+    referenceHint: 'Toca Reference en cualquier ad para ver la plantilla de la que se clonó.',
+    viewReference: 'Reference',
+    referenceAdUsed: 'Ad de referencia usado',
+    generatedAd: 'Ad generado',
+    generating: 'Generando…',
+    failed: 'La generación falló',
+    tryAgain: 'Inténtalo de nuevo desde Mirror',
+  },
   products: {
     title: 'Productos',
     subtitle: 'Guarda URLs e imágenes de productos para clonar más rápido.',
@@ -424,6 +447,17 @@ const pt: Messages = {
     clone: 'Clonar',
     impressions: 'impressões',
     categoryLabel: 'Categoria',
+  },
+  history: {
+    retention: 'As imagens ficam 30 dias e depois são removidas do histórico.',
+    empty: 'Nenhuma criação ainda. Gere uma imagem no Mirror.',
+    referenceHint: 'Toque em Reference em qualquer ad para ver o modelo do qual foi clonado.',
+    viewReference: 'Reference',
+    referenceAdUsed: 'Ad de referência usado',
+    generatedAd: 'Ad gerado',
+    generating: 'Gerando…',
+    failed: 'A geração falhou',
+    tryAgain: 'Tente novamente no Mirror',
   },
   products: {
     title: 'Produtos',

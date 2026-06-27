@@ -262,7 +262,7 @@ function StaticAdAppPage() {
   const [detailProduct, setDetailProduct] = useState<ProductRecord | null>(null);
   const [creations, setCreations] = useState<CreationItem[]>([]);
   const [creationsLoading, setCreationsLoading] = useState(false);
-  const [referencePreviewUrl, setReferencePreviewUrl] = useState<string | null>(null);
+  const [referencePreviewUrl, setReferencePreviewUrl] = useState<{ url: string; title: string } | null>(null);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
   const [pendingPreviewCreationId, setPendingPreviewCreationId] = useState<string | null>(null);
   const [user, setUser] = useState<{ email: string; name?: string } | null>(null);
@@ -1372,20 +1372,20 @@ function StaticAdAppPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-              <span className="text-sm font-semibold text-slate-800">Reference ad used</span>
+              <span className="text-sm font-semibold text-slate-800">{referencePreviewUrl.title}</span>
               <button
                 type="button"
                 onClick={() => setReferencePreviewUrl(null)}
                 className="dash-icon-btn-sm"
-                title="Close"
+                title={t('common', 'close')}
               >
                 <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
             <div className="flex items-center justify-center overflow-auto bg-slate-50 p-4">
               <ProxiedImage
-                src={referencePreviewUrl}
-                alt="Reference ad"
+                src={referencePreviewUrl.url}
+                alt={referencePreviewUrl.title}
                 className="max-h-[70vh] w-auto rounded-lg object-contain"
                 fallbackClassName="aspect-[9/16] w-full"
               />
@@ -1416,13 +1416,12 @@ function StaticAdAppPage() {
           <div className="dash-card dash-card-lg dash-animate-in">
             <h1 className="dash-title">{t('nav', 'history')}</h1>
             <div className="dash-title-accent" aria-hidden />
-            <p className="dash-text-muted mb-6">
-              Images are kept for 30 days, then removed from History.
-            </p>
+            <p className="dash-text-muted mb-2">{t('history', 'retention')}</p>
+            <p className="dash-text-muted-sm mb-6 text-slate-500">{t('history', 'referenceHint')}</p>
             {creationsLoading && creations.length === 0 ? (
               <div className="flex items-center justify-center py-12"><svg className="h-8 w-8 dash-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></div>
             ) : creations.length === 0 ? (
-              <p className="dash-text-muted py-12 text-center">No creations yet. Generate an image in Clone.</p>
+              <p className="dash-text-muted py-12 text-center">{t('history', 'empty')}</p>
             ) : (
               <div className="dash-grid-media">
                 {creations.map((c, index) => {
@@ -1434,40 +1433,62 @@ function StaticAdAppPage() {
                       {isGenerating ? (
                         <div className="flex aspect-[9/16] w-full flex-col items-center justify-center gap-2 dash-bg-muted p-4">
                           <svg className="h-6 w-6 dash-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                          <span className="dash-text-muted-sm font-medium">Generating...</span>
+                          <span className="dash-text-muted-sm font-medium">{t('history', 'generating')}</span>
                         </div>
                       ) : isFailed ? (
                         <div className="flex aspect-[9/16] w-full flex-col items-center justify-center gap-2 bg-red-50 p-4 text-center">
-                          <span className="text-xs font-medium text-red-700">Generation failed</span>
+                          <span className="text-xs font-medium text-red-700">{t('history', 'failed')}</span>
                           {c.error_message ? (
                             <span className="line-clamp-4 text-[10px] text-red-600">{c.error_message}</span>
                           ) : (
-                            <span className="text-[10px] text-red-600">Try again from Clone</span>
+                            <span className="text-[10px] text-red-600">{t('history', 'tryAgain')}</span>
                           )}
                         </div>
                       ) : (
-                        <a href={c.image_url!} target="_blank" rel="noopener noreferrer" className="block aspect-[9/16] w-full dash-bg-muted">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setReferencePreviewUrl({
+                              url: c.image_url!,
+                              title: t('history', 'generatedAd'),
+                            })
+                          }
+                          className="group relative block aspect-[9/16] w-full cursor-zoom-in dash-bg-muted text-left"
+                        >
                           <ProxiedImage
                             src={c.image_url!}
                             alt=""
-                            className="h-full w-full object-cover"
+                            className="h-full w-full object-cover transition group-hover:brightness-95"
                             fallbackClassName="aspect-[9/16] w-full"
                             loading={index < 12 ? 'eager' : 'lazy'}
                             decoding="async"
                             fetchPriority={index < 6 ? 'high' : 'auto'}
                           />
-                        </a>
+                        </button>
                       )}
-                      <div className="flex items-center justify-between gap-2 p-2 sm:p-3">
-                        <span className="dash-text-muted-sm truncate">{c.aspect_ratio || '—'} · {new Date(c.created_at).toLocaleDateString()}</span>
-                        {!isGenerating && !isFailed && (
-                          <div className="flex shrink-0 gap-1">
-                            {c.reference_image_url && (
-                              <button type="button" onClick={() => setReferencePreviewUrl(c.reference_image_url!)} className="dash-icon-btn-sm" title="View reference ad"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></button>
-                            )}
-                            <a href={c.image_url!} target="_blank" rel="noopener noreferrer" className="dash-icon-btn-sm" title="Open"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
-                            <button type="button" onClick={() => handleDownloadImage(c.image_url!, 'generated-ad.jpg')} className="dash-btn dash-btn-primary !px-2 !py-1.5" title="Download"><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
-                          </div>
+                      <div className="flex flex-col gap-2 p-2 sm:p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="dash-text-muted-sm truncate">{c.aspect_ratio || '—'} · {new Date(c.created_at).toLocaleDateString()}</span>
+                          {!isGenerating && !isFailed && (
+                            <div className="flex shrink-0 gap-1">
+                              <a href={c.image_url!} target="_blank" rel="noopener noreferrer" className="dash-icon-btn-sm" title={t('common', 'open')}><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+                              <button type="button" onClick={() => handleDownloadImage(c.image_url!, 'generated-ad.jpg')} className="dash-btn dash-btn-primary !px-2 !py-1.5" title={t('common', 'download')}><svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+                            </div>
+                          )}
+                        </div>
+                        {!isGenerating && !isFailed && c.reference_image_url && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setReferencePreviewUrl({
+                                url: c.reference_image_url!,
+                                title: t('history', 'referenceAdUsed'),
+                              })
+                            }
+                            className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-center text-xs font-medium text-slate-700 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+                          >
+                            {t('history', 'viewReference')}
+                          </button>
                         )}
                       </div>
                     </div>
