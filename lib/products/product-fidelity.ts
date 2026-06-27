@@ -92,13 +92,13 @@ export function productCatalogFidelityBlock(ctx: AdaptationContext): string {
   const productLabel = ctx.productName ? `"${ctx.productName}"` : "the user's product";
 
   return `**Product catalog fidelity:**
-${productLabel} from catalog photos only — colors, label, logo, container type.
+The hero product MUST be **the same exact product as seen in the attached image(s)** — ${productLabel}. Reproduce it 1:1 from the attached photos: identical colors, label text, logo, container/format and shape. Do NOT redesign, restyle, relabel, or substitute it.
 ${variantRule}
 ${catalogLines}
-Reference = layout zones only. Match brand exactly; re-pose/re-light freely; product render style per reference ad.
+Reference = layout zones only. Match the attached product exactly; only re-pose/re-light/re-angle it; product render style per reference ad.
 
-**HERO PRODUCT (CRITICAL):** The ad is ALWAYS about ${productLabel} — NEVER the reference competitor's product.
-- Replace the reference product hero with the user's exact catalog product (shape, label, packaging from photos).
+**HERO PRODUCT (CRITICAL):** The ad is ALWAYS about **the same exact product as seen in the attached image(s)** (${productLabel}) — NEVER the reference competitor's product.
+- Replace the reference product hero with the same exact product from the attached images (shape, label, packaging exactly as shown).
 - **CONTAINER / FORMAT LOCK:** Reproduce the EXACT container/format shown in the attached photo (pouch stays a pouch, jar stays a jar, bottle stays a bottle, can stays a can). NEVER invent, swap, or "imagine" a different container, and NEVER borrow the reference's container shape. If the photo shows a stand-up pouch, the ad must show that same stand-up pouch — not a tub, jar, or bottle.
 - FORBIDDEN: showing the competitor's product category (reference sells sheets → do NOT show bedding packages; reference sells pills → do NOT show competitor bottle shape unless catalog is pills).
 - FORBIDDEN: reskinning the reference product — same container type as competitor with user's label only.
@@ -106,7 +106,7 @@ Reference = layout zones only. Match brand exactly; re-pose/re-light freely; pro
 }
 
 /** Short Kie suffix — main prompt carries ad-specific detail. */
-export const KIE_RENDER_RULES_SUFFIX = `Rules: (1) Catalog = color, label, logo, container/format + shape EXACT from the attached photo — never invent or swap the container (pouch stays a pouch, not a jar); only pose/angle/texture/render style follow the reference ad (hyperreal or stylized OK). (2) Copy verbatim, one row each. (3) Headline largest, subhead ~30%. (4) Hero = user catalog product only — never competitor product category or its container shape. (5) No price unless reference had price badge.`;
+export const KIE_RENDER_RULES_SUFFIX = `Rules: (1) The hero is the SAME EXACT PRODUCT as seen in the attached image(s) — reproduce its color, label, logo, container/format + shape 1:1; never invent, redesign, or swap the container (pouch stays a pouch, not a jar); only pose/angle/texture/render style follow the reference ad (hyperreal or stylized OK). (2) Copy verbatim, one row each. (3) Headline largest, subhead ~30%. (4) Hero = the same exact attached product only — never the competitor product category or its container shape. (5) No price unless reference had price badge.`;
 
 export function appendKieProductFidelityPrompt(
   prompt: string,
