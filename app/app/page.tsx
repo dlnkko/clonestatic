@@ -648,6 +648,9 @@ function StaticAdAppPage() {
         visualMedium?: string | null;
         illustrationNotes?: string | null;
         productUseProfile?: import('@/lib/products/infer-product-use').ProductUseProfile | null;
+        referenceHasPriceVisual?: boolean;
+        allowedPrice?: string | null;
+        productBrandColors?: string[];
       }>(response);
       if (promptErr) {
         throw new Error(promptErr);
@@ -718,6 +721,9 @@ function StaticAdAppPage() {
         if (data.visualMedium) imageBody.visualMedium = data.visualMedium;
         if (data.illustrationNotes) imageBody.illustrationNotes = data.illustrationNotes;
         if (data.productUseProfile) imageBody.productUseProfile = data.productUseProfile;
+        if (data.referenceHasPriceVisual) imageBody.referenceHasPriceVisual = true;
+        if (data.allowedPrice) imageBody.allowedPrice = data.allowedPrice;
+        if (data.productBrandColors?.length) imageBody.productBrandColors = data.productBrandColors;
 
         const useKeepalive = !imageBody.productImageBase64;
 

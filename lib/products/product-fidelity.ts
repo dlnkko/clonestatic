@@ -105,8 +105,36 @@ Reference = layout zones only. Match the attached product exactly; only re-pose/
 - Scene props from reference (rumpled sheets, bed, surfaces) may stay as background/styling when they support mood — but the sellable hero must be the user's product only (e.g. sleep drink can on bedsheets, NOT a sheets package).`;
 }
 
-/** Short Kie suffix — main prompt carries ad-specific detail. */
-export const KIE_RENDER_RULES_SUFFIX = `Rules: (1) The hero is the SAME EXACT PRODUCT as seen in the attached image(s) — reproduce its color, label, logo, container/format + shape 1:1; never invent, redesign, or swap the container (pouch stays a pouch, not a jar); only pose/angle/texture/render style follow the reference ad (hyperreal or stylized OK). (2) Copy verbatim, one row each. (3) Headline largest, subhead ~30%. (4) Hero = the same exact attached product only — never the competitor product category or its container shape. (5) No price unless reference had price badge.`;
+/**
+ * Leading directive — placed FIRST in the prompt because image models weight the
+ * opening instruction most. Only the product image(s) are attached at generation
+ * time (NOT the reference ad), so this must be self-contained, not reference-relative.
+ */
+export const KIE_PRODUCT_FIRST_DIRECTIVE =
+  'Use the SAME EXACT PRODUCT shown in the attached image(s) as the hero of the ad — reproduce its packaging, container/format, label, logo, colors and shape exactly as shown. Do NOT redesign, relabel, recolor, or substitute it; only its pose, angle, lighting and render style may change.';
+
+function buildKieColorRule(productBrandColors?: string[]): string {
+  const colors = (productBrandColors ?? [])
+    .map((c) => (typeof c === 'string' ? c.trim() : ''))
+    .filter(Boolean)
+    .slice(0, 5);
+  if (colors.length > 0) {
+    return `Adapt the ad's background and accent colors to the product's OWN brand palette (${colors.join(', ')}) — keep the layout's color roles and contrast, but recolor with these hues; do NOT keep the reference ad's competitor colors.`;
+  }
+  return `Adapt the ad's background and accent colors to the attached product's OWN colors (packaging, label, dominant hues) — keep the layout's color roles and contrast, but recolor to match the product; do NOT keep the reference ad's competitor colors.`;
+}
+
+function buildKiePriceRule(referenceHasPriceVisual?: boolean, allowedPrice?: string | null): string {
+  // Resolved at build time — the image model never sees the reference ad, so the rule
+  // must be definitive, never "unless the reference had a price".
+  if (referenceHasPriceVisual) {
+    const price = allowedPrice?.trim();
+    return price
+      ? `Show the price exactly as "${price}" — no other amount, no invented prices.`
+      : 'Only show a price badge if a verified product price is provided; otherwise omit any price.';
+  }
+  return 'Do NOT include any price, dollar amount, "$XX", price sticker, or price badge anywhere in the ad.';
+}
 
 export function appendKieProductFidelityPrompt(
   prompt: string,
@@ -118,6 +146,9 @@ export function appendKieProductFidelityPrompt(
     hasIllustrativeVisual?: boolean;
     visualMedium?: string;
     illustrationNotes?: string;
+    referenceHasPriceVisual?: boolean;
+    allowedPrice?: string | null;
+    productBrandColors?: string[];
   }
 ): string {
   if (!hasProductImages) return prompt.trim();
@@ -129,7 +160,7 @@ export function appendKieProductFidelityPrompt(
   }
 
   if (options?.hasIllustrativeVisual && options.illustrationNotes?.trim()) {
-    extras.push(`Reference style: ${options.illustrationNotes.trim().slice(0, 80)}.`);
+    extras.push(`Render style: ${options.illustrationNotes.trim().slice(0, 80)}.`);
   } else if (options?.hasPersonInReference) {
     extras.push('Candid smartphone photo; product on model correctly.');
     if (options?.productUseProfile && options.productUseProfile.confidence !== 'low') {
@@ -137,7 +168,13 @@ export function appendKieProductFidelityPrompt(
     }
   }
 
-  let out = `${prompt.trim()}\n\n${KIE_RENDER_RULES_SUFFIX}`;
+  const colorRule = buildKieColorRule(options?.productBrandColors);
+  const priceRule = buildKiePriceRule(options?.referenceHasPriceVisual, options?.allowedPrice);
+
+  // Self-contained rules — no "follow the reference ad" (the reference is not attached here).
+  const rules = `Rules: (1) Hero = the SAME EXACT PRODUCT from the attached image(s): color, label, logo, container/format + shape reproduced 1:1 — never invent, redesign, or swap the container (a pouch stays a pouch, not a jar); only pose/angle/texture/render style may change. (2) Copy verbatim, one row each. (3) Headline largest, subhead ~30%. (4) ${colorRule} (5) ${priceRule}`;
+
+  let out = `${KIE_PRODUCT_FIRST_DIRECTIVE}\n\n${prompt.trim()}\n\n${rules}`;
   if (extras.length) out += ` ${extras.join(' ')}`;
   return out;
 }

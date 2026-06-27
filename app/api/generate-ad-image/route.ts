@@ -49,6 +49,9 @@ export async function POST(request: NextRequest) {
       visualMedium: visualMediumParam,
       illustrationNotes: illustrationNotesParam,
       productUseProfile: productUseProfileParam,
+      referenceHasPriceVisual: referenceHasPriceVisualParam,
+      allowedPrice: allowedPriceParam,
+      productBrandColors: productBrandColorsParam,
     } = body as {
       prompt?: string;
       productImageBase64?: string;
@@ -63,6 +66,9 @@ export async function POST(request: NextRequest) {
       visualMedium?: string;
       illustrationNotes?: string;
       productUseProfile?: import('@/lib/products/infer-product-use').ProductUseProfile | null;
+      referenceHasPriceVisual?: boolean;
+      allowedPrice?: string | null;
+      productBrandColors?: string[];
     };
 
     const creationId =
@@ -191,6 +197,14 @@ export async function POST(request: NextRequest) {
           ? illustrationNotesParam.trim()
           : undefined,
       productUseProfile: productUseProfileParam ?? null,
+      referenceHasPriceVisual: referenceHasPriceVisualParam === true,
+      allowedPrice:
+        typeof allowedPriceParam === 'string' && allowedPriceParam.trim()
+          ? allowedPriceParam.trim()
+          : null,
+      productBrandColors: Array.isArray(productBrandColorsParam)
+        ? productBrandColorsParam.filter((c): c is string => typeof c === 'string' && c.trim().length > 0)
+        : [],
     };
 
     after(async () => {

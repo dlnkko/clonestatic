@@ -17,6 +17,9 @@ export type AdImageGenerationParams = {
   visualMedium?: string;
   illustrationNotes?: string;
   productUseProfile?: import('@/lib/products/infer-product-use').ProductUseProfile | null;
+  referenceHasPriceVisual?: boolean;
+  allowedPrice?: string | null;
+  productBrandColors?: string[];
 };
 
 function appendAspectRatioHint(prompt: string, aspectRatio: string): string {
@@ -64,6 +67,9 @@ export async function runAdImageGenerationJob(params: AdImageGenerationParams): 
       visualMedium: params.visualMedium,
       illustrationNotes: params.illustrationNotes,
       productUseProfile: params.productUseProfile,
+      referenceHasPriceVisual: params.referenceHasPriceVisual,
+      allowedPrice: params.allowedPrice,
+      productBrandColors: params.productBrandColors,
     });
 
     await admin

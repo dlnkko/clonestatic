@@ -1038,6 +1038,9 @@ export async function POST(request: NextRequest) {
       visualMedium: referenceVisualStyle?.visualMedium ?? null,
       illustrationNotes: referenceVisualStyle?.illustrationNotes?.trim() || null,
       productUseProfile,
+      referenceHasPriceVisual,
+      allowedPrice: referenceHasPriceVisual ? allowedPrice : null,
+      productBrandColors: savedProduct?.color_palette?.colors ?? [],
       whyThisWorks: step2Result.whyThisWorks ?? step2Result.creativeBridge?.whyThisWorks ?? null,
       creativeBridge: step2Result.creativeBridge ?? null,
       usage: {

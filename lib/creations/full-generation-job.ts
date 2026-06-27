@@ -91,6 +91,9 @@ async function generatePrompt(
       visualMedium: string | null;
       illustrationNotes: string | null;
       productUseProfile: import('@/lib/products/infer-product-use').ProductUseProfile | null;
+      referenceHasPriceVisual: boolean;
+      allowedPrice: string | null;
+      productBrandColors: string[];
     }
   | { error: string }
 > {
@@ -115,6 +118,9 @@ async function generatePrompt(
       matchedProductImageUrls?: string[];
       error?: string;
       details?: string;
+      referenceHasPriceVisual?: boolean;
+      allowedPrice?: string | null;
+      productBrandColors?: string[];
     };
     if (!res.ok || !data.prompt) {
       const detail = [data.error, data.details].filter(Boolean).join(' — ');
@@ -137,6 +143,14 @@ async function generatePrompt(
           ? (data as { illustrationNotes: string }).illustrationNotes
           : null,
       productUseProfile: (data as { productUseProfile?: import('@/lib/products/infer-product-use').ProductUseProfile | null }).productUseProfile ?? null,
+      referenceHasPriceVisual: data.referenceHasPriceVisual === true,
+      allowedPrice:
+        typeof data.allowedPrice === 'string' && data.allowedPrice.trim()
+          ? data.allowedPrice.trim()
+          : null,
+      productBrandColors: Array.isArray(data.productBrandColors)
+        ? data.productBrandColors.filter((c): c is string => typeof c === 'string' && c.trim().length > 0)
+        : [],
     };
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Prompt generation failed' };
@@ -229,6 +243,9 @@ export async function runFullAdGenerationJob(params: FullAdGenerationParams): Pr
       visualMedium: promptResult.visualMedium ?? undefined,
       illustrationNotes: promptResult.illustrationNotes ?? undefined,
       productUseProfile: promptResult.productUseProfile,
+      referenceHasPriceVisual: promptResult.referenceHasPriceVisual,
+      allowedPrice: promptResult.allowedPrice,
+      productBrandColors: promptResult.productBrandColors,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Generation failed';

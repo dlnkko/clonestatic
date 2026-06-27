@@ -153,6 +153,9 @@ export async function generateAdImageWithKie(params: {
   visualMedium?: string;
   illustrationNotes?: string;
   productUseProfile?: import('@/lib/products/infer-product-use').ProductUseProfile | null;
+  referenceHasPriceVisual?: boolean;
+  allowedPrice?: string | null;
+  productBrandColors?: string[];
 }): Promise<{ imageUrl: string; taskId: string; model: string; adVisualMode: AdVisualMode }> {
   const {
     prompt,
@@ -165,6 +168,9 @@ export async function generateAdImageWithKie(params: {
     visualMedium,
     illustrationNotes,
     productUseProfile,
+    referenceHasPriceVisual,
+    allowedPrice,
+    productBrandColors,
   } = params;
   const ratio = mapAspectRatio(aspectRatio, adVisualMode);
   const maxCatalog =
@@ -178,6 +184,9 @@ export async function generateAdImageWithKie(params: {
     visualMedium,
     illustrationNotes,
     productUseProfile,
+    referenceHasPriceVisual,
+    allowedPrice,
+    productBrandColors,
   });
 
   let taskId: string;
