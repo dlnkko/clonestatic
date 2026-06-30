@@ -14,9 +14,11 @@ import {
   parseReferenceComparisonModule,
   parseReferenceLayoutZones,
   parseReferenceLayoutZonesFromAnalysis,
+  inferHasPhotoGraphicOverlay,
   parseReferencePhotoStyle,
   parseReferenceTextLayout,
   parseTypographyHierarchy,
+  type ReferenceCompositionStructure,
 } from './parse-reference-analysis';
 import { subheroCopyPatternBlockForProfile } from './adaptation-rules';
 import type { Line2CopyPattern } from './types';
@@ -108,6 +110,7 @@ export type BuildContextInput = {
   referenceComparisonModule?: string;
   hasReferenceComparisonModule?: boolean;
   referenceLayoutZonesBlock?: string;
+  referenceCompositionStructure?: ReferenceCompositionStructure;
   marketingAngle?: import('./types').MarketingAngleProfile | null;
   visualMetaphor?: import('./types').VisualMetaphorProfile | null;
   creativeDeconstruction?: import('./types').ReferenceCreativeDeconstruction | null;
@@ -150,6 +153,7 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     referenceComparisonModule = '',
     hasReferenceComparisonModule = false,
     referenceLayoutZonesBlock = '',
+    referenceCompositionStructure: referenceCompositionStructureInput,
     marketingAngle: marketingAngleInput = null,
     visualMetaphor: visualMetaphorInput = null,
     creativeDeconstruction: creativeDeconstructionInput = null,
@@ -204,14 +208,25 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     referenceShowsPackaging,
     matchedProductVisuals,
   });
+  const referenceCompositionStructure = referenceCompositionStructureInput ?? 'unknown';
   // Reference is a real photographic scene if it has a real person (photo/mixed medium) OR a
-  // real location/sport environment shot as a pure photo (not illustration/diagram/graphic).
+  // real location/lifestyle environment shot as photo/mixed (not illustration/diagram/graphic).
   const hasReferenceRealScene =
     !hasIllustrativeVisual &&
     !isGraphicOnly &&
     (hasPersonInReference ||
       (referenceVisualStyle?.hasEnvironment === true &&
-        referenceVisualStyle.visualMedium === 'photo'));
+        (referenceVisualStyle.visualMedium === 'photo' ||
+          referenceVisualStyle.visualMedium === 'mixed')));
+  const hasPhotoGraphicOverlay = inferHasPhotoGraphicOverlay({
+    compositionStructure: referenceCompositionStructure,
+    referencePrompt,
+    referenceVisualStyle,
+    hasReferenceComparisonModule,
+    isGraphicOnly,
+    hasIllustrativeVisual,
+    hasPersonInReference,
+  });
 
   const referenceTextLines =
     copywritingProfile?.referenceAllTextLines?.length
@@ -336,6 +351,7 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     hasPersonInReference,
     hasIllustrativeVisual,
     hasReferenceRealScene,
+    hasPhotoGraphicOverlay,
     referenceTextLines,
     line2Pattern,
     headlineWords,
@@ -571,6 +587,7 @@ export function contextSummaryForAgent(ctx: AdaptationContext): string {
         hasPersonInReference: ctx.hasPersonInReference,
         hasIllustrativeVisual: ctx.hasIllustrativeVisual,
         hasReferenceRealScene: ctx.hasReferenceRealScene,
+        hasPhotoGraphicOverlay: ctx.hasPhotoGraphicOverlay,
         enforceOneMainElement: ctx.enforceOneMainElement,
         referenceShowsPackaging: ctx.referenceShowsPackaging,
         headlineWords: ctx.headlineWords,

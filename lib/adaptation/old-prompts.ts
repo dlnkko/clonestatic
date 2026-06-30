@@ -12,6 +12,7 @@ import {
   marketingAngleExtrapolationBlock,
   noStockPhotoUnlessReferenceBlock,
   packagingMirroringBlock,
+  photoGraphicOverlayBlock,
   productCatalogFidelityBlock,
   productCreativeProfileBlock,
   productPlacementOnModelBlock,
@@ -98,12 +99,15 @@ Your task:
 
 3. **Identify VISUAL STYLE / DESIGN TYPE** (CRITICAL — do not add people or gym if reference has none):
     - Does the reference ad show a **real photographic** person or model (actual camera photo with skin pores, photographic depth of field)? (yes/no)
+    - Answer **yes** for any real camera-captured human — full body, partial body, face, hands, or sleeping/resting person (even if face is turned away or partially hidden, e.g. child sleeping in bed).
     - **NOT a real photo:** stylized/animated/illustrated body parts (soft-rendered arm, anatomical diagram, educational cross-section, vector silhouette, 3D mannequin, glossy CGI anatomy) → answer **no** for real photographic person even if human anatomy is visible.
     - Does the reference use **illustration, diagram, cutaway, 3D render, or animated/stylized graphic** (e.g. anatomical arm/head, brain diagram, soft educational body graphic, icon graphics, vector art)? (yes/no)
     - **Illustration/diagram type:** If yes above, describe precisely (e.g. soft stylized upper-arm anatomy graphic, anatomical cutaway, flat illustration, 3D product render, ingredient callout diagram). If no, write "none".
     - **Visual medium:** Choose exactly one: photo | illustration | diagram | 3d-render | mixed | product-graphic-only
     - Use **mixed** when photoreal product packaging is composited with illustrated/stylized body graphics or diagrams in the same layout.
-    - Does the reference ad show ANY gym, sport setting, or location environment? (yes/no)
+    - Does the reference ad show a **real photographic location/environment** as the background? (yes/no) — bedroom, kitchen, gym, outdoor, store, car, etc. NOT flat graphic/solid-color backgrounds.
+    - **Composition structure:** Choose exactly one: full-bleed-photo-with-graphic-overlays | vertical-split-bands | side-by-side-panels | flat-graphic-only
+    - Use **full-bleed-photo-with-graphic-overlays** when ONE full-frame photograph fills the entire canvas and typography, badges, product cutouts, UI cards, and graphic blocks are composited **ON TOP** of that photo (NOT separate top graphic band + bottom photo band).
     - **Number of main visual elements:** one-hero-only OR multiple (use **multiple** when reference shows loose units/items AND a separate bottle/box/pouch/jar packshot — e.g. capsules + supplement bottle)
     - **Retail packaging visible as its own element:** Is a bottle, box, pouch, or jar shown as a distinct packshot (not only loose product)? (yes/no)
     - **Has person/character (legacy):** yes only if REAL photographic person; no if only illustration/diagram of human anatomy
@@ -199,7 +203,8 @@ Format your response EXACTLY as:
 - Illustration/diagram type: [anatomical cutaway / flat illustration / 3d render / ingredient callout / stylized graphic / none]
 - Visual medium: [photo | illustration | diagram | 3d-render | mixed | product-graphic-only]
 - Has person/character: [yes/no — yes ONLY for real photos, NOT anatomical illustrations]
-- Has gym, sport setting, or location environment: [yes/no]
+- Has lifestyle/home/location environment (photographic background): [yes/no]
+- Composition structure: [full-bleed-photo-with-graphic-overlays | vertical-split-bands | side-by-side-panels | flat-graphic-only]
 - Main elements: [one-hero-only OR multiple]
 - Retail packaging as separate element: [yes/no]
 - Design type: [graphic-product-only | illustration-led | diagram-led | has-person | has-environment]
@@ -651,7 +656,7 @@ ${ctx.pricingInstructions}
 **Your Task:**
 Adapt the reference prompt above to create a NEW prompt for the product in the provided image. The new prompt must:
 
-${peopleModelsCriticalBlock(ctx)}${realPersonPhotoStyleBlock(ctx)}${productUseCaseAdaptationBlock(ctx)}${oneHeroBlock(ctx)}${productCatalogFidelityBlock(ctx)}${productThemedEnvironmentBlock(ctx)}${packagingMirroringBlock(ctx)}${graphicOnlyBlock(ctx)}
+${peopleModelsCriticalBlock(ctx)}${realPersonPhotoStyleBlock(ctx)}${photoGraphicOverlayBlock(ctx)}${productUseCaseAdaptationBlock(ctx)}${oneHeroBlock(ctx)}${productCatalogFidelityBlock(ctx)}${productThemedEnvironmentBlock(ctx)}${packagingMirroringBlock(ctx)}${graphicOnlyBlock(ctx)}
 
 ${illustrativeVisualBlock(ctx)}
 
@@ -724,6 +729,8 @@ export function buildVisualAgentInstructions(ctx: AdaptationContext): string {
 ${marketingAngleExtrapolationBlock(ctx)}
 
 ${layoutProportionsBlock(ctx)}
+
+${photoGraphicOverlayBlock(ctx)}
 
 ${textLayoutBlock(ctx)}
 

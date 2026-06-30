@@ -72,9 +72,14 @@ export function classifyAdVisualMode(params: {
   // This real-scene case takes priority over feature/annotation rows so a real photo is not
   // downgraded to a flat studio "design" render.
   if (vs && !isIllustrativeVisualStyle(vs, illustrativeOptsEarly)) {
+    const photoOrMixed = vs.visualMedium === 'photo' || vs.visualMedium === 'mixed';
+    const dt = vs.designType?.toLowerCase() ?? '';
     const realPerson = effectiveHasPersonInReference(vs, illustrativeOptsEarly);
-    const realPhotoEnvironment = vs.hasEnvironment && vs.visualMedium === 'photo';
-    if (realPerson || realPhotoEnvironment) return 'realistic';
+    const realPhotoEnvironment = vs.hasEnvironment && photoOrMixed;
+    const designTypeRealScene =
+      photoOrMixed &&
+      (dt === 'has-person' || dt === 'has-environment' || dt === 'has-person-or-environment');
+    if (realPerson || realPhotoEnvironment || designTypeRealScene) return 'realistic';
   }
 
   if (hasReferenceFeatureRow) return 'design';
@@ -108,12 +113,14 @@ export function classifyAdVisualMode(params: {
   // Real person → realistic. A real-photo environment → realistic; a graphic/mixed/3d
   // "environment" without a real person is design-focused (Nano Banana Pro).
   if (effectiveHasPersonInReference(vs, illustrativeOpts)) return 'realistic';
-  if (vs.hasEnvironment && vs.visualMedium === 'photo') return 'realistic';
+  if (vs.hasEnvironment && (vs.visualMedium === 'photo' || vs.visualMedium === 'mixed')) {
+    return 'realistic';
+  }
 
   if (dt === 'has-person' || dt === 'has-person-or-environment') {
     return 'realistic';
   }
-  if (dt === 'has-environment' && vs.visualMedium === 'photo') {
+  if (dt === 'has-environment' && (vs.visualMedium === 'photo' || vs.visualMedium === 'mixed')) {
     return 'realistic';
   }
 

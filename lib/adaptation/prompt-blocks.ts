@@ -9,6 +9,7 @@ import {
   beforeAfterComparisonBlock,
   illustrativeVisualBlock,
   layoutProportionsBlock,
+  photoGraphicOverlayBlock,
   marketingAngleExtrapolationBlock,
   noStockPhotoUnlessReferenceBlock,
   packagingMirroringBlock,
@@ -179,6 +180,8 @@ ${textLayoutBlock(ctx)}
 
 ${layoutProportionsBlock(ctx)}
 
+${photoGraphicOverlayBlock(ctx)}
+
 ${beforeAfterComparisonBlock(ctx)}
 
 RULES (JSON output):
@@ -186,7 +189,7 @@ RULES (JSON output):
 - poseAndArrangementParagraph: mirror reference LAYOUT zones only; user's product form comes from catalog photos — if reference had a bottle but user has gummy pouch, describe the pouch in that zone; NEVER describe a bottle/jar unless catalog shows one${ctx.hasPersonInReference && ctx.productUseProfile ? `; **${ctx.productUseProfile.category}:** ${ctx.productUseProfile.placementInstruction}` : ctx.hasPersonInReference ? '; describe correct anatomical placement on model (not floating on wrong body part)' : ''}
 - peopleAndSceneRules: must state on-theme environment/props for user's product category; clone reference framing/mood/aesthetic, NOT competitor-category setting when categories differ${ctx.hasPersonInReference ? '; **specify authentic product-on-body placement** (wear/apply/hold/consume correctly); for real photos: **iPhone candid snapshot** — match reference close-up distance, expression, motion/handheld feel — NOT stock sunset catalog polish' : ''}
 - compositionRules / brandingNotes / iconRowNotes / trustBadgeNotes
-- compositionRules: visual hierarchy (headline → icon/feature row → product row → CTA bar); preserve reference **vertical band proportions** and text block geometry; product row with **exact unit count** from reference (use distinct catalog variants when reference shows different flavors/colors); award seal overlaps product per reference; **typography size ladder** — headline largest, subheadline clearly smaller, footer/CTA smallest
+- compositionRules: visual hierarchy (headline → icon/feature row → product row → CTA bar); ${ctx.hasPhotoGraphicOverlay ? '**single full-bleed photo with graphics overlaid on top** — NOT split top/bottom bands; ' : ''}preserve reference **vertical band proportions** and text block geometry; product row with **exact unit count** from reference (use distinct catalog variants when reference shows different flavors/colors); award seal overlaps product per reference; **typography size ladder** — headline largest, subheadline clearly smaller, footer/CTA smallest
 ${ctx.referenceTrustBadge.present ? `- trustBadgeNotes: describe placing user's award seal (${ctx.referenceTrustBadge.placement || 'overlap on hero product'})` : ''}
 ${ctx.trustBadgeInstructions ? ctx.trustBadgeInstructions : ''}
 
@@ -266,7 +269,8 @@ ${ctx.typographyHierarchy?.sizeRatioHeadlineToSub ? `    Reference ratio hint: $
 ${ctx.marketingAngle && !ctx.marketingAngle.productMentionedInCopy ? '18b. MARKETING ANGLE: Reference had NO product in copy — FAIL if prompt or copy names user product or "[Brand] helps you"' : ''}
 ${ctx.visualMetaphor?.present ? `19. VISUAL METAPHOR: Reference used symbolic hero (${ctx.visualMetaphor.symbolicMeaning}) — FAIL if prompt uses generic product packshot instead of analogous metaphor; FAIL if headline word contradicts image (e.g. "Flat"/"Deflated" with plump/full product)` : ''}
 24. NO DUPLICATE TEXT: Each approved copy line must appear in the final prompt exactly ONCE — FAIL if any dismissal, headline, or body phrase is repeated (e.g. "Just tired" listed twice)
-${ctx.hasReferenceComparisonModule ? `26. LAYOUT PROPORTIONS: FAIL if prompt splits frame ~50/50 when reference has small header band (${ctx.referenceLayoutZones?.headerBandPercent ?? '~30%'}) + large comparison (${ctx.referenceLayoutZones?.mainModulePercent ?? '~70%'})` : ctx.referenceLayoutZones ? `26. LAYOUT PROPORTIONS: FAIL if equal halves when reference bands are ${ctx.referenceLayoutZones.headerBandPercent} / ${ctx.referenceLayoutZones.mainModulePercent}` : ''}
+${ctx.hasPhotoGraphicOverlay ? '22c. PHOTO+OVERLAY: Reference layers typography/badges/product ON a full-bleed photo — FAIL if prompt describes separate top graphic band + bottom photo band, split-screen collage, or solid-color half-frame where reference used continuous photography with overlays.' : ''}
+${ctx.hasReferenceComparisonModule ? `26. LAYOUT PROPORTIONS: FAIL if prompt splits frame ~50/50 when reference has small header band (${ctx.referenceLayoutZones?.headerBandPercent ?? '~30%'}) + large comparison (${ctx.referenceLayoutZones?.mainModulePercent ?? '~70%'})` : ''}
 27. PACKAGING PHOTO: When reference top band shows labeled bottle/box/tube, prompt must use user packaging catalog photo — FAIL if lifestyle grass/scene photo used as hero
 ${ctx.hasReferenceComparisonModule ? `19. BEFORE/AFTER: Prompt must describe natural side-by-side panels — FAIL if "vertical split face", harsh bisect, full portrait when reference was macro crop, or oversized Before/After labels` : ''}
 ${ctx.referenceTextLayout ? `20. TEXT LAYOUT: Top copy must be ${ctx.referenceTextLayout.alignment}-aligned ${ctx.referenceTextLayout.stackDirection} stack — FAIL if subhero same visual size as hero` : ''}

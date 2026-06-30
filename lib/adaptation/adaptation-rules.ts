@@ -370,6 +370,8 @@ ${layout?.layoutNotes ? `- Reference notes: ${layout.layoutNotes}` : ''}
 export function layoutProportionsBlock(ctx: AdaptationContext): string {
   const zones = ctx.referenceLayoutZones;
   const comp = ctx.referenceComparisonParsed;
+  // Vertical band splits only apply to before/after comparison layouts — NOT photo+overlay ads.
+  if (!ctx.hasReferenceComparisonModule || ctx.hasPhotoGraphicOverlay) return '';
   if (!zones && !ctx.hasReferenceComparisonModule) return '';
 
   const header = zones?.headerBandPercent ?? '~25-35% of frame height';
@@ -529,4 +531,29 @@ ${refNotes ? `Reference photography analysis:\n${refNotes}\n` : ''}**FORBIDDEN:*
 - Removing motion/candid imperfection when reference had festival/snapshot authenticity
 
 **REQUIRED in final prompt:** Explicitly state **smartphone/iPhone candid photo quality** + reference framing + expression + any motion/handheld feel, while keeping **exact ad layout, typography, and text design**.`;
+}
+
+/**
+ * Full-bleed lifestyle photo with typography/badges/product cutouts layered on top —
+ * NOT separate top graphic band + bottom photo band.
+ */
+export function photoGraphicOverlayBlock(ctx: AdaptationContext): string {
+  if (!ctx.hasPhotoGraphicOverlay) return '';
+
+  return `**PHOTO + GRAPHIC OVERLAY COMPOSITION (CRITICAL — match reference integration):**
+The reference ad is **ONE integrated image**: a **single full-bleed photographic scene fills the ENTIRE canvas edge-to-edge**, and typography, badges, product cutouts, UI cards, banners, and graphic blocks are **composited ON TOP** of that photo as overlays.
+
+**MANDATORY:**
+- Describe **one unified ad** — photographic background layer + graphic/text layers stacked above it (same z-order as reference)
+- The lifestyle/model photo extends behind text and badges; graphics float over the photo at exact reference positions
+- Product cutout/packaging sits ON the photo (not in a separate panel)
+- Preserve reference overlay positions: headline over photo, retailer badge top-center, ingredient/callout block bottom-right, etc.
+
+**FORBIDDEN (common failure):**
+- Splitting the ad into **separate vertical bands** (e.g. solid-color graphic header on top + lifestyle photo on bottom)
+- A "top half design / bottom half photo" collage when reference layered overlays ON a full-frame photo
+- Blank solid color taking half the frame where reference used continuous photography
+- Treating layout zone percentages as stacked sections — zones describe **overlay placement regions ON the photo**, not separate panels
+
+**REQUIRED in final prompt:** Explicitly state "full-bleed lifestyle photograph fills entire frame; [headline/badge/product/card] overlaid on top at [positions]" — single integrated composition.`;
 }

@@ -582,6 +582,70 @@ export function parseReferenceLayoutZonesFromAnalysis(analysisText: string): Ref
   return parseReferenceLayoutZones(block[1]);
 }
 
+export type ReferenceCompositionStructure =
+  | 'photo-with-overlays'
+  | 'vertical-split-bands'
+  | 'side-by-side-panels'
+  | 'flat-graphic-only'
+  | 'unknown';
+
+export function parseReferenceCompositionStructure(
+  analysisText: string
+): ReferenceCompositionStructure {
+  const match = analysisText.match(/Composition structure:\s*\[?([^\]\n]+)\]?/i);
+  const raw = match?.[1]?.toLowerCase() ?? '';
+  if (/full-bleed-photo|photo-with-graphic-overlay|graphic-overlay/i.test(raw)) {
+    return 'photo-with-overlays';
+  }
+  if (/vertical-split|split-bands|top-bottom/i.test(raw)) return 'vertical-split-bands';
+  if (/side-by-side|panels/i.test(raw)) return 'side-by-side-panels';
+  if (/flat-graphic|graphic-only/i.test(raw)) return 'flat-graphic-only';
+  return 'unknown';
+}
+
+export function inferHasPhotoGraphicOverlay(params: {
+  compositionStructure: ReferenceCompositionStructure;
+  referencePrompt: string;
+  referenceVisualStyle: import('./types').ReferenceVisualStyle | null;
+  hasReferenceComparisonModule: boolean;
+  isGraphicOnly: boolean;
+  hasIllustrativeVisual: boolean;
+  hasPersonInReference: boolean;
+}): boolean {
+  if (params.compositionStructure === 'photo-with-overlays') return true;
+  if (
+    params.compositionStructure === 'vertical-split-bands' ||
+    params.compositionStructure === 'flat-graphic-only'
+  ) {
+    return false;
+  }
+  if (
+    params.hasReferenceComparisonModule ||
+    params.isGraphicOnly ||
+    params.hasIllustrativeVisual
+  ) {
+    return false;
+  }
+
+  const vs = params.referenceVisualStyle;
+  if (!vs) return false;
+  const photoOrMixed = vs.visualMedium === 'photo' || vs.visualMedium === 'mixed';
+  if (!photoOrMixed) return false;
+
+  if (params.hasPersonInReference || vs.hasEnvironment) return true;
+
+  const prompt = params.referencePrompt.toLowerCase();
+  const lifestylePhoto =
+    /lifestyle|bedroom|sleeping|on bed|model|person|photograph|portrait|candid|full-bleed photo|photo background|resting/i.test(
+      prompt
+    );
+  const overlayGraphics =
+    /overlay|badge|headline|typography|text box|pill-shaped|banner|alert card|ui card|callout|ingredient block|available at/i.test(
+      prompt
+    );
+  return lifestylePhoto && (overlayGraphics || vs.visualMedium === 'mixed');
+}
+
 export function parseReferenceComparisonModule(block: string): ReferenceComparisonModule {
   const present = /Present:\s*yes/i.test(block);
   if (!present) {
@@ -631,7 +695,10 @@ export function parseReferenceVisualStyle(vsText: string): import('./types').Ref
   const hasRealPhotoPerson = /Has real photographic person(?:\/model)?:\s*yes/i.test(vsText);
   const legacyPerson = /Has person\/character:\s*yes/i.test(vsText);
   const hasIllustration = /Has illustration(?:\/diagram\/animation)?:\s*yes/i.test(vsText);
-  const hasEnv = /Has gym, sport setting, or location environment:\s*yes/i.test(vsText);
+  const hasEnv =
+    /Has (?:gym, sport setting, or )?(?:lifestyle\/home\/|location )?environment:\s*yes/i.test(
+      vsText
+    ) || /Has lifestyle\/home\/location environment[^:]*:\s*yes/i.test(vsText);
 
   const mediumMatch = vsText.match(
     /Visual medium:\s*(photo|illustration|diagram|3d-render|mixed|product-graphic-only)/i

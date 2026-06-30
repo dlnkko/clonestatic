@@ -21,6 +21,7 @@ import {
   parseReferenceTextLines,
   parseReferenceTrustBadge,
   parseReferenceProductUnits,
+  parseReferenceCompositionStructure,
   parseReferenceVisualStyle,
   parseVerbatimPhrasesFromCopyBlock,
   parseVisualMetaphorBlock,
@@ -493,6 +494,7 @@ export async function POST(request: NextRequest) {
     let referenceTextLayoutBlock = '';
     let referenceComparisonModule = '';
     let referenceLayoutZonesBlock = '';
+    let referenceCompositionStructure = parseReferenceCompositionStructure('');
     let hasReferenceComparisonModule = false;
     let marketingAngle: MarketingAngleProfile | null = null;
     let visualMetaphor: VisualMetaphorProfile | null = null;
@@ -548,6 +550,9 @@ export async function POST(request: NextRequest) {
           referenceVisualStyle = parseReferenceVisualStyle(visualStyleMatch[1]);
           console.log('\n=== REFERENCE VISUAL STYLE EXTRACTED ===', referenceVisualStyle);
         }
+
+        referenceCompositionStructure = parseReferenceCompositionStructure(analysisText);
+        console.log('\n=== REFERENCE COMPOSITION STRUCTURE ===', referenceCompositionStructure);
 
         const logoPlacementMatch = analysisText.match(
           /\*\*BRAND \/ LOGO PLACEMENT \(REFERENCE AD\):\*\*\s*([\s\S]*?)(?=\*\*COPYWRITING ANALYSIS:\*\*|\*\*SOCIAL PROOF|\*\*PRODUCT POSE|\*\*REFERENCE AD PROMPT:\*\*|$)/i
@@ -912,6 +917,7 @@ export async function POST(request: NextRequest) {
           referenceComparisonModule,
           hasReferenceComparisonModule,
           referenceLayoutZonesBlock,
+          referenceCompositionStructure,
           marketingAngle,
           visualMetaphor,
           creativeDeconstruction,
@@ -982,6 +988,9 @@ export async function POST(request: NextRequest) {
       referenceVisualStyle,
       hasReferenceFeatureRow,
       referencePrompt,
+      referenceShowsPackaging: matchedProductVisuals.some(
+        (m) => m.role === 'packaging' || m.role === 'product'
+      ),
     });
     console.log('\n=== AD VISUAL MODE ===', adVisualMode);
 

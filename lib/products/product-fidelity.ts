@@ -149,6 +149,7 @@ export function appendKieProductFidelityPrompt(
     referenceHasPriceVisual?: boolean;
     allowedPrice?: string | null;
     productBrandColors?: string[];
+    hasPhotoGraphicOverlay?: boolean;
   }
 ): string {
   if (!hasProductImages) return prompt.trim();
@@ -177,12 +178,16 @@ export function appendKieProductFidelityPrompt(
   // For realistic photo ads, intentional depth-of-field is allowed; for design/graphic
   // ads the background must stay sharp and uniform edge-to-edge.
   const isRealisticScene = options?.hasPersonInReference || options?.hasIllustrativeVisual;
+  const photoOrMixed =
+    options?.visualMedium === 'photo' || options?.visualMedium === 'mixed';
+  const needsPhotoOverlayLock =
+    photoOrMixed && (options?.hasPersonInReference || options?.hasPhotoGraphicOverlay);
   const backgroundIntegrityRule = isRealisticScene
     ? 'Use ONLY the product from the attached image(s); do not reproduce its original photo background, hand, or surroundings. The composition must fill the ENTIRE frame to every edge — no empty, blank, smudged, or unfinished dead zones (especially the bottom and corners). Any blur must be intentional, even depth-of-field, never a leftover smear of the product photo background.'
     : 'Extract ONLY the product from the attached image(s); ignore and never reproduce its original photo background, hand, or surroundings. Render the described background sharply and uniformly across the ENTIRE frame, all the way to every edge — no blurred, faded, vignetted, smudged, empty, or out-of-focus areas anywhere (especially the bottom and corners).';
 
   // Self-contained rules — no "follow the reference ad" (the reference is not attached here).
-  const rules = `Rules: (1) Hero = the SAME EXACT PRODUCT from the attached image(s): color, label, logo, container/format + shape reproduced 1:1 — never invent, redesign, or swap the container (a pouch stays a pouch, not a jar); only pose/angle/texture/render style may change. (2) Copy verbatim, one row each. (3) Headline largest, subhead ~30%. (4) ${colorRule} (5) ${priceRule} (6) ${backgroundIntegrityRule}`;
+  const rules = `Rules: (1) Hero = the SAME EXACT PRODUCT from the attached image(s): color, label, logo, container/format + shape reproduced 1:1 — never invent, redesign, or swap the container (a pouch stays a pouch, not a jar); only pose/angle/texture/render style may change. (2) Copy verbatim, one row each. (3) Headline largest, subhead ~30%. (4) ${colorRule} (5) ${priceRule} (6) ${backgroundIntegrityRule}${needsPhotoOverlayLock ? ' (7) ONE integrated ad: full-bleed lifestyle photo fills the entire frame; typography, badges, product cutouts, and graphic blocks are composited ON TOP of the photo — NEVER split into separate top graphic band + bottom photo band.' : ''}`;
 
   let out = `${KIE_PRODUCT_FIRST_DIRECTIVE}\n\n${prompt.trim()}\n\n${rules}`;
   if (extras.length) out += ` ${extras.join(' ')}`;
