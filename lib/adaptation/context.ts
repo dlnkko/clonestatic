@@ -541,7 +541,7 @@ Summary: ${scrapedSummary}
 ${scrapedMarkdown ? `
 Full page content (markdown):
 ---
-${scrapedMarkdown.length > 8000 ? scrapedMarkdown.slice(0, 8000) + '\n\n[...]' : scrapedMarkdown}
+${scrapedMarkdown.length > 4000 ? scrapedMarkdown.slice(0, 4000) + '\n\n[...]' : scrapedMarkdown}
 ---` : ''}
 
 **STRICT DATA RULE:** Use scraped data for product-specific facts (materials, benefits, awards on the user's product). Do NOT add "FREE GIFTS" or claims NOT in scraped data. Never copy competitor copy or numbers from the reference. **PRICES:** Never show a dollar amount unless allowed in pricing rules — never copy competitor prices.
@@ -608,8 +608,10 @@ export function contextSummaryForAgent(ctx: AdaptationContext): string {
       guidelines: ctx.guidelinesTrimmed || null,
       manualCopywriting: ctx.manualCopywriting,
       isUrlScraped: ctx.isUrlScraped,
-      scrapedSummary: ctx.scrapedSummary?.slice(0, 4000) ?? null,
-      scrapedMarkdown: ctx.scrapedMarkdown?.slice(0, 6000) ?? null,
+      scrapedSummary: ctx.scrapedSummary?.slice(0, 1200) ?? null,
+      // Full markdown already travels in copywritingInstructions (copy agent);
+      // the visual agent does not need page markdown — keep a tiny slice only.
+      scrapedMarkdown: ctx.scrapedMarkdown?.slice(0, 1000) ?? null,
       referenceTypography: ctx.referenceTypography?.slice(0, 2000) ?? null,
       typographyHierarchy: ctx.typographyHierarchy,
       referenceProductPoseAndArrangement: ctx.referenceProductPoseAndArrangement?.slice(0, 2000) ?? null,
@@ -621,16 +623,14 @@ export function contextSummaryForAgent(ctx: AdaptationContext): string {
       productName: ctx.productName,
       productDescription: ctx.productDescription,
       productUseProfile: ctx.productUseProfile,
-      productCreativeProfile: ctx.productCreativeProfile,
-      creativeBridge: ctx.creativeBridge,
+      // creativeBridge / productCreativeProfile / marketingAngle / visualMetaphor are
+      // rendered as dedicated prompt blocks — do not duplicate them in this JSON.
       matchedProductVisuals: ctx.matchedProductVisuals,
       allowedPrice: ctx.allowedPrice,
       referenceHasPromoOfferLine: ctx.referenceHasPromoOfferLine,
       referenceHasPriceVisual: ctx.referenceHasPriceVisual,
       referenceTrustBadge: ctx.referenceTrustBadge,
       referenceVerbatimPhrases: ctx.referenceVerbatimPhrases,
-      marketingAngle: ctx.marketingAngle,
-      visualMetaphor: ctx.visualMetaphor,
     },
     null,
     2

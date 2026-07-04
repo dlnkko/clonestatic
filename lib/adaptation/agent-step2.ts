@@ -1,7 +1,6 @@
 import type { GoogleGenAI } from '@google/genai';
 import { costFromUsage, mergeStep2Usage } from './cost';
 import { generateText, generateWithProductImages, parseJson } from './gemini';
-import { logoPlacementRulesBlock } from './logo-rules';
 import {
   findDuplicateCopyIssues,
   findDuplicateLinesInPrompt,
@@ -38,10 +37,8 @@ async function runCopyAgent(
   ai: GoogleGenAI,
   ctx: AdaptationContext
 ): Promise<{ copy: CopyAdaptationResult; usage: ReturnType<typeof mergeStep2Usage> }> {
-  const prompt = `${copyAgentPrompt(ctx)}
-
-${logoPlacementRulesBlock(ctx)}
-${ctx.copyLanguageInstruction}`;
+  // copyAgentPrompt already includes logo placement rules + copy language instruction.
+  const prompt = copyAgentPrompt(ctx);
 
   const { text, usage } = await generateText(ai, prompt, { json: true });
   const copy = normalizeCopy(parseJson<CopyAdaptationResult>(text), ctx);
@@ -59,10 +56,8 @@ async function runVisualAgent(
   ctx: AdaptationContext,
   productFiles: { uri: string; mimeType?: string }[]
 ): Promise<{ visual: VisualAdaptationResult; usage: ReturnType<typeof mergeStep2Usage> }> {
-  const prompt = `${visualAgentPrompt(ctx)}
-
-${logoPlacementRulesBlock(ctx)}
-${ctx.copyLanguageInstruction}`;
+  // visualAgentPrompt already includes logo placement rules + copy language instruction.
+  const prompt = visualAgentPrompt(ctx);
 
   const { text, usage } = await generateWithProductImages(ai, productFiles, prompt, {
     json: true,
@@ -107,9 +102,8 @@ async function runQa(
   copy: CopyAdaptationResult,
   finalPrompt: string
 ): Promise<{ qa: QaResult; usage: ReturnType<typeof mergeStep2Usage> }> {
-  const prompt = `You are a QA reviewer for adapted static-ad image prompts.
-
-${qaRulesBlock(ctx, copy, finalPrompt)}`;
+  // qaRulesBlock already opens with the QA reviewer role.
+  const prompt = qaRulesBlock(ctx, copy, finalPrompt);
 
   const { text, usage } = await generateText(ai, prompt, { json: true });
   const qa = parseJson<QaResult>(text);

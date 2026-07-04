@@ -8,7 +8,6 @@ import {
   backgroundColorAdaptationBlock,
   beforeAfterComparisonBlock,
   illustrativeVisualBlock,
-  layoutProportionsBlock,
   marketingAngleExtrapolationBlock,
   noStockPhotoUnlessReferenceBlock,
   packagingMirroringBlock,
@@ -660,8 +659,6 @@ ${peopleModelsCriticalBlock(ctx)}${realPersonPhotoStyleBlock(ctx)}${photoGraphic
 
 ${illustrativeVisualBlock(ctx)}
 
-${beforeAfterComparisonBlock(ctx)}
-
 ${noStockPhotoUnlessReferenceBlock(ctx)}
 
 ${analyzeProductContextBlock(ctx)}
@@ -673,8 +670,7 @@ ${backgroundColorAdaptationBlock(ctx)}
 ${scrapedBranding ? brandingIntegration : '- Use product brand colors for background; keep reference layout color roles'}
 ${scrapedBranding ? '- Integrate product brand colors from branding data for backgrounds, gradients, accent bars, and highlights' : ''}
 ${scrapedBranding ? '- Prefer REFERENCE AD typography hierarchy; use product brand typography only for small product labels if needed' : ''}
-- **Always preserve the reference ad typography** (font style, **relative sizes per line**, weights, placement, effects) so the new ad looks like the reference.
-${typographyHierarchySection}
+- **Always preserve the reference ad typography** (font style, **relative sizes per line**, weights, placement, effects, size ladder per the TYPOGRAPHY HIERARCHY block above) so the new ad looks like the reference.
 - Do NOT copy competitor category background colors (coffee brown, etc.) — use user product branding hues with same mood/role as reference
 - Use brand colors strategically for product elements, backgrounds, and accents
 
@@ -689,9 +685,7 @@ ${replaceAdaptProductBlock(ctx)}
 6. **Create Copywriting (SAME TONE + CLEAR, PERFECT COPY — CRITICAL):**
 ${marketingAngleExtrapolationBlock(ctx)}
 ${referenceCopyMirroringBlock(ctx)}
-${textLayoutBlock(ctx)}
 ${subheroCopyPatternBlock(ctx)}
-${beforeAfterComparisonBlock(ctx)}
 ${copywritingInstructions}
 **The reference ad has SHORT text.** Match its tone and style exactly, but every phrase MUST be clear, understandable, and effective copywriting — no confusing or vague wordplay (e.g. avoid "GUMMIES YOU CAN BUILD WITH A POP" which is unclear; use clear lines like "TASTES LIKE BERRY", "BOOST YOUR STRENGTH", "5G CREATINE ZERO SUGAR"). Same brevity: short tagline (${ctx.headlineWords} words or fewer) and short main line (${ctx.mainCopyWords} words or fewer). Grammatically correct and natural. The copy must be immediately understandable and conversion-ready while keeping the reference's tone, rhetorical figure, and style. Do NOT describe one long headline. Describe all short lines that match the reference text architecture (brand, headline, spec line, icon labels). **REMEMBER: ALL promotional text (FREE GIFTS, BIG DISCOUNTS, discount %, review numbers, etc.) must come STRICTLY from scraped data. If not in scraped data, omit. Never invent or copy from the reference.**
 ${ctx.trustBadgeInstructions ? `\n${ctx.trustBadgeInstructions}\n` : ''}
@@ -706,13 +700,11 @@ ${options.extraBlocks ?? ''}
 ${outputRequirementsBlock(ctx)}`;
 }
 
-/** Copy agent — sección 6 de finalPromptGeneration + estructura de texto */
+/** Copy agent — sección 6 de finalPromptGeneration + estructura de texto.
+ * NOTE: marketingAngle + copyMirroring blocks are already included directly in
+ * copyAgentPrompt — do not duplicate them here (token cost). */
 export function buildCopyAgentInstructions(ctx: AdaptationContext): string {
-  return `${marketingAngleExtrapolationBlock(ctx)}
-
-${referenceCopyMirroringBlock(ctx)}
-
-${ctx.copywritingInstructions}
+  return `${ctx.copywritingInstructions}
 
 **The reference ad has SHORT text (oldprompts finalPromptGeneration §6).** Match tone and style; every phrase clear and conversion-ready. Same brevity per line. Do NOT collapse multi-line layouts to 2 lines. Line 2 must fulfill the SAME rhetorical function as reference (wordplay/punchline/transparency/spec — match reference device, NOT generic authority claims or unrelated spec dumps). **Never copy reference headline wording verbatim** — mirror structure with new words for the user's product. Promo claims only if reference had a promo line AND scrape supports them; otherwise promoClaimsUsed must be empty.
 
@@ -722,33 +714,13 @@ ${ctx.copywritingInstructions}
 **Line 2 pattern:** ${ctx.line2Pattern}`;
 }
 
-/** Visual agent — secciones 2 y 4 de finalPromptGeneration */
+/** Visual agent — secciones 2 y 4 de finalPromptGeneration.
+ * NOTE: visualAgentPrompt already includes visualMetaphor, marketingAngle,
+ * layoutProportions, photoGraphicOverlay, textLayout, beforeAfter, illustrative,
+ * noStockPhoto, packagingMirroring, backgroundColor, productThemedEnvironment and
+ * realPersonPhotoStyle directly — only the unique blocks live here (token cost). */
 export function buildVisualAgentInstructions(ctx: AdaptationContext): string {
-  return `${visualMetaphorExtrapolationBlock(ctx)}
-
-${marketingAngleExtrapolationBlock(ctx)}
-
-${layoutProportionsBlock(ctx)}
-
-${photoGraphicOverlayBlock(ctx)}
-
-${textLayoutBlock(ctx)}
-
-${beforeAfterComparisonBlock(ctx)}
-
-${illustrativeVisualBlock(ctx)}
-
-${noStockPhotoUnlessReferenceBlock(ctx)}
-
-${packagingMirroringBlock(ctx)}
-
-${backgroundColorAdaptationBlock(ctx)}
-
-${productThemedEnvironmentBlock(ctx)}
-
-${productUseCaseAdaptationBlock(ctx)}
-
-${realPersonPhotoStyleBlock(ctx)}
+  return `${productUseCaseAdaptationBlock(ctx)}
 
 ${maintainDesignElementsBlock(ctx)}
 
