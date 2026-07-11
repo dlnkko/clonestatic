@@ -36,7 +36,7 @@ import type {
   Step2Usage,
   VisualMetaphorProfile,
 } from '@/lib/adaptation/types';
-import { refineProductImageKinds } from '@/lib/products/classify-images';
+import { classifyProductImagesHeuristic } from '@/lib/products/classify-images';
 import {
   finalizeCatalogAfterClassification,
   isUserUploadedProduct,
@@ -57,11 +57,12 @@ import {
   expandElementsForProductUnits,
   inferProductUnitsFromPose,
 } from '@/lib/products/expand-product-units';
-import { identifyReferenceProductElements } from '@/lib/products/identify-elements';
+import { parseReferenceElementsFromAnalysis } from '@/lib/products/identify-elements';
+import { inferCatalogContainerHint } from '@/lib/products/catalog-container';
 import { inferProductCreativeProfile } from '@/lib/products/infer-product-creative';
 import { inferProductUseProfile } from '@/lib/products/infer-product-use';
 import {
-  matchProductImagesToReference,
+  matchProductImagesHeuristic,
   uploadProductImageUrlsToGemini,
 } from '@/lib/products/match-images';
 import type { ProductImage, ProductRecord, ReferenceProductUnitsProfile } from '@/lib/products/types';
@@ -738,11 +739,8 @@ export async function POST(request: NextRequest) {
     let productFilesForStep2 = productFiles;
 
     if (catalogImages.length > 0 && catalogImages[0]?.url !== 'upload') {
-      const classified = await refineProductImageKinds(ai, catalogImages, {
-        needTrustBadge: referenceTrustBadge.present,
-      });
-      catalogImages = finalizeCatalogAfterClassification(classified.images, savedProduct);
-      if (classified.usage) productMatchingUsages.push(classified.usage);
+      catalogImages = classifyProductImagesHeuristic(catalogImages);
+      catalogImages = finalizeCatalogAfterClassification(catalogImages, savedProduct);
       if (savedProduct && isUserUploadedProduct(savedProduct)) {
         console.log('- Product catalog: user-uploaded photos (imgBB)');
       }
@@ -754,18 +752,10 @@ export async function POST(request: NextRequest) {
 
     if (catalogImages.length > 0) {
       try {
-        const identified = await identifyReferenceProductElements(
-          ai,
-          { uri: staticAdFile.uri!, mimeType: staticAdFile.mimeType },
-          referenceVisualStyle,
-          referenceProductPoseAndArrangement || referencePrompt.slice(0, 800),
-          referenceProductUnits,
-          referenceLogoAnalysis
-        );
-        if (identified.usage) productMatchingUsages.push(identified.usage);
-
         const referenceElements = injectLogoReferenceElement(
-          identified.elements,
+          parseReferenceElementsFromAnalysis(analysisText, {
+            referenceShowsPackagingHint: referenceVisualStyle?.oneHeroOnly === false,
+          }),
           referenceLogoAnalysis
         );
 
@@ -774,23 +764,19 @@ export async function POST(request: NextRequest) {
           referenceProductUnits
         );
 
-        const matched = await matchProductImagesToReference(
-          ai,
+        const matches = matchProductImagesHeuristic(
           expandedElements,
           catalogImages,
-          resolvedProductName,
           referenceProductUnits
         );
-        if (matched.usage) productMatchingUsages.push(matched.usage);
-
-        const matches = ensureStandaloneLogoMatch(
-          matched.matches,
+        const matchesWithLogo = ensureStandaloneLogoMatch(
+          matches,
           catalogImages,
           referenceLogoAnalysis,
           savedProduct?.logo_url
         );
         matchedProductVisuals = orderMatchedVisualsForGeneration(
-          matches.map((m) => ({
+          matchesWithLogo.map((m) => ({
             role: m.role,
             url: m.url,
             description: m.description,
@@ -800,10 +786,10 @@ export async function POST(request: NextRequest) {
           url: m.url,
           description: m.description,
         }));
-        console.log('\n=== PRODUCT IMAGE MATCHING ===', matchedProductVisuals);
+        console.log('\n=== PRODUCT IMAGE MATCHING (heuristic) ===', matchedProductVisuals);
 
         const uniqueUrls = orderMatchedVisualsForGeneration(
-          matches.map((m) => ({
+          matchesWithLogo.map((m) => ({
             role: m.role,
             url: m.url,
             description: m.description,
@@ -903,6 +889,7 @@ export async function POST(request: NextRequest) {
           guidelinesTrimmed,
           copyLanguage: resolvedCopyLang.code,
           matchedProductVisuals,
+          catalogContainerHint: inferCatalogContainerHint(catalogImages),
           productName: savedProduct?.name ?? null,
           productDescription: savedProduct?.description ?? null,
           productTargetAudience: savedProduct?.target_audience ?? null,

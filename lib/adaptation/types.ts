@@ -248,6 +248,8 @@ export type AdaptationContext = {
   creativeDeconstruction: ReferenceCreativeDeconstruction | null;
   productCreativeProfile: ProductCreativeProfile | null;
   creativeBridge: CreativeBridge | null;
+  /** User catalog container/format — never borrow reference competitor shape */
+  catalogContainerHint: string;
 };
 
 export type CopyAdaptationResult = {

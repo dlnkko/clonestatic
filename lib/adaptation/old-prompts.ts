@@ -24,6 +24,10 @@ import {
   visualMetaphorExtrapolationBlock,
 } from './adaptation-rules';
 import { creativeBridgeBlock } from './creative-bridge';
+import {
+  catalogContainerLockBlock,
+  stripCompetitorContainerLanguage,
+} from '@/lib/products/catalog-container';
 import type { CopywritingProfile, ReferenceTextLayout } from './types';
 
 export function featureRowInstructionsBlock(ctx: AdaptationContext): string {
@@ -311,6 +315,15 @@ Name the transferable idea underneath the ad — NOT a visual swap checklist.
 - Per-slot (optional, left to right): Slot 1: [color/flavor/label cue]; Slot 2: [...]; Slot 3: [...]
 (If only one product hero, write Visible unit count: 1)
 
+**PRODUCT SOURCE ELEMENTS (REFERENCE AD) — for catalog photo matching:**
+List each DISTINCT product-related visual element that needs its own source photo when cloning for another brand — one line per element, format: \`role | layout zone + short description\`.
+- Roles: product (loose items/units), packaging (retail container shown as its own packshot — bottle/box/pouch/jar), logo (standalone brand mark in layout, NOT printed on packaging), trust_badge (award/press/certification seal overlapping product), lifestyle (product in use on a person — note HOW it is used), other.
+- Describe the **layout zone only** (e.g. "packaging | lower-right packshot zone") — NEVER name the competitor's container type.
+- If loose units AND a separate packshot are both visible → output TWO rows (product + packaging). If an award/press seal overlaps the product → you MUST include a trust_badge row. If a standalone logo exists in the layout → include a logo row. Do NOT invent elements not visible.
+Example output:
+- lifestyle | held in a hand at center against pale blue backdrop
+- packaging | small packshot in lower-right corner
+
 **PRODUCT POSE AND ARRANGEMENT (REFERENCE AD) — CRITICAL, OUTPUT THIS BLOCK:**
 Write ONE detailed paragraph that describes how the product(s) should be positioned. **PREFER arrangements that look best in ads:** When the reference shows multiple bottles/products in a pyramid or triangle stack, describe them instead as **in a horizontal row** (side by side) — a row looks cleaner and more professional than a triangle. Only use pyramid/triangle if the reference has a strong, intentional reason for it. Include:
 - Number of product units visible (e.g. three bottles, four earplugs).
@@ -369,6 +382,13 @@ The reference ad includes one or more **people** using or featuring a product. Y
 
 function oneHeroBlock(ctx: AdaptationContext): string {
   if (!ctx.enforceOneMainElement) return '';
+  const catalogIsPackaging = /pouch|bag|box|carton|bottle|jar|tube|packaging|flexible stand-up/i.test(
+    ctx.catalogContainerHint
+  );
+  if (catalogIsPackaging) {
+    return `**ONE MAIN HERO — catalog packaging/product only:**
+Show ONLY the user's attached catalog product (${ctx.catalogContainerHint}) as the single hero — reproduce label, logo, colors, container 1:1.${ctx.hasPersonInReference ? ' Keep people/models from reference; product interaction must use THIS catalog container, NOT the reference competitor shape.' : ''} Do NOT add a second SKU or invent a different pack type.`;
+  }
   return `**CRITICAL — ONE MAIN ELEMENT ONLY (no packaging):**
 The reference ad has only ONE main visual hero (e.g. one cookie, one food item).${ctx.guidelinesAskSingleHero ? ' The user\'s Guidelines also specify a single main element (e.g. "gummy as the main element").' : ''}${ctx.hasPersonInReference ? ' **Exception:** If the reference also shows people, do NOT remove the people to satisfy "one hero" — this rule applies to product item vs packaging (e.g. one gummy vs pouch), not to removing models.' : ''} Your prompt MUST describe only that ONE hero as the focal subject — do NOT include product packaging, pouch, bag, or a second product in the scene. The main element is the product item itself (e.g. the gummy, the cookie) as the user requested or as the reference shows — not the packaging. If the product image shows packaging, ignore it for the hero; use only the single main element (e.g. the gummy itself) so the ad matches the reference's one-hero composition.
 `;
@@ -523,43 +543,56 @@ export type FinalPromptOptions = {
   preamble?: string;
 };
 
+/** Call 3 — final Kie prompt (sees attached catalog product images). */
+export function buildCall3FinalPrompt(
+  ctx: AdaptationContext,
+  copy: CopyAdaptationResult,
+  extraBlocks?: string
+): string {
+  const refMedium = ctx.referenceVisualStyle?.visualMedium ?? 'photo';
+  const poseHint = ctx.referenceProductPoseAndArrangement
+    ? stripCompetitorContainerLanguage(ctx.referenceProductPoseAndArrangement).slice(0, 320)
+    : 'match reference layout zones';
+
+  const photoOverlay = ctx.hasPhotoGraphicOverlay
+    ? 'Composition: ONE full-bleed photo + graphics overlaid ON TOP — never split top/bottom bands.'
+    : '';
+
+  const peopleRule = ctx.hasPersonInReference
+    ? `People: keep count + framing. Product on model: ${ctx.productUseProfile?.placementInstruction ?? 'authentic use'}. Catalog container only — never reference competitor bottle/cylinder.`
+    : '';
+
+  const typographyNote = ctx.typographyHierarchy?.sizeRatioHeadlineToSub
+    ? `Type ladder: headline dominant; sub/CTA ~${ctx.typographyHierarchy.sizeRatioHeadlineToSub}.`
+    : 'Type ladder: headline largest, footer/CTA smallest.';
+
+  return `Write ONE Kie.ai image prompt (~900 chars max). Output prompt text only — no JSON, no analysis headers.
+
+${catalogContainerLockBlock(ctx.catalogContainerHint, ctx.productName)}
+
+${formatApprovedCopyBlock(copy, ctx.copywritingProfile, ctx.referenceTextLayout)}
+
+Reference structure (layout/copy zones — ignore competitor product shape):
+${ctx.referencePrompt.slice(0, 850)}
+
+${typographyNote}
+Layout zone to mirror (interaction/placement only — use catalog product shape): ${poseHint}
+${peopleRule}
+${photoOverlay}
+${ctx.pricingInstructions.slice(0, 200)}
+Visual medium: ${refMedium}. Attached image(s) = product truth (container, label, logo, colors). Clone reference composition + text design; recolor accents to product brand.
+${extraBlocks ?? ''}
+
+FORBIDDEN: reference competitor container (bottle/cylinder/jar) on user product; reskinning; new invented packaging.
+
+Output: Scene | Catalog product (exact from attached images) | Each copy line with size tier | Lighting/effects.`;
+}
+
 function buildAgentSynthesisPrompt(
   ctx: AdaptationContext,
   options: FinalPromptOptions
 ): string {
-  const copy = options.approvedCopy!;
-  const visual = options.visual;
-  const refMedium = ctx.referenceVisualStyle?.visualMedium ?? visual?.visualMediumNotes?.slice(0, 80) ?? 'photo';
-  const mediumRule = `Product render: match reference ad style (${refMedium}) — hyperreal, stylized, soft 3D, matte/gloss, or mixed as reference shows. Catalog = brand truth (colors/label/shape).`;
-
-  const visualLines = visual
-    ? [
-        visual.compositionRules,
-        visual.poseAndArrangementParagraph,
-        visual.brandingNotes,
-        visual.trustBadgeNotes,
-      ]
-        .filter(Boolean)
-        .map((s) => s!.slice(0, 180))
-        .join(' | ')
-    : ctx.referenceProductPoseAndArrangement?.slice(0, 300) ?? 'match reference layout zones';
-
-  const logoNote = ctx.matchedProductVisuals.some((m) => m.role === 'logo')
-    ? 'Logo: reproduce attached logo file in reference logo zone — not plain typed text.'
-    : '';
-
-  return `You write Kie image prompts. Output ONLY the final prompt — no analysis, no "**CRITICAL**" headers, max 800 characters.
-
-${formatApprovedCopyBlock(copy, ctx.copywritingProfile, ctx.referenceTextLayout)}
-
-Layout: ${visualLines}
-${logoNote}
-${ctx.pricingInstructions}
-
-Rules: ${mediumRule} Free pose/angle/texture. Headline [XL] only; subhead [sm ~30%] light on own row. Quote each copy line once. No competitor brand names.
-${options.extraBlocks ?? ''}
-
-OUTPUT: One concise prompt (~800 chars). Structure: Scene (1 line) | Product placement | Copy: each line quoted with tier | Type hierarchy note.`;
+  return buildCall3FinalPrompt(ctx, options.approvedCopy!, options.extraBlocks);
 }
 
 /**
@@ -594,9 +627,9 @@ ${hasPersonInReference ? `**NOTE — Reference includes people (models):** This 
 ` : ''}The reference ad shows the product in a specific pose and arrangement. The image generator will use your description to COMPOSE the scene${hasPersonInReference ? '; for lifestyle shots, prioritize authentic product-in-use over copying competitor wear/placement' : ''}. If you describe the product as only the flat upload with no composed scene, the result will be wrong.
 You MUST include product placement in your final prompt. Describe the USER'S product (from the provided image)${hasPersonInReference ? ' in believable use with the model(s), matching reference framing' : ' in THIS exact pose and arrangement — not only as in the flat upload'}:
 ---
-${referenceProductPoseAndArrangement}
+${stripCompetitorContainerLanguage(referenceProductPoseAndArrangement)}
 ---
-Adapt only the product name: write "the product from the provided image" or "the user's [product type] from the provided image" so the design/color/branding come from the image but the POSE, ORDER, ANGLE and ARRANGEMENT come from this block. **Prefer "in a row" / "side by side" over pyramid/triangle stacks** — a row looks cleaner. Your final prompt must contain a paragraph or bullet list that replicates this pose/arrangement for the user's product.`
+Clone **layout zone + interaction** only (hand hold, surface placement, angle). Product **container/format = attached catalog image(s)** — NEVER the reference competitor's bottle/cylinder/jar shape. Write "the same exact product as in the attached image(s)" for the hero.`
     : '';
 
   const typographyBlock = referenceTypography

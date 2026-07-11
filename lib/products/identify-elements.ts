@@ -10,6 +10,58 @@ export type IdentifyReferenceElementsResult = {
   usage: Step2Usage | null;
 };
 
+const VALID_ELEMENT_ROLES = new Set([
+  'product',
+  'packaging',
+  'logo',
+  'trust_badge',
+  'lifestyle',
+  'ingredient',
+  'other',
+]);
+
+/**
+ * Parse the PRODUCT SOURCE ELEMENTS section that Step 1 now outputs, so no extra
+ * Gemini call is needed. Lines look like: "- packaging | lower-right packshot zone".
+ * Falls back to a single generic element when the section is missing/unparseable.
+ */
+export function parseReferenceElementsFromAnalysis(
+  analysisText: string,
+  fallback?: { referenceShowsPackagingHint?: boolean }
+): ReferenceProductElement[] {
+  const sectionMatch = analysisText.match(
+    /\*\*PRODUCT SOURCE ELEMENTS \(REFERENCE AD\)[^\n]*\n([\s\S]*?)(?=\n\*\*[A-Z]|$)/i
+  );
+  const elements: ReferenceProductElement[] = [];
+
+  if (sectionMatch) {
+    const lines = sectionMatch[1].split('\n');
+    for (const rawLine of lines) {
+      const line = rawLine.replace(/^[-*\d.\s]+/, '').trim();
+      if (!line || !line.includes('|')) continue;
+      const [roleRaw, ...descParts] = line.split('|');
+      const role = roleRaw.trim().toLowerCase().replace(/[^a-z_]/g, '');
+      const description = descParts.join('|').trim();
+      if (!VALID_ELEMENT_ROLES.has(role) || !description) continue;
+      elements.push({
+        role: role as ReferenceProductElement['role'],
+        description,
+      });
+      if (elements.length >= 8) break;
+    }
+  }
+
+  if (elements.length === 0) {
+    return [
+      {
+        role: fallback?.referenceShowsPackagingHint ? 'packaging' : 'product',
+        description: 'Main product shown in the reference ad',
+      },
+    ];
+  }
+  return elements;
+}
+
 /**
  * After Step 1, detect which distinct product visual elements the reference ad uses
  * (e.g. packaging + loose product) so we can attach matching images from the user's product.

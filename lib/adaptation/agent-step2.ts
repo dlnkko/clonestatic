@@ -7,18 +7,13 @@ import {
   sanitizeAdaptedCopy,
 } from './copy-sanitize';
 import { sanitizeImagePromptForKie } from './sanitize-image-prompt';
-import {
-  copyAgentPrompt,
-  qaRulesBlock,
-  synthesisTaskBlock,
-  visualAgentPrompt,
-} from './prompt-blocks';
+import { copyAgentPrompt } from './prompt-blocks';
+import { buildCall3FinalPrompt } from './old-prompts';
+import { findCatalogContainerViolations } from '@/lib/products/catalog-container';
 import type {
   AdaptationContext,
   CopyAdaptationResult,
-  QaResult,
   Step2Result,
-  VisualAdaptationResult,
 } from './types';
 
 function normalizeCopy(
@@ -33,132 +28,109 @@ function normalizeCopy(
   return copy;
 }
 
+/** Call 2 — adapt copy only (text, no product images). */
 async function runCopyAgent(
   ai: GoogleGenAI,
   ctx: AdaptationContext
 ): Promise<{ copy: CopyAdaptationResult; usage: ReturnType<typeof mergeStep2Usage> }> {
-  // copyAgentPrompt already includes logo placement rules + copy language instruction.
   const prompt = copyAgentPrompt(ctx);
-
   const { text, usage } = await generateText(ai, prompt, { json: true });
   const copy = normalizeCopy(parseJson<CopyAdaptationResult>(text), ctx);
-  console.log('\n=== ADAPTATION AGENT: Copy ===', {
+  console.log('\n=== CALL 2: Copy adaptation ===', {
     tagline: copy.tagline,
     mainLine: copy.mainLine,
     textLineCount: copy.textLines?.length,
-    iconCount: copy.featureIcons?.length,
   });
   return { copy, usage };
 }
 
-async function runVisualAgent(
-  ai: GoogleGenAI,
-  ctx: AdaptationContext,
-  productFiles: { uri: string; mimeType?: string }[]
-): Promise<{ visual: VisualAdaptationResult; usage: ReturnType<typeof mergeStep2Usage> }> {
-  // visualAgentPrompt already includes logo placement rules + copy language instruction.
-  const prompt = visualAgentPrompt(ctx);
-
-  const { text, usage } = await generateWithProductImages(ai, productFiles, prompt, {
-    json: true,
-  });
-  const visual = parseJson<VisualAdaptationResult>(text);
-  console.log('\n=== ADAPTATION AGENT: Visual ===', {
-    productType: visual.productType,
-    iconRowNotes: visual.iconRowNotes?.slice(0, 120),
-  });
-  return { visual, usage };
-}
-
-async function runSynthesis(
+/** Call 3 — final Kie prompt with product images + approved copy (visual + synthesis merged). */
+async function runFinalPromptAgent(
   ai: GoogleGenAI,
   ctx: AdaptationContext,
   copy: CopyAdaptationResult,
-  visual: VisualAdaptationResult,
-  qaFeedback?: string[]
+  productFiles: { uri: string; mimeType?: string }[],
+  fixIssues?: string[]
 ): Promise<{ finalPrompt: string; usage: ReturnType<typeof mergeStep2Usage> }> {
-  const feedbackBlock =
-    qaFeedback && qaFeedback.length > 0
-      ? `\n**FIX THESE QA ISSUES:**\n${qaFeedback.map((i) => `- ${i}`).join('\n')}\n`
+  const feedback =
+    fixIssues && fixIssues.length > 0
+      ? `\nFix these issues:\n${fixIssues.map((i) => `- ${i}`).join('\n')}\n`
       : '';
 
-  const textGuard = `\n**TEXT RENDER GUARD:** Approved copy has exactly ${copy.textLines?.length ?? 0} lines — quote each ONCE in top-to-bottom order. Never repeat strikethrough dismissals or the punch headline.\n`;
-  const prompt = synthesisTaskBlock(
-    ctx,
-    copy,
-    visual,
-    `${textGuard}${feedbackBlock ?? ''}` || undefined
-  );
+  const textGuard = `\nQuote each approved copy line exactly once, top-to-bottom.\n`;
+  const prompt = buildCall3FinalPrompt(ctx, copy, `${textGuard}${feedback}`);
 
-  const { text, usage } = await generateText(ai, prompt);
-  if (!text) throw new Error('Synthesis returned empty prompt');
+  const { text, usage } = await generateWithProductImages(ai, productFiles, prompt);
+  if (!text) throw new Error('Final prompt generation returned empty');
   const finalPrompt = sanitizeImagePromptForKie(text);
   return { finalPrompt, usage };
 }
 
-async function runQa(
-  ai: GoogleGenAI,
+function programmaticQa(
   ctx: AdaptationContext,
   copy: CopyAdaptationResult,
   finalPrompt: string
-): Promise<{ qa: QaResult; usage: ReturnType<typeof mergeStep2Usage> }> {
-  // qaRulesBlock already opens with the QA reviewer role.
-  const prompt = qaRulesBlock(ctx, copy, finalPrompt);
-
-  const { text, usage } = await generateText(ai, prompt, { json: true });
-  const qa = parseJson<QaResult>(text);
-  console.log('\n=== ADAPTATION AGENT: QA ===', qa);
-  return { qa, usage };
+): string[] {
+  const issues = [
+    ...findDuplicateCopyIssues(copy),
+    ...findDuplicateLinesInPrompt(copy, finalPrompt),
+    ...findCatalogContainerViolations(finalPrompt, ctx.catalogContainerHint),
+  ];
+  if (ctx.referenceHasPriceVisual && ctx.allowedPrice) {
+    if (!finalPrompt.includes(ctx.allowedPrice)) {
+      issues.push(`Missing allowed price ${ctx.allowedPrice}`);
+    }
+  } else if (/\$\d|price badge|price sticker/i.test(finalPrompt)) {
+    issues.push('Reference had no price badge — remove dollar amounts from prompt');
+  }
+  return issues;
 }
 
+/**
+ * 3-call Gemini pipeline (Step 2 portion):
+ * - Call 2: copy adaptation
+ * - Call 3: final image prompt (sees catalog product images)
+ * (Call 1 = reference analysis, run upstream in generate-static-ad-prompt)
+ */
 export async function runAdaptationAgent(
   ai: GoogleGenAI,
   ctx: AdaptationContext,
   productFiles: { uri: string; mimeType?: string }[]
 ): Promise<Step2Result> {
-  console.log('\n=== STEP 2: ADAPTATION AGENT ===');
+  console.log('\n=== STEP 2: 3-CALL PIPELINE (copy + final prompt) ===');
 
   const usages: (ReturnType<typeof mergeStep2Usage>)[] = [];
 
   const { copy, usage: copyUsage } = await runCopyAgent(ai, ctx);
   usages.push(copyUsage);
 
-  const { visual, usage: visualUsage } = await runVisualAgent(ai, ctx, productFiles);
-  usages.push(visualUsage);
+  let { finalPrompt, usage: finalUsage } = await runFinalPromptAgent(
+    ai,
+    ctx,
+    copy,
+    productFiles
+  );
+  usages.push(finalUsage);
 
-  let { finalPrompt, usage: synthUsage } = await runSynthesis(ai, ctx, copy, visual);
-  usages.push(synthUsage);
-
-  let { qa, usage: qaUsage } = await runQa(ai, ctx, copy, finalPrompt);
-  usages.push(qaUsage);
-
-  const copyDupes = findDuplicateCopyIssues(copy);
-  const promptDupes = findDuplicateLinesInPrompt(copy, finalPrompt);
-  if (copyDupes.length > 0 || promptDupes.length > 0) {
-    qa = { pass: false, issues: [...copyDupes, ...promptDupes, ...qa.issues] };
-  }
-
+  let qaIssues = programmaticQa(ctx, copy, finalPrompt);
   let retried = false;
-  if (!qa.pass && qa.issues.length > 0) {
+
+  if (qaIssues.length > 0) {
     retried = true;
-    console.log('\n=== ADAPTATION AGENT: QA retry synthesis ===');
-    const retry = await runSynthesis(ai, ctx, copy, visual, qa.issues);
+    console.log('\n=== CALL 3 retry (programmatic QA) ===', qaIssues);
+    const retry = await runFinalPromptAgent(ai, ctx, copy, productFiles, qaIssues);
     finalPrompt = retry.finalPrompt;
     usages.push(retry.usage);
-    const retryQa = await runQa(ai, ctx, copy, finalPrompt);
-    qa = retryQa.qa;
-    usages.push(retryQa.usage);
-    const promptDupesRetry = findDuplicateLinesInPrompt(copy, finalPrompt);
-    const copyDupesRetry = findDuplicateCopyIssues(copy);
-    if (copyDupesRetry.length > 0 || promptDupesRetry.length > 0) {
-      qa = { pass: false, issues: [...copyDupesRetry, ...promptDupesRetry, ...qa.issues] };
-    }
+    qaIssues = programmaticQa(ctx, copy, finalPrompt);
   }
 
   const usage = mergeStep2Usage(usages);
 
-  console.log('\n=== STEP 2 (agent): FINAL PROMPT ===');
+  console.log('\n=== STEP 2: FINAL PROMPT ===');
   console.log('Final prompt length:', finalPrompt.length);
+  if (qaIssues.length > 0) {
+    console.warn('Remaining QA issues (non-blocking):', qaIssues);
+  }
 
   return {
     finalPrompt,
@@ -169,9 +141,9 @@ export async function runAdaptationAgent(
     whyThisWorks: ctx.creativeBridge?.whyThisWorks ?? null,
     agentDebug: {
       copy,
-      visual,
-      qaPass: qa.pass,
-      qaIssues: qa.issues,
+      visual: undefined,
+      qaPass: qaIssues.length === 0,
+      qaIssues,
       retried,
     },
   };

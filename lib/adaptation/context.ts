@@ -96,6 +96,7 @@ export type BuildContextInput = {
   guidelinesTrimmed: string;
   copyLanguage?: string;
   matchedProductVisuals?: MatchedProductVisual[];
+  catalogContainerHint?: string;
   productName?: string | null;
   productDescription?: string | null;
   productTargetAudience?: string | null;
@@ -139,6 +140,7 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     guidelinesTrimmed,
     copyLanguage,
     matchedProductVisuals = [],
+    catalogContainerHint = '',
     productName = null,
     productDescription = null,
     productTargetAudience = null,
@@ -378,6 +380,9 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     creativeDeconstruction: creativeDeconstructionInput,
     productCreativeProfile: productCreativeProfileInput,
     creativeBridge,
+    catalogContainerHint:
+      catalogContainerHint ||
+      'exact container/format shown in attached catalog image(s)',
   };
 }
 
