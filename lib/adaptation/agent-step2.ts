@@ -9,7 +9,10 @@ import {
 import { sanitizeImagePromptForKie } from './sanitize-image-prompt';
 import { copyAgentPrompt } from './prompt-blocks';
 import { buildCall3FinalPrompt } from './old-prompts';
-import { findCatalogContainerViolations } from '@/lib/products/catalog-container';
+import {
+  findCatalogContainerViolations,
+  findProductVisibilityViolations,
+} from '@/lib/products/catalog-container';
 import type {
   AdaptationContext,
   CopyAdaptationResult,
@@ -75,6 +78,7 @@ function programmaticQa(
     ...findDuplicateCopyIssues(copy),
     ...findDuplicateLinesInPrompt(copy, finalPrompt),
     ...findCatalogContainerViolations(finalPrompt, ctx.catalogContainerHint),
+    ...findProductVisibilityViolations(finalPrompt, ctx.referenceProductVisibility),
   ];
   if (ctx.referenceHasPriceVisual && ctx.allowedPrice) {
     if (!finalPrompt.includes(ctx.allowedPrice)) {

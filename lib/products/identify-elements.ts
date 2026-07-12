@@ -27,7 +27,7 @@ const VALID_ELEMENT_ROLES = new Set([
  */
 export function parseReferenceElementsFromAnalysis(
   analysisText: string,
-  fallback?: { referenceShowsPackagingHint?: boolean }
+  fallback?: { referenceShowsPackagingHint?: boolean; illustrationOnly?: boolean }
 ): ReferenceProductElement[] {
   const sectionMatch = analysisText.match(
     /\*\*PRODUCT SOURCE ELEMENTS \(REFERENCE AD\)[^\n]*\n([\s\S]*?)(?=\n\*\*[A-Z]|$)/i
@@ -35,6 +35,10 @@ export function parseReferenceElementsFromAnalysis(
   const elements: ReferenceProductElement[] = [];
 
   if (sectionMatch) {
+    const body = sectionMatch[1].trim();
+    if (/^present:\s*no\b/i.test(body)) {
+      return [];
+    }
     const lines = sectionMatch[1].split('\n');
     for (const rawLine of lines) {
       const line = rawLine.replace(/^[-*\d.\s]+/, '').trim();
@@ -52,6 +56,9 @@ export function parseReferenceElementsFromAnalysis(
   }
 
   if (elements.length === 0) {
+    if (fallback?.illustrationOnly && !fallback?.referenceShowsPackagingHint) {
+      return [];
+    }
     return [
       {
         role: fallback?.referenceShowsPackagingHint ? 'packaging' : 'product',

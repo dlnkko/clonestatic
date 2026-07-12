@@ -94,6 +94,7 @@ async function generatePrompt(
       referenceHasPriceVisual: boolean;
       allowedPrice: string | null;
       productBrandColors: string[];
+      referenceProductVisibility?: import('@/lib/adaptation/parse-reference-analysis').ReferenceProductVisibility;
     }
   | { error: string }
 > {
@@ -121,6 +122,7 @@ async function generatePrompt(
       referenceHasPriceVisual?: boolean;
       allowedPrice?: string | null;
       productBrandColors?: string[];
+      referenceProductVisibility?: import('@/lib/adaptation/parse-reference-analysis').ReferenceProductVisibility;
     };
     if (!res.ok || !data.prompt) {
       const detail = [data.error, data.details].filter(Boolean).join(' — ');
@@ -151,6 +153,7 @@ async function generatePrompt(
       productBrandColors: Array.isArray(data.productBrandColors)
         ? data.productBrandColors.filter((c): c is string => typeof c === 'string' && c.trim().length > 0)
         : [],
+      referenceProductVisibility: data.referenceProductVisibility,
     };
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Prompt generation failed' };
@@ -225,7 +228,10 @@ export async function runFullAdGenerationJob(params: FullAdGenerationParams): Pr
     if (productImageUrls.length === 0 && productImageUrl) {
       productImageUrls = [productImageUrl];
     }
-    if (productImageUrls.length === 0) {
+    if (
+      productImageUrls.length === 0 &&
+      promptResult.referenceProductVisibility !== 'none'
+    ) {
       throw new Error('No product images available for generation');
     }
 
@@ -246,6 +252,7 @@ export async function runFullAdGenerationJob(params: FullAdGenerationParams): Pr
       referenceHasPriceVisual: promptResult.referenceHasPriceVisual,
       allowedPrice: promptResult.allowedPrice,
       productBrandColors: promptResult.productBrandColors,
+      referenceProductVisibility: promptResult.referenceProductVisibility,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Generation failed';

@@ -20,6 +20,7 @@ export type AdImageGenerationParams = {
   referenceHasPriceVisual?: boolean;
   allowedPrice?: string | null;
   productBrandColors?: string[];
+  referenceProductVisibility?: import('@/lib/adaptation/parse-reference-analysis').ReferenceProductVisibility;
 };
 
 function appendAspectRatioHint(prompt: string, aspectRatio: string): string {
@@ -70,6 +71,7 @@ export async function runAdImageGenerationJob(params: AdImageGenerationParams): 
       referenceHasPriceVisual: params.referenceHasPriceVisual,
       allowedPrice: params.allowedPrice,
       productBrandColors: params.productBrandColors,
+      referenceProductVisibility: params.referenceProductVisibility,
     });
 
     await admin

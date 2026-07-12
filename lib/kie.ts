@@ -156,6 +156,7 @@ export async function generateAdImageWithKie(params: {
   referenceHasPriceVisual?: boolean;
   allowedPrice?: string | null;
   productBrandColors?: string[];
+  referenceProductVisibility?: import('@/lib/adaptation/parse-reference-analysis').ReferenceProductVisibility;
 }): Promise<{ imageUrl: string; taskId: string; model: string; adVisualMode: AdVisualMode }> {
   const {
     prompt,
@@ -171,6 +172,7 @@ export async function generateAdImageWithKie(params: {
     referenceHasPriceVisual,
     allowedPrice,
     productBrandColors,
+    referenceProductVisibility,
   } = params;
   const ratio = mapAspectRatio(aspectRatio, adVisualMode);
   const maxCatalog =
@@ -187,6 +189,7 @@ export async function generateAdImageWithKie(params: {
     referenceHasPriceVisual,
     allowedPrice,
     productBrandColors,
+    referenceProductVisibility,
   });
 
   let taskId: string;
@@ -195,7 +198,7 @@ export async function generateAdImageWithKie(params: {
   if (adVisualMode === 'design') {
     model = 'nano-banana-pro';
 
-    if (catalogUrls.length === 0) {
+    if (catalogUrls.length === 0 && referenceProductVisibility !== 'none') {
       throw new Error('No valid product image URLs for design generation');
     }
 
@@ -203,7 +206,7 @@ export async function generateAdImageWithKie(params: {
       model,
       input: {
         prompt: fidelityPrompt,
-        image_input: catalogUrls,
+        ...(catalogUrls.length > 0 ? { image_input: catalogUrls } : {}),
         aspect_ratio: ratio,
         resolution: '2K',
         output_format: 'png',
@@ -213,13 +216,13 @@ export async function generateAdImageWithKie(params: {
     model = 'gpt-image-2-image-to-image';
     const inputUrls = catalogUrls;
 
-    if (inputUrls.length === 0) {
+    if (inputUrls.length === 0 && referenceProductVisibility !== 'none') {
       throw new Error('No valid product image URLs for realistic generation');
     }
 
     const input: Record<string, unknown> = {
       prompt: fidelityPrompt,
-      input_urls: inputUrls,
+      ...(inputUrls.length > 0 ? { input_urls: inputUrls } : {}),
       aspect_ratio: ratio,
       // Always force 2K for GPT Image 2 requests.
       resolution: '2K',

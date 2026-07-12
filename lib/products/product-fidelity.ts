@@ -70,6 +70,11 @@ export function anchorMatchedDescriptions(
 }
 
 export function productCatalogFidelityBlock(ctx: AdaptationContext): string {
+  if (ctx.referenceProductVisibility === 'none') {
+    return `**Product catalog fidelity:**
+Reference had NO product imagery — do NOT render product, packaging, pouch, bottle, or loose units. Brand via copy/logo only.`;
+  }
+
   const units = ctx.referenceProductUnits;
   const catalogLines =
     ctx.matchedProductVisuals.length > 0
@@ -150,8 +155,18 @@ export function appendKieProductFidelityPrompt(
     allowedPrice?: string | null;
     productBrandColors?: string[];
     hasPhotoGraphicOverlay?: boolean;
+    referenceProductVisibility?: import('@/lib/adaptation/parse-reference-analysis').ReferenceProductVisibility;
   }
 ): string {
+  const visibility = options?.referenceProductVisibility ?? 'standard';
+
+  if (visibility === 'none') {
+    const colorRule = buildKieColorRule(options?.productBrandColors);
+    const priceRule = buildKiePriceRule(options?.referenceHasPriceVisual, options?.allowedPrice);
+    const rules = `Rules: (1) NO product photo, NO packaging, NO pouch/bottle/gummies — reference had illustration/copy only. (2) Copy verbatim, one row each. (3) Headline largest, subhead ~30%. (4) ${colorRule} (5) ${priceRule}`;
+    return `${prompt.trim()}\n\n${rules}`;
+  }
+
   if (!hasProductImages) return prompt.trim();
 
   const extras: string[] = [];
@@ -172,6 +187,13 @@ export function appendKieProductFidelityPrompt(
   const colorRule = buildKieColorRule(options?.productBrandColors);
   const priceRule = buildKiePriceRule(options?.referenceHasPriceVisual, options?.allowedPrice);
 
+  const visibilityProductRule =
+    visibility === 'symbolic-only'
+      ? 'Show product ONLY in the reference symbolic zone (thought/dream bubble or tiny inset) — loose unit only; NO packshot elsewhere.'
+      : visibility === 'loose-units-only'
+        ? 'Show loose product units ONLY where reference showed them — NO retail packaging/pouch packshot.'
+        : '(1) Hero = SAME EXACT PRODUCT from attached image(s): container/format + label + logo + colors reproduced 1:1 — a pouch stays a pouch, never a bottle/cylinder/jar; only pose/angle/lighting may change.';
+
   // Prevent the product photo's incidental background (hands, backpack, surface) from
   // leaking, and stop the model leaving blurred/empty/vignetted dead zones (often the
   // bottom of the frame) when the described background does not fill a tall ratio.
@@ -187,9 +209,14 @@ export function appendKieProductFidelityPrompt(
     : 'Extract ONLY the product from the attached image(s); ignore and never reproduce its original photo background, hand, or surroundings. Render the described background sharply and uniformly across the ENTIRE frame, all the way to every edge — no blurred, faded, vignetted, smudged, empty, or out-of-focus areas anywhere (especially the bottom and corners).';
 
   // Self-contained rules — no "follow the reference ad" (the reference is not attached here).
-  const rules = `Rules: (1) Hero = SAME EXACT PRODUCT from attached image(s): container/format + label + logo + colors reproduced 1:1 — a pouch stays a pouch, never a bottle/cylinder/jar; only pose/angle/lighting may change. (2) Copy verbatim, one row each. (3) Headline largest, subhead ~30%. (4) ${colorRule} (5) ${priceRule} (6) ${backgroundIntegrityRule}${needsPhotoOverlayLock ? ' (7) ONE integrated ad: full-bleed photo + overlays ON TOP — never split bands.' : ''}`;
+  const rules = `Rules: ${visibilityProductRule} (2) Copy verbatim, one row each. (3) Headline largest, subhead ~30%. (4) ${colorRule} (5) ${priceRule} (6) ${backgroundIntegrityRule}${needsPhotoOverlayLock ? ' (7) ONE integrated ad: full-bleed photo + overlays ON TOP — never split bands.' : ''}`;
 
-  let out = `${KIE_PRODUCT_FIRST_DIRECTIVE}\n\n${prompt.trim()}\n\n${rules}`;
+  const productDirective =
+    visibility === 'symbolic-only' || visibility === 'loose-units-only'
+      ? `${KIE_PRODUCT_FIRST_DIRECTIVE} Show product ONLY in reference visibility mode (${visibility}) — never add extra packshots.`
+      : KIE_PRODUCT_FIRST_DIRECTIVE;
+
+  let out = `${productDirective}\n\n${prompt.trim()}\n\n${rules}`;
   if (extras.length) out += ` ${extras.join(' ')}`;
   return out;
 }

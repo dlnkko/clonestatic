@@ -26,6 +26,7 @@ import {
 import { creativeBridgeBlock } from './creative-bridge';
 import {
   catalogContainerLockBlock,
+  referenceProductVisibilityBlock,
   stripCompetitorContainerLanguage,
 } from '@/lib/products/catalog-container';
 import type { CopywritingProfile, ReferenceTextLayout } from './types';
@@ -320,6 +321,8 @@ List each DISTINCT product-related visual element that needs its own source phot
 - Roles: product (loose items/units), packaging (retail container shown as its own packshot — bottle/box/pouch/jar), logo (standalone brand mark in layout, NOT printed on packaging), trust_badge (award/press/certification seal overlapping product), lifestyle (product in use on a person — note HOW it is used), other.
 - Describe the **layout zone only** (e.g. "packaging | lower-right packshot zone") — NEVER name the competitor's container type.
 - If loose units AND a separate packshot are both visible → output TWO rows (product + packaging). If an award/press seal overlaps the product → you MUST include a trust_badge row. If a standalone logo exists in the layout → include a logo row. Do NOT invent elements not visible.
+- If product appears ONLY in a thought/dream/speech bubble → one row: \`product | thought bubble only — no packshot elsewhere\`
+- If NO product or packaging is visible (illustration/copy/comparison only) → write exactly: \`Present: no\`
 Example output:
 - lifestyle | held in a hand at center against pale blue backdrop
 - packaging | small packshot in lower-right corner
@@ -381,11 +384,19 @@ The reference ad includes one or more **people** using or featuring a product. Y
 }
 
 function oneHeroBlock(ctx: AdaptationContext): string {
+  if (ctx.referenceProductVisibility === 'none') return '';
+  if (
+    ctx.referenceProductVisibility === 'symbolic-only' ||
+    ctx.referenceProductVisibility === 'loose-units-only'
+  ) {
+    return `**PRODUCT PLACEMENT (match reference visibility):**
+Show user's product ONLY where the reference showed it (${ctx.referenceProductVisibility === 'symbolic-only' ? 'thought/dream bubble or tiny inset — loose unit only' : 'loose units only'}). Do NOT add retail packaging/pouch packshot in any other zone.`;
+  }
   if (!ctx.enforceOneMainElement) return '';
   const catalogIsPackaging = /pouch|bag|box|carton|bottle|jar|tube|packaging|flexible stand-up/i.test(
     ctx.catalogContainerHint
   );
-  if (catalogIsPackaging) {
+  if (catalogIsPackaging && ctx.referenceProductVisibility === 'packaging-packshot') {
     return `**ONE MAIN HERO — catalog packaging/product only:**
 Show ONLY the user's attached catalog product (${ctx.catalogContainerHint}) as the single hero — reproduce label, logo, colors, container 1:1.${ctx.hasPersonInReference ? ' Keep people/models from reference; product interaction must use THIS catalog container, NOT the reference competitor shape.' : ''} Do NOT add a second SKU or invent a different pack type.`;
   }
@@ -568,7 +579,8 @@ export function buildCall3FinalPrompt(
 
   return `Write ONE Kie.ai image prompt (~900 chars max). Output prompt text only — no JSON, no analysis headers.
 
-${catalogContainerLockBlock(ctx.catalogContainerHint, ctx.productName)}
+${catalogContainerLockBlock(ctx.catalogContainerHint, ctx.productName, ctx.referenceProductVisibility)}
+${referenceProductVisibilityBlock(ctx.referenceProductVisibility)}
 
 ${formatApprovedCopyBlock(copy, ctx.copywritingProfile, ctx.referenceTextLayout)}
 
@@ -580,12 +592,12 @@ Layout zone to mirror (interaction/placement only — use catalog product shape)
 ${peopleRule}
 ${photoOverlay}
 ${ctx.pricingInstructions.slice(0, 200)}
-Visual medium: ${refMedium}. Attached image(s) = product truth (container, label, logo, colors). Clone reference composition + text design; recolor accents to product brand.
+Visual medium: ${refMedium}.${ctx.referenceProductVisibility === 'none' ? ' Brand via copy/colors only — NO product render.' : ' Attached image(s) = product truth (container, label, logo, colors).'} Clone reference composition + text design; recolor accents to product brand.
 ${extraBlocks ?? ''}
 
-FORBIDDEN: reference competitor container (bottle/cylinder/jar) on user product; reskinning; new invented packaging.
+FORBIDDEN: reference competitor container on user product; reskinning; **adding product/packaging zones the reference did not have**.
 
-Output: Scene | Catalog product (exact from attached images) | Each copy line with size tier | Lighting/effects.`;
+Output: Scene | Product ONLY where reference showed it | Each copy line with size tier | Lighting/effects.`;
 }
 
 function buildAgentSynthesisPrompt(

@@ -751,6 +751,72 @@ export function parseReferenceVisualStyle(vsText: string): import('./types').Ref
   };
 }
 
+export type ReferenceProductVisibility =
+  | 'none'
+  | 'symbolic-only'
+  | 'loose-units-only'
+  | 'packaging-packshot'
+  | 'lifestyle'
+  | 'standard';
+
+/** Step 1 — distinct retail packshot (pouch/bottle/box) as its own layout element. */
+export function parseReferenceShowsRetailPackaging(analysisText: string): boolean {
+  const m =
+    analysisText.match(/Retail packaging as separate element:\s*(yes|no)/i) ??
+    analysisText.match(/Retail packaging visible as its own element:\s*(yes|no)/i);
+  return m ? /^yes/i.test(m[1]) : false;
+}
+
+export function inferReferenceProductVisibility(input: {
+  analysisText: string;
+  referenceVisualStyle: import('./types').ReferenceVisualStyle | null;
+  referenceElements: { role: string; description: string }[];
+  referenceShowsRetailPackaging: boolean;
+}): ReferenceProductVisibility {
+  const { analysisText, referenceVisualStyle, referenceElements, referenceShowsRetailPackaging } =
+    input;
+  const hay = analysisText.toLowerCase();
+  const elementsHay = referenceElements
+    .map((e) => `${e.role} ${e.description}`)
+    .join(' ')
+    .toLowerCase();
+
+  const illustrationLed =
+    referenceVisualStyle?.designType === 'illustration-led' ||
+    referenceVisualStyle?.designType === 'diagram-led' ||
+    referenceVisualStyle?.visualMedium === 'illustration' ||
+    referenceVisualStyle?.visualMedium === 'diagram';
+
+  const symbolicHint =
+    /thought bubble|dream bubble|speech bubble|dream cloud|in a bubble|bubble above|floating gummy|tiny inset|symbolic zone|icon.?sized product/i.test(
+      `${hay} ${elementsHay}`
+    );
+
+  if (/present:\s*no/i.test(elementsHay) || elementsHay.includes('no product')) {
+    return 'none';
+  }
+
+  if (referenceElements.length === 0) {
+    if (illustrationLed && !referenceShowsRetailPackaging) return 'none';
+    if (symbolicHint) return 'symbolic-only';
+    if (/emoji|illustration.?only|copy.?only|no product|no packshot|no packaging visible/i.test(hay)) {
+      return 'none';
+    }
+    return illustrationLed ? 'none' : 'standard';
+  }
+
+  const hasPackagingEl = referenceElements.some((e) => e.role === 'packaging');
+  const hasProductEl = referenceElements.some((e) => e.role === 'product');
+  const hasLifestyleEl = referenceElements.some((e) => e.role === 'lifestyle');
+
+  if (hasPackagingEl || referenceShowsRetailPackaging) return 'packaging-packshot';
+  if (hasLifestyleEl) return 'lifestyle';
+  if (symbolicHint && hasProductEl && !hasPackagingEl) return 'symbolic-only';
+  if (hasProductEl && !referenceShowsRetailPackaging) return 'loose-units-only';
+
+  return 'standard';
+}
+
 export function parseReferenceProductUnits(analysisText: string): ReferenceProductUnitsProfile | null {
   const block = analysisText.match(
     /\*\*PRODUCT UNITS \(REFERENCE AD\):\*\*\s*([\s\S]*?)(?=\*\*PRODUCT POSE|\*\*REFERENCE AD PROMPT:\*\*|$)/i

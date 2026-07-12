@@ -651,6 +651,7 @@ function StaticAdAppPage() {
         referenceHasPriceVisual?: boolean;
         allowedPrice?: string | null;
         productBrandColors?: string[];
+        referenceProductVisibility?: import('@/lib/adaptation/parse-reference-analysis').ReferenceProductVisibility;
       }>(response);
       if (promptErr) {
         throw new Error(promptErr);
@@ -671,14 +672,47 @@ function StaticAdAppPage() {
       const { data: uploadData } = await parseJsonResponse<{ url?: string }>(uploadRes);
       if (uploadRes.ok && uploadData?.url) {
         productImageUrl = uploadData.url;
-        if (productImageUrls.length === 0) productImageUrls = [uploadData.url];
-      } else if (selectedProduct && productImageUrls.length === 0) {
+        if (
+          productImageUrls.length === 0 &&
+          data.referenceProductVisibility !== 'none'
+        ) {
+          productImageUrls = [uploadData.url];
+        }
+      } else if (
+        selectedProduct &&
+        productImageUrls.length === 0 &&
+        data.referenceProductVisibility !== 'none'
+      ) {
         const logos = selectedProduct.images.filter((i) => i.kind === 'logo').map((i) => i.url);
-        const rest = selectedProduct.images.filter((i) => i.kind !== 'logo').map((i) => i.url);
+        const productOnly = selectedProduct.images
+          .filter((i) => i.kind === 'product' || i.kind === 'other')
+          .map((i) => i.url);
+        const packaging = selectedProduct.images
+          .filter((i) => i.kind === 'packaging')
+          .map((i) => i.url);
+        const preferProduct =
+          data.referenceProductVisibility === 'symbolic-only' ||
+          data.referenceProductVisibility === 'loose-units-only';
+        const rest = preferProduct
+          ? [...productOnly, ...packaging]
+          : selectedProduct.images.filter((i) => i.kind !== 'logo').map((i) => i.url);
         productImageUrls = [...logos, ...rest].filter((u) => u.startsWith('http'));
         productImageUrl = selectedProduct.primary_image_url;
         if (productImageUrls.length === 0 && productImageUrl) {
           productImageUrls = [productImageUrl];
+        }
+      } else if (
+        selectedProduct &&
+        productImageUrls.length === 0 &&
+        data.referenceProductVisibility === 'none'
+      ) {
+        const logoUrl =
+          selectedProduct.images.find((i) => i.kind === 'logo')?.url ??
+          selectedProduct.logo_url ??
+          null;
+        if (logoUrl?.startsWith('http')) {
+          productImageUrls = [logoUrl];
+          productImageUrl = logoUrl;
         }
       }
 
@@ -724,6 +758,9 @@ function StaticAdAppPage() {
         if (data.referenceHasPriceVisual) imageBody.referenceHasPriceVisual = true;
         if (data.allowedPrice) imageBody.allowedPrice = data.allowedPrice;
         if (data.productBrandColors?.length) imageBody.productBrandColors = data.productBrandColors;
+        if (data.referenceProductVisibility) {
+          imageBody.referenceProductVisibility = data.referenceProductVisibility;
+        }
 
         const useKeepalive = !imageBody.productImageBase64;
 

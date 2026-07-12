@@ -22,6 +22,8 @@ import {
   parseReferenceTrustBadge,
   parseReferenceProductUnits,
   parseReferenceCompositionStructure,
+  parseReferenceShowsRetailPackaging,
+  inferReferenceProductVisibility,
   parseReferenceVisualStyle,
   parseVerbatimPhrasesFromCopyBlock,
   parseVisualMetaphorBlock,
@@ -53,6 +55,7 @@ import {
   orderMatchedVisualsForGeneration,
 } from '@/lib/products/ensure-logo-match';
 import { buildKieProductImageUrls } from '@/lib/products/kie-image-input';
+import { filterVisualsForProductVisibility } from '@/lib/products/catalog-container';
 import {
   expandElementsForProductUnits,
   inferProductUnitsFromPose,
@@ -737,6 +740,25 @@ export async function POST(request: NextRequest) {
     // Match product images to reference visual elements (packaging + product, etc.)
     let matchedProductVisuals: MatchedProductVisual[] = [];
     let productFilesForStep2 = productFiles;
+    const referenceShowsRetailPackaging = parseReferenceShowsRetailPackaging(analysisText);
+    const referenceElementsParseOptions = {
+      referenceShowsPackagingHint: referenceShowsRetailPackaging,
+      illustrationOnly:
+        referenceVisualStyle?.visualMedium === 'illustration' ||
+        referenceVisualStyle?.visualMedium === 'diagram' ||
+        referenceVisualStyle?.designType === 'illustration-led',
+    };
+    const referenceElementsParsed = parseReferenceElementsFromAnalysis(
+      analysisText,
+      referenceElementsParseOptions
+    );
+    let referenceProductVisibility = inferReferenceProductVisibility({
+      analysisText,
+      referenceVisualStyle,
+      referenceElements: referenceElementsParsed,
+      referenceShowsRetailPackaging,
+    });
+    console.log('\n=== REFERENCE PRODUCT VISIBILITY ===', referenceProductVisibility);
 
     if (catalogImages.length > 0 && catalogImages[0]?.url !== 'upload') {
       catalogImages = classifyProductImagesHeuristic(catalogImages);
@@ -753,11 +775,16 @@ export async function POST(request: NextRequest) {
     if (catalogImages.length > 0) {
       try {
         const referenceElements = injectLogoReferenceElement(
-          parseReferenceElementsFromAnalysis(analysisText, {
-            referenceShowsPackagingHint: referenceVisualStyle?.oneHeroOnly === false,
-          }),
+          referenceElementsParsed,
           referenceLogoAnalysis
         );
+        referenceProductVisibility = inferReferenceProductVisibility({
+          analysisText,
+          referenceVisualStyle,
+          referenceElements,
+          referenceShowsRetailPackaging,
+        });
+        console.log('\n=== REFERENCE PRODUCT VISIBILITY (with logo) ===', referenceProductVisibility);
 
         const expandedElements = expandElementsForProductUnits(
           referenceElements,
@@ -776,11 +803,14 @@ export async function POST(request: NextRequest) {
           savedProduct?.logo_url
         );
         matchedProductVisuals = orderMatchedVisualsForGeneration(
-          matchesWithLogo.map((m) => ({
-            role: m.role,
-            url: m.url,
-            description: m.description,
-          }))
+          filterVisualsForProductVisibility(
+            matchesWithLogo.map((m) => ({
+              role: m.role,
+              url: m.url,
+              description: m.description,
+            })),
+            referenceProductVisibility
+          )
         ).map((m) => ({
           role: m.role as MatchedProductVisual['role'],
           url: m.url,
@@ -789,11 +819,14 @@ export async function POST(request: NextRequest) {
         console.log('\n=== PRODUCT IMAGE MATCHING (heuristic) ===', matchedProductVisuals);
 
         const uniqueUrls = orderMatchedVisualsForGeneration(
-          matchesWithLogo.map((m) => ({
-            role: m.role,
-            url: m.url,
-            description: m.description,
-          }))
+          filterVisualsForProductVisibility(
+            matchesWithLogo.map((m) => ({
+              role: m.role,
+              url: m.url,
+              description: m.description,
+            })),
+            referenceProductVisibility
+          )
         )
           .map((m) => m.url)
           .filter((u) => u.startsWith('http'));
@@ -805,44 +838,74 @@ export async function POST(request: NextRequest) {
         }
       } catch (matchErr) {
         console.warn('Product image matching failed, fallback to primary only:', matchErr);
-        const primary =
-          savedProduct?.primary_image_url ||
-          catalogImages.find((i) => i.kind !== 'logo' && i.url.startsWith('http'))?.url ||
-          catalogImages.find((i) => i.url.startsWith('http'))?.url;
-        if (primary) {
-          matchedProductVisuals = [
-            {
-              role: 'product',
-              url: primary,
-              description: 'Primary product image (matching failed)',
-            },
-          ];
-          productFilesForStep2 = await uploadProductImageUrlsToGemini(ai, [primary]);
+        if (referenceProductVisibility !== 'none') {
+          const primary =
+            savedProduct?.primary_image_url ||
+            catalogImages.find((i) => i.kind !== 'logo' && i.url.startsWith('http'))?.url ||
+            catalogImages.find((i) => i.url.startsWith('http'))?.url;
+          if (primary) {
+            matchedProductVisuals = filterVisualsForProductVisibility(
+              [
+                {
+                  role: 'product',
+                  url: primary,
+                  description: 'Primary product image (matching failed)',
+                },
+              ],
+              referenceProductVisibility
+            ).map((m) => ({
+              role: m.role as MatchedProductVisual['role'],
+              url: m.url,
+              description: m.description,
+            }));
+            if (matchedProductVisuals.length > 0) {
+              productFilesForStep2 = await uploadProductImageUrlsToGemini(ai, [
+                matchedProductVisuals[0].url,
+              ]);
+            }
+          }
         }
       }
     }
 
     if (productFilesForStep2.length === 0 && catalogImages.length > 0) {
-      const primary =
-        savedProduct?.primary_image_url ||
-        catalogImages.find((i) => i.kind !== 'logo' && i.url.startsWith('http'))?.url ||
-        catalogImages.find((i) => i.url.startsWith('http'))?.url;
-      if (primary) {
-        console.log('Retrying product upload with primary image only');
-        productFilesForStep2 = await uploadProductImageUrlsToGemini(ai, [primary]);
-        if (productFilesForStep2.length > 0 && matchedProductVisuals.length === 0) {
-          matchedProductVisuals = [
-            {
-              role: 'product',
-              url: primary,
-              description: 'Primary product image',
-            },
-          ];
+      if (referenceProductVisibility === 'none') {
+        const logoUrl =
+          savedProduct?.logo_url ||
+          catalogImages.find((i) => i.kind === 'logo' && i.url.startsWith('http'))?.url;
+        if (logoUrl) {
+          productFilesForStep2 = await uploadProductImageUrlsToGemini(ai, [logoUrl]);
+          matchedProductVisuals = [{ role: 'logo', url: logoUrl, description: 'Brand logo only' }];
+        }
+      } else {
+        const primary =
+          savedProduct?.primary_image_url ||
+          catalogImages.find((i) => i.kind !== 'logo' && i.url.startsWith('http'))?.url ||
+          catalogImages.find((i) => i.url.startsWith('http'))?.url;
+        if (primary) {
+          console.log('Retrying product upload with primary image only');
+          productFilesForStep2 = await uploadProductImageUrlsToGemini(ai, [primary]);
+          if (productFilesForStep2.length > 0 && matchedProductVisuals.length === 0) {
+            matchedProductVisuals = filterVisualsForProductVisibility(
+              [
+                {
+                  role: 'product',
+                  url: primary,
+                  description: 'Primary product image',
+                },
+              ],
+              referenceProductVisibility
+            ).map((m) => ({
+              role: m.role as MatchedProductVisual['role'],
+              url: m.url,
+              description: m.description,
+            }));
+          }
         }
       }
     }
 
-    if (productFilesForStep2.length === 0 && !productImage) {
+    if (productFilesForStep2.length === 0 && !productImage && referenceProductVisibility !== 'none') {
       return NextResponse.json(
         {
           error:
@@ -890,6 +953,8 @@ export async function POST(request: NextRequest) {
           copyLanguage: resolvedCopyLang.code,
           matchedProductVisuals,
           catalogContainerHint: inferCatalogContainerHint(catalogImages),
+          referenceShowsRetailPackaging,
+          referenceProductVisibility,
           productName: savedProduct?.name ?? null,
           productDescription: savedProduct?.description ?? null,
           productTargetAudience: savedProduct?.target_audience ?? null,
@@ -975,9 +1040,7 @@ export async function POST(request: NextRequest) {
       referenceVisualStyle,
       hasReferenceFeatureRow,
       referencePrompt,
-      referenceShowsPackaging: matchedProductVisuals.some(
-        (m) => m.role === 'packaging' || m.role === 'product'
-      ),
+      referenceShowsPackaging: referenceShowsRetailPackaging,
     });
     console.log('\n=== AD VISUAL MODE ===', adVisualMode);
 
@@ -1037,6 +1100,7 @@ export async function POST(request: NextRequest) {
       referenceHasPriceVisual,
       allowedPrice: referenceHasPriceVisual ? allowedPrice : null,
       productBrandColors: savedProduct?.color_palette?.colors ?? [],
+      referenceProductVisibility,
       whyThisWorks: step2Result.whyThisWorks ?? step2Result.creativeBridge?.whyThisWorks ?? null,
       creativeBridge: step2Result.creativeBridge ?? null,
       usage: {

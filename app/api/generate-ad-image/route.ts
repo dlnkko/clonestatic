@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
       referenceHasPriceVisual: referenceHasPriceVisualParam,
       allowedPrice: allowedPriceParam,
       productBrandColors: productBrandColorsParam,
+      referenceProductVisibility: referenceProductVisibilityParam,
     } = body as {
       prompt?: string;
       productImageBase64?: string;
@@ -69,6 +70,7 @@ export async function POST(request: NextRequest) {
       referenceHasPriceVisual?: boolean;
       allowedPrice?: string | null;
       productBrandColors?: string[];
+      referenceProductVisibility?: import('@/lib/adaptation/parse-reference-analysis').ReferenceProductVisibility;
     };
 
     const creationId =
@@ -129,7 +131,7 @@ export async function POST(request: NextRequest) {
         productImageUrls = [await uploadBase64ToImgBB(productImageBase64)];
       }
     }
-    if (productImageUrls.length === 0) {
+    if (productImageUrls.length === 0 && referenceProductVisibilityParam !== 'none') {
       return NextResponse.json(
         { error: 'Missing productImageUrls, productImageUrl or productImageBase64' },
         { status: 400 }
@@ -205,6 +207,10 @@ export async function POST(request: NextRequest) {
       productBrandColors: Array.isArray(productBrandColorsParam)
         ? productBrandColorsParam.filter((c): c is string => typeof c === 'string' && c.trim().length > 0)
         : [],
+      referenceProductVisibility:
+        typeof referenceProductVisibilityParam === 'string'
+          ? (referenceProductVisibilityParam as import('@/lib/adaptation/parse-reference-analysis').ReferenceProductVisibility)
+          : undefined,
     };
 
     after(async () => {

@@ -216,6 +216,8 @@ export type AdaptationContext = {
   enforceOneMainElement: boolean;
   /** Reference shows retail packaging (bottle, box, pouch) as its own layout element */
   referenceShowsPackaging: boolean;
+  /** How the reference ad shows (or hides) the product — drives placement, not container swap */
+  referenceProductVisibility: import('./parse-reference-analysis').ReferenceProductVisibility;
   hasPersonInReference: boolean;
   hasIllustrativeVisual: boolean;
   /** Reference is a real photographic scene (person OR location/sport environment in a photo/mixed ad). */

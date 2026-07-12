@@ -116,6 +116,8 @@ export type BuildContextInput = {
   visualMetaphor?: import('./types').VisualMetaphorProfile | null;
   creativeDeconstruction?: import('./types').ReferenceCreativeDeconstruction | null;
   productCreativeProfile?: import('./types').ProductCreativeProfile | null;
+  referenceShowsRetailPackaging?: boolean;
+  referenceProductVisibility?: import('./parse-reference-analysis').ReferenceProductVisibility;
 };
 
 export function buildAdaptationContext(input: BuildContextInput): AdaptationContext {
@@ -160,6 +162,8 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     visualMetaphor: visualMetaphorInput = null,
     creativeDeconstruction: creativeDeconstructionInput = null,
     productCreativeProfile: productCreativeProfileInput = null,
+    referenceShowsRetailPackaging: referenceShowsRetailPackagingInput = false,
+    referenceProductVisibility: referenceProductVisibilityInput = 'standard',
   } = input;
 
   const referenceTextLayout = referenceTextLayoutBlock
@@ -198,10 +202,14 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     /main\s*element|as\s*(the\s*)?main\s*element|only\s*one\s*(main\s*)?element|single\s*(main\s*)?element/i.test(
       guidelinesTrimmed
     );
-  const referenceShowsPackaging = matchedProductVisuals.some((m) => m.role === 'packaging');
+  const referenceShowsPackaging = referenceShowsRetailPackagingInput;
+  const referenceProductVisibility = referenceProductVisibilityInput;
   const multiUnitLayout = (referenceProductUnits?.unitCount ?? 1) > 1;
   const enforceOneMainElement =
-    (oneHeroOnly || guidelinesAskSingleHero) && !referenceShowsPackaging && !multiUnitLayout;
+    (oneHeroOnly || guidelinesAskSingleHero) &&
+    !referenceShowsPackaging &&
+    !multiUnitLayout &&
+    referenceProductVisibility !== 'none';
   const hasIllustrativeVisual = isIllustrativeVisualStyle(referenceVisualStyle, {
     referenceShowsPackaging,
     matchedProductVisuals,
@@ -350,6 +358,7 @@ export function buildAdaptationContext(input: BuildContextInput): AdaptationCont
     guidelinesAskSingleHero,
     enforceOneMainElement,
     referenceShowsPackaging,
+    referenceProductVisibility,
     hasPersonInReference,
     hasIllustrativeVisual,
     hasReferenceRealScene,

@@ -42,6 +42,15 @@ function pickFallbackIndex(
     );
     if (hintIdx >= 0) return hintIdx;
   }
+  if (el.role === 'product') {
+    const desc = el.description.toLowerCase();
+    if (/thought bubble|dream bubble|speech bubble|bubble only|symbolic|loose|gummy|unit/i.test(desc)) {
+      const productIdx = productImages.findIndex(
+        (img) => img.kind === 'product' || /gumm|unit|loose/i.test(`${img.url} ${img.alt || ''}`)
+      );
+      if (productIdx >= 0) return productIdx;
+    }
+  }
   const productLike = productImages.filter(
     (img) => img.kind === 'product' || img.kind === 'packaging' || img.kind === 'other'
   );
@@ -117,10 +126,9 @@ function finalizeMatches(
   for (let i = 0; i < matches.length; i++) {
     const el = referenceElements[i];
     if (!el) continue;
-    const needsPackaging =
-      el.role === 'packaging' ||
-      (el.role === 'product' &&
-        /bottle|tube|jar|labeled|label|box|container|packaging|canister/i.test(el.description));
+    // Only upgrade to packaging when reference explicitly had a packaging element — not for loose units / bubble-only ads.
+    if (el.role !== 'packaging') continue;
+    const needsPackaging = el.role === 'packaging';
     if (!needsPackaging) continue;
     const packagingIdx = productImages.findIndex(
       (img) =>
