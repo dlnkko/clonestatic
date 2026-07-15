@@ -189,10 +189,10 @@ export function appendKieProductFidelityPrompt(
 
   const visibilityProductRule =
     visibility === 'symbolic-only'
-      ? 'Show product ONLY in the reference symbolic zone (thought/dream bubble or tiny inset) — loose unit only; NO packshot elsewhere.'
+      ? 'Show product ONLY in the reference symbolic zone (thought/dream bubble or tiny inset) — loose unit from attached photo, max fidelity; may match reference render style; NO packshot elsewhere.'
       : visibility === 'loose-units-only'
-        ? 'Show loose product units ONLY where reference showed them — NO retail packaging/pouch packshot.'
-        : '(1) Hero = SAME EXACT PRODUCT from attached image(s): container/format + label + logo + colors from the PHOTO 1:1 — ignore any invented product color words in the prompt; a pouch stays a pouch, never a bottle/cylinder/jar; only pose/angle/lighting/texture may change.';
+        ? 'Show loose product units ONLY where reference showed them — identity from attached photo, may match reference render style; NO retail packaging/pouch packshot.'
+        : '(1) Hero = SAME EXACT PRODUCT from attached image(s): container/format + label + logo + colors from the PHOTO — ignore invented product color words; may match reference render style (sketch/illustration/photo/3D); pouch stays pouch; pose/angle/lighting/texture/style OK.';
 
   // Prevent the product photo's incidental background (hands, backpack, surface) from
   // leaking, and stop the model leaving blurred/empty/vignetted dead zones (often the
