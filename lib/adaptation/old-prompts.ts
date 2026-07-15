@@ -596,8 +596,9 @@ Visual medium: ${refMedium}.${ctx.referenceProductVisibility === 'none' ? ' Bran
 ${extraBlocks ?? ''}
 
 FORBIDDEN: reference competitor container on user product; reskinning; **adding product/packaging zones the reference did not have**.
+${ctx.referenceProductVisibility === 'none' ? '' : `FORBIDDEN: inventing product colors/gradients/appearance (e.g. "dark-berry", "burgundy", "peach pouch"). Refer to it as "the attached product" — only pose, angle, lighting, and texture may change; never rewrite how the product looks.`}
 
-Output: Scene | Product ONLY where reference showed it | Each copy line with size tier | Lighting/effects.`;
+Output: Scene | Product ONLY where reference showed it (as attached — no invented colors) | Each copy line with size tier | Lighting/effects.`;
 }
 
 function buildAgentSynthesisPrompt(

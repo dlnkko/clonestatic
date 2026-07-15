@@ -116,7 +116,7 @@ Reference = layout zones only. Match the attached product exactly; only re-pose/
  * time (NOT the reference ad), so this must be self-contained, not reference-relative.
  */
 export const KIE_PRODUCT_FIRST_DIRECTIVE =
-  'Use the SAME EXACT PRODUCT from the attached image(s) — reproduce its exact container/format (pouch, box, bottle, jar, or loose units), label, logo, and colors. NEVER reshape into the reference ad competitor container (e.g. never turn a pouch into a cylinder/bottle). Only pose, angle, and lighting may change.';
+  'Use the SAME EXACT PRODUCT from the attached image(s) — reproduce its exact container/format (pouch, box, bottle, jar, or loose units), label, logo, and colors from the PHOTO, not from any color words in this prompt. IGNORE invented product color/appearance adjectives in the prompt (e.g. "dark-berry", "burgundy") — the attached image is the only source of truth for how the product looks. NEVER reshape into the reference ad competitor container (e.g. never turn a pouch into a cylinder/bottle). Only pose, angle, lighting, and texture may change.';
 
 function buildKieColorRule(productBrandColors?: string[]): string {
   const colors = (productBrandColors ?? [])
@@ -192,7 +192,7 @@ export function appendKieProductFidelityPrompt(
       ? 'Show product ONLY in the reference symbolic zone (thought/dream bubble or tiny inset) — loose unit only; NO packshot elsewhere.'
       : visibility === 'loose-units-only'
         ? 'Show loose product units ONLY where reference showed them — NO retail packaging/pouch packshot.'
-        : '(1) Hero = SAME EXACT PRODUCT from attached image(s): container/format + label + logo + colors reproduced 1:1 — a pouch stays a pouch, never a bottle/cylinder/jar; only pose/angle/lighting may change.';
+        : '(1) Hero = SAME EXACT PRODUCT from attached image(s): container/format + label + logo + colors from the PHOTO 1:1 — ignore any invented product color words in the prompt; a pouch stays a pouch, never a bottle/cylinder/jar; only pose/angle/lighting/texture may change.';
 
   // Prevent the product photo's incidental background (hands, backpack, surface) from
   // leaking, and stop the model leaving blurred/empty/vignetted dead zones (often the
