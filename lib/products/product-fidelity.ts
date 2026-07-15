@@ -116,7 +116,7 @@ Reference = layout zones only. Match the attached product exactly; only re-pose/
  * time (NOT the reference ad), so this must be self-contained, not reference-relative.
  */
 export const KIE_PRODUCT_FIRST_DIRECTIVE =
-  'Use the SAME EXACT PRODUCT from the attached image(s) — reproduce its exact container/format (pouch, box, bottle, jar, or loose units), label, logo, and colors from the PHOTO, not from any color words in this prompt. IGNORE invented product color/appearance adjectives in the prompt (e.g. "dark-berry", "burgundy") — the attached image is the only source of truth for how the product looks. NEVER reshape into the reference ad competitor container (e.g. never turn a pouch into a cylinder/bottle). Only pose, angle, lighting, and texture may change.';
+  'Use the SAME EXACT PRODUCT from the attached image(s) — container/format, label, logo, and colors from the PHOTO (not invented color words in this prompt). IGNORE invented product color adjectives (e.g. "dark-berry", "burgundy") — the attached image is the only identity source. You MAY restyle that product (and any loose units) to match the ad\'s render style (sketch, illustration, photo, 3D, etc.) while keeping max fidelity to the photo\'s real look. NEVER reshape into a competitor container. Pose, angle, lighting, texture, and render style may change — product identity may not.';
 
 function buildKieColorRule(productBrandColors?: string[]): string {
   const colors = (productBrandColors ?? [])
