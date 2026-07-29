@@ -27,6 +27,7 @@ import {
   setPendingImageJob,
 } from '@/lib/creations/pending-generation';
 import { isTransientFetchError } from '@/lib/display-image-url';
+import { toUserFacingGenerationError } from '@/lib/user-facing-errors';
 import { ProxiedImage } from '../components/ProxiedImage';
 import { StepHeader } from '../components/dashboard/StepHeader';
 import { TeamMembersPanel } from '../components/dashboard/TeamMembersPanel';
@@ -1094,7 +1095,7 @@ function StaticAdAppPage() {
       if (failed) {
         clearPendingImageJob(id);
         setPendingPreviewCreationId(null);
-        setError(failed.error_message?.trim() || 'Generation failed. Please try again.');
+        setError(toUserFacingGenerationError(failed.error_message?.trim() || 'Generation failed. Please try again.'));
         return;
       }
     }
@@ -1482,7 +1483,9 @@ function StaticAdAppPage() {
                         <div className="flex aspect-[9/16] w-full flex-col items-center justify-center gap-2 bg-red-50 p-4 text-center">
                           <span className="text-xs font-medium text-red-700">{t('history', 'failed')}</span>
                           {c.error_message ? (
-                            <span className="line-clamp-4 text-[10px] text-red-600">{c.error_message}</span>
+                            <span className="line-clamp-4 text-[10px] text-red-600">
+                              {toUserFacingGenerationError(c.error_message)}
+                            </span>
                           ) : (
                             <span className="text-[10px] text-red-600">{t('history', 'tryAgain')}</span>
                           )}
@@ -2121,7 +2124,7 @@ function StaticAdAppPage() {
                   )}
                 </div>
               </div>
-              <div className="pt-4 border-t border-[var(--dash-border)]">
+              <div className="pt-4 border-t border-[var(--dash-border)] relative z-20">
                 <label className="dash-label mb-2">{t('mirror', 'outputSize')}</label>
                 <DashCombobox
                   value={imageSize}

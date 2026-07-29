@@ -49,7 +49,7 @@ export function DashCombobox({
   }, [open]);
 
   return (
-    <div ref={rootRef} className={cn('dash-combobox', className)}>
+    <div ref={rootRef} className={cn('dash-combobox', open && 'dash-combobox-open', className)}>
       <button
         type="button"
         disabled={disabled}

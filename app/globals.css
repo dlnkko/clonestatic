@@ -1804,6 +1804,19 @@ pre::-webkit-scrollbar-thumb:hover {
   width: 100%;
 }
 
+/* Lift open dropdown above following cards (segment stack stacking contexts) */
+.dash-combobox-open,
+.dash-product-picker:has(.dash-product-picker-menu) {
+  z-index: 80;
+}
+
+.dash-segment-stack > .dash-card:has(.dash-combobox-open),
+.dash-segment-stack > .dash-card:has(.dash-product-picker-menu) {
+  position: relative;
+  z-index: 30;
+  overflow: visible;
+}
+
 .dash-combobox-trigger,
 .dash-product-picker-trigger {
   display: flex;
@@ -1871,7 +1884,7 @@ pre::-webkit-scrollbar-thumb:hover {
 .dash-combobox-menu,
 .dash-product-picker-menu {
   position: absolute;
-  z-index: 60;
+  z-index: 90;
   top: calc(100% + 0.375rem);
   left: 0;
   right: 0;

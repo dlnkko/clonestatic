@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AdVisualMode } from '@/lib/ad-visual-mode';
-import { generateAdImageWithKie } from '@/lib/kie';
+import { generateAdImageWithKie, toUserFacingGenerationError } from '@/lib/kie';
 
 export type AdImageGenerationParams = {
   prompt: string;
@@ -80,8 +80,8 @@ export async function runAdImageGenerationJob(params: AdImageGenerationParams): 
       .eq('id', creationId)
       .eq('user_id', userId);
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Image generation failed';
-    console.error('runAdImageGenerationJob failed:', message, err);
+    const message = toUserFacingGenerationError(err);
+    console.error('runAdImageGenerationJob failed:', err);
     await markCreationFailed(admin, creationId, userId, message);
   }
 }

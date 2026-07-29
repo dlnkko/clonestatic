@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AdVisualMode } from '@/lib/ad-visual-mode';
 import { internalJobHeaders, internalJobSecret } from '@/lib/internal-job';
 import { runAdImageGenerationJob } from '@/lib/creations/generate-job';
+import { toUserFacingGenerationError } from '@/lib/kie';
 import { getAppOrigin } from '@/lib/supabase/auth-config';
 
 export type FullAdGenerationParams = {
@@ -255,8 +256,8 @@ export async function runFullAdGenerationJob(params: FullAdGenerationParams): Pr
       referenceProductVisibility: promptResult.referenceProductVisibility,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Generation failed';
-    console.error('runFullAdGenerationJob failed:', message, err);
+    const message = toUserFacingGenerationError(err);
+    console.error('runFullAdGenerationJob failed:', err);
     await markCreationFailed(admin, creationId, userId, message);
   }
 }
