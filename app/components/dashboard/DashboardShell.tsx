@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/cn';
 import { AdmirrorLogo } from '@/app/components/AdmirrorLogo';
 import { CancelSubscriptionModal } from '@/app/components/dashboard/CancelSubscriptionModal';
+import { DashCombobox } from '@/app/components/dashboard/DashCombobox';
 import { LOCALE_LABELS, useI18n, type Locale } from '@/lib/i18n/LocaleProvider';
 import { formatMaxProductsLabel } from '@/lib/plans';
 
@@ -209,17 +210,16 @@ export function DashboardShell({
           <label className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-[var(--dash-muted)]">
             {t('shell', 'language')}
           </label>
-          <select
+          <DashCombobox
             value={locale}
-            onChange={(e) => setLocale(e.target.value as Locale)}
-            className="dash-select mb-3 w-full text-xs"
-          >
-            {(Object.keys(LOCALE_LABELS) as Locale[]).map((loc) => (
-              <option key={loc} value={loc}>
-                {LOCALE_LABELS[loc]}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setLocale(v as Locale)}
+            options={(Object.keys(LOCALE_LABELS) as Locale[]).map((loc) => ({
+              value: loc,
+              label: LOCALE_LABELS[loc],
+            }))}
+            className="dash-locale-combobox mb-3"
+            aria-label={t('shell', 'language')}
+          />
 
           {!isTeamMember && (
             <button type="button" onClick={onUpgrade} className="dash-btn dash-btn-primary w-full">

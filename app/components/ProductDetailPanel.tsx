@@ -11,6 +11,7 @@ import {
   pricingConfigFromExtracted,
 } from '@/lib/products/pricing-config';
 import { ProxiedImage } from '@/app/components/ProxiedImage';
+import { ConfirmModal } from '@/app/components/dashboard/ConfirmModal';
 import {
   ProductImagesEditor,
   productImagesFromRecord,
@@ -38,6 +39,8 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
   const [resyncing, setResyncing] = useState(false);
   const [pageSyncStatus, setPageSyncStatus] = useState<'idle' | 'updated' | 'uptodate'>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!product) return;
@@ -137,11 +140,16 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
   };
 
   const handleDelete = async () => {
-    if (!confirm('Delete this product?')) return;
-    const res = await fetch(`/api/products/${product.id}`, { method: 'DELETE', credentials: 'include' });
-    if (res.ok) {
-      onDeleted?.(product.id);
-      onClose();
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/products/${product.id}`, { method: 'DELETE', credentials: 'include' });
+      if (res.ok) {
+        onDeleted?.(product.id);
+        onClose();
+      }
+    } finally {
+      setDeleting(false);
+      setConfirmDeleteOpen(false);
     }
   };
 
@@ -290,13 +298,25 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
           </button>
           <button
             type="button"
-            onClick={handleDelete}
+            onClick={() => setConfirmDeleteOpen(true)}
             className="dash-btn dash-btn-secondary text-red-600 border-red-200 hover:bg-red-50 min-h-[48px]"
           >
             {t('products', 'delete')}
           </button>
         </div>
       </div>
+      <ConfirmModal
+        open={confirmDeleteOpen}
+        title={t('common', 'deleteProductTitle')}
+        description={t('common', 'deleteProductBody')}
+        confirmLabel={t('products', 'delete')}
+        cancelLabel={t('common', 'cancel')}
+        busy={deleting}
+        onClose={() => {
+          if (!deleting) setConfirmDeleteOpen(false);
+        }}
+        onConfirm={() => void handleDelete()}
+      />
     </div>
   );
 }

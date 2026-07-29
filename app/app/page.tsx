@@ -10,6 +10,7 @@ import { DashCombobox } from '../components/dashboard/DashCombobox';
 import { ProductSourcePicker } from '../components/dashboard/ProductSourcePicker';
 import { ProductDetailPanel } from '../components/ProductDetailPanel';
 import { ProductModal } from '../components/ProductModal';
+import { ConfirmModal } from '../components/dashboard/ConfirmModal';
 import { AppProviders } from './providers';
 import { useI18n } from '@/lib/i18n/LocaleProvider';
 import { formatMaxProductsLabel, isEntitledPlan, isPaidPlan } from '@/lib/plans';
@@ -261,6 +262,8 @@ function StaticAdAppPage() {
   const [refreshProductPage, setRefreshProductPage] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
   const [detailProduct, setDetailProduct] = useState<ProductRecord | null>(null);
+  const [productPendingDeleteId, setProductPendingDeleteId] = useState<string | null>(null);
+  const [deletingProduct, setDeletingProduct] = useState(false);
   const [creations, setCreations] = useState<CreationItem[]>([]);
   const [creationsLoading, setCreationsLoading] = useState(false);
   const [referencePreviewUrl, setReferencePreviewUrl] = useState<{ url: string; title: string } | null>(null);
@@ -362,15 +365,21 @@ function StaticAdAppPage() {
   };
 
   const handleDeleteProduct = async (id: string) => {
-    if (!confirm('Delete this product?')) return;
-    const res = await fetch(`/api/products/${id}`, { method: 'DELETE', credentials: 'include' });
-    if (res.ok) {
-      setProducts((prev) => prev.filter((p) => p.id !== id));
-      if (selectedProductId === id) {
-        setSelectedProductId(null);
-        setProductPreview(null);
+    setDeletingProduct(true);
+    try {
+      const res = await fetch(`/api/products/${id}`, { method: 'DELETE', credentials: 'include' });
+      if (res.ok) {
+        setProducts((prev) => prev.filter((p) => p.id !== id));
+        if (selectedProductId === id) {
+          setSelectedProductId(null);
+          setProductPreview(null);
+        }
+        if (detailProduct?.id === id) setDetailProduct(null);
+        setProductPendingDeleteId(null);
+        void fetchSubscription();
       }
-      void fetchSubscription();
+    } finally {
+      setDeletingProduct(false);
     }
   };
 
@@ -1958,7 +1967,7 @@ function StaticAdAppPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => void handleDeleteProduct(p.id)}
+                      onClick={() => setProductPendingDeleteId(p.id)}
                       className="dash-btn dash-btn-danger dash-product-card-delete"
                       aria-label={t('products', 'delete')}
                       title={t('products', 'delete')}
@@ -2216,6 +2225,20 @@ function StaticAdAppPage() {
           void fetchSubscription();
         }}
       />
+      <ConfirmModal
+        open={!!productPendingDeleteId}
+        title={t('common', 'deleteProductTitle')}
+        description={t('common', 'deleteProductBody')}
+        confirmLabel={t('products', 'delete')}
+        cancelLabel={t('common', 'cancel')}
+        busy={deletingProduct}
+        onClose={() => {
+          if (!deletingProduct) setProductPendingDeleteId(null);
+        }}
+        onConfirm={() => {
+          if (productPendingDeleteId) void handleDeleteProduct(productPendingDeleteId);
+        }}
+      />
       <ProductDetailPanel
         product={detailProduct}
         onClose={() => setDetailProduct(null)}
@@ -2227,6 +2250,10 @@ function StaticAdAppPage() {
         onDeleted={(id) => {
           setProducts((prev) => prev.filter((x) => x.id !== id));
           setDetailProduct(null);
+          if (selectedProductId === id) {
+            setSelectedProductId(null);
+            setProductPreview(null);
+          }
           void fetchSubscription();
         }}
       />

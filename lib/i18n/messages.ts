@@ -187,6 +187,9 @@ const en: Messages = {
     download: 'Download',
     required: 'REQUIRED',
     optional: 'OPTIONAL',
+    cancel: 'Cancel',
+    deleteProductTitle: 'Delete this product?',
+    deleteProductBody: 'This cannot be undone. The product and its saved images will be removed.',
   },
 };
 
@@ -359,6 +362,9 @@ const es: Messages = {
     download: 'Descargar',
     required: 'OBLIGATORIO',
     optional: 'OPCIONAL',
+    cancel: 'Cancelar',
+    deleteProductTitle: '¿Eliminar este producto?',
+    deleteProductBody: 'Esta acción no se puede deshacer. Se eliminará el producto y sus imágenes.',
   },
 };
 
@@ -531,6 +537,9 @@ const pt: Messages = {
     download: 'Baixar',
     required: 'OBRIGATÓRIO',
     optional: 'OPCIONAL',
+    cancel: 'Cancelar',
+    deleteProductTitle: 'Excluir este produto?',
+    deleteProductBody: 'Esta ação não pode ser desfeita. O produto e suas imagens serão removidos.',
   },
 };
 
