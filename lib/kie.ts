@@ -148,12 +148,21 @@ type GenerateOnceParams = {
   aspectRatio: string;
   mode: AdVisualMode;
   referenceProductVisibility?: import('@/lib/adaptation/parse-reference-analysis').ReferenceProductVisibility;
+  /** Cap wait so primary+fallback fit under serverless maxDuration. */
+  pollTimeoutMs?: number;
 };
 
 async function generateOnceWithMode(
   params: GenerateOnceParams
 ): Promise<{ imageUrl: string; taskId: string; model: string; adVisualMode: AdVisualMode }> {
-  const { fidelityPrompt, catalogUrls, aspectRatio, mode, referenceProductVisibility } = params;
+  const {
+    fidelityPrompt,
+    catalogUrls,
+    aspectRatio,
+    mode,
+    referenceProductVisibility,
+    pollTimeoutMs = 130_000,
+  } = params;
   const ratio = mapAspectRatio(aspectRatio, mode);
 
   let taskId: string;
@@ -196,7 +205,7 @@ async function generateOnceWithMode(
     });
   }
 
-  const resultUrls = await pollKieTask(taskId);
+  const resultUrls = await pollKieTask(taskId, { timeoutMs: pollTimeoutMs });
   return {
     imageUrl: resultUrls[0],
     taskId,

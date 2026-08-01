@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { CREATIONS_RETENTION_DAYS } from './constants';
 
 /** Generating jobs older than this are treated as failed (serverless after() never finished). */
-export const STALE_GENERATING_MS = 12 * 60 * 1000;
+export const STALE_GENERATING_MS = 8 * 60 * 1000;
 
 export function creationsRetentionCutoff(): string {
   const d = new Date();

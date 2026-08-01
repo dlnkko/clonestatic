@@ -187,6 +187,15 @@ export async function POST(request: NextRequest) {
         });
       } catch (err) {
         console.error('generate-ad-async after() failed:', err);
+        await admin
+          .from('creations')
+          .update({
+            status: 'failed',
+            error_message: 'Server error. Please try again shortly.',
+          })
+          .eq('id', creationId!)
+          .eq('user_id', user.id)
+          .eq('status', 'generating');
       }
     });
 
