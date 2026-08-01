@@ -27,6 +27,7 @@ import { creativeBridgeBlock } from './creative-bridge';
 import {
   catalogContainerLockBlock,
   referenceProductVisibilityBlock,
+  noInventedScreenBlock,
   stripCompetitorContainerLanguage,
 } from '@/lib/products/catalog-container';
 import type { CopywritingProfile, ReferenceTextLayout } from './types';
@@ -581,6 +582,7 @@ export function buildCall3FinalPrompt(
 
 ${catalogContainerLockBlock(ctx.catalogContainerHint, ctx.productName, ctx.referenceProductVisibility)}
 ${referenceProductVisibilityBlock(ctx.referenceProductVisibility)}
+${noInventedScreenBlock(ctx.productName, ctx.productDescription)}
 
 ${formatApprovedCopyBlock(copy, ctx.copywritingProfile, ctx.referenceTextLayout)}
 

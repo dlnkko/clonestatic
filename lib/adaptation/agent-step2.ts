@@ -12,6 +12,7 @@ import { buildCall3FinalPrompt } from './old-prompts';
 import {
   findCatalogContainerViolations,
   findProductVisibilityViolations,
+  findInventedScreenViolations,
 } from '@/lib/products/catalog-container';
 import type {
   AdaptationContext,
@@ -79,6 +80,7 @@ function programmaticQa(
     ...findDuplicateLinesInPrompt(copy, finalPrompt),
     ...findCatalogContainerViolations(finalPrompt, ctx.catalogContainerHint),
     ...findProductVisibilityViolations(finalPrompt, ctx.referenceProductVisibility),
+    ...findInventedScreenViolations(finalPrompt, ctx.productName, ctx.productDescription),
   ];
   if (ctx.referenceHasPriceVisual && ctx.allowedPrice) {
     if (!finalPrompt.includes(ctx.allowedPrice)) {

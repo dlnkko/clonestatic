@@ -91,6 +91,61 @@ export function referenceProductVisibilityBlock(
   }
 }
 
+/**
+ * True when the user's sellable product IS a phone/app/screen UI
+ * (reference phone hero is then legitimate). Physical goods → false.
+ */
+export function userProductIsScreenBased(
+  productName?: string | null,
+  productDescription?: string | null
+): boolean {
+  const hay = `${productName ?? ''} ${productDescription ?? ''}`.toLowerCase();
+  if (!hay.trim()) return false;
+  // Physical goods that may mention "app" in marketing copy — still not a screen product.
+  if (
+    /\b(earplug|ear bud|earbud|gumm|pouch|supplement|cream|serum|pillow|bottle|capsule|cookie|soap|candle|clothing|shoe|ring|watch band)\b/i.test(
+      hay
+    )
+  ) {
+    return false;
+  }
+  return /\b(mobile app|banking app|fintech|saas|\bapp\b|software|digital wallet|dating app|crypto app|smartphone app|iphone app|android app)\b/i.test(
+    hay
+  );
+}
+
+/** When catalog product has no screen, forbid inventing a phone/app UI from the reference. */
+export function noInventedScreenBlock(
+  productName?: string | null,
+  productDescription?: string | null
+): string {
+  if (userProductIsScreenBased(productName, productDescription)) return '';
+  return `**NO INVENTED DEVICE SCREEN (NON-NEGOTIABLE):**
+User's product is physical (no phone/app UI in catalog photos). If the reference showed a smartphone because that competitor WAS an app, do NOT recreate a phone, tablet, or fake app interface for the user.
+- Hero = ONLY the attached physical product (same form as catalog).
+- FORBIDDEN: inventing a phone on a table with an app screen, control panel UI, or any screen that is not part of the user's real product.`;
+}
+
+/** Programmatic guard: fail if prompt invents a phone/app screen for a physical product. */
+export function findInventedScreenViolations(
+  prompt: string,
+  productName?: string | null,
+  productDescription?: string | null
+): string[] {
+  if (userProductIsScreenBased(productName, productDescription)) return [];
+  const lower = prompt.toLowerCase();
+  if (
+    /\b(smartphone|iphone|android phone|phone screen|app (?:ui|interface|screen|dashboard)|mobile app (?:ui|screen)|control panel on (?:the )?(?:phone|screen)|fake app)\b/i.test(
+      lower
+    )
+  ) {
+    return [
+      'NO INVENTED SCREEN: user product is physical — remove smartphone/app UI; show only the attached catalog product',
+    ];
+  }
+  return [];
+}
+
 /** Programmatic guard: fail if prompt adds product/packaging the reference did not show. */
 export function findProductVisibilityViolations(
   prompt: string,
