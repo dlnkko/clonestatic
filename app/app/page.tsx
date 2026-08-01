@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { createClient as createSupabaseClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { DashboardShell } from '../components/dashboard/DashboardShell';
 import { AdPreviewLoading } from '../components/dashboard/AdPreviewLoading';
@@ -268,6 +268,7 @@ function StaticAdAppPage() {
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [isScraping, setIsScraping] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const generateLockRef = useRef(false);
   const [staticAdPreview, setStaticAdPreview] = useState<string | null>(null);
   const [productPreview, setProductPreview] = useState<string | null>(null);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
@@ -483,19 +484,24 @@ function StaticAdAppPage() {
   };
 
   const handleGenerate = async () => {
+    if (generateLockRef.current || isGenerating) return;
     if (!staticAdImage || !selectedProductId) {
       setError('Upload a reference ad and select a saved product.');
       return;
     }
-    const okToProceed = await gatePaidActionOrShowPricing();
-    if (!okToProceed) return;
 
+    // Lock synchronously before any await — prevents double-click / double-tap races
+    // that used to fire two full generate-ad-async jobs (two images in History).
+    generateLockRef.current = true;
     setIsGenerating(true);
     setError(null);
     setGeneratedPrompt('');
     setGeneratedImageUrl(null);
 
     try {
+      const okToProceed = await gatePaidActionOrShowPricing();
+      if (!okToProceed) return;
+
       const staticAdBase64 = await compressImageForApi(staticAdImage);
       const productBase64 = productImage ? await compressImageForApi(productImage) : null;
       const aspect = getResolvedAspectRatio();
@@ -888,6 +894,7 @@ function StaticAdAppPage() {
     } finally {
       setIsGenerating(false);
       setIsGeneratingImage(false);
+      generateLockRef.current = false;
     }
   };
 
@@ -2206,7 +2213,7 @@ function StaticAdAppPage() {
               </div>
             </section>
             <div className="dash-card dash-card-cta">
-              <button type="button" onClick={handleGenerate} disabled={!canGenerate || isGenerating} className="dash-btn dash-btn-primary w-full min-h-[52px] touch-manipulation">
+              <button type="button" onClick={handleGenerate} disabled={!canGenerate || isGenerating || Boolean(pendingPreviewCreationId)} className="dash-btn dash-btn-primary w-full min-h-[52px] touch-manipulation">
                 {isGenerating ? <><svg className="h-4 w-4 animate-spin text-white/90" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>{isScraping ? 'Analyzing URL...' : `${t('mirror', 'generateImage')}…`}</span></> : <><span>{t('mirror', 'generateImage')}</span><svg className="h-4 w-4 text-white/90 transition-transform group-hover:translate-x-0.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></>}
               </button>
               {error && <div className="dash-alert dash-alert-error mt-4"><svg className="mt-0.5 h-4 w-4 shrink-0 text-red-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><p>{error}</p></div>}
