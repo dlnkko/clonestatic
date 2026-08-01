@@ -5,6 +5,7 @@ import {
   findDuplicateCopyIssues,
   findDuplicateLinesInPrompt,
   sanitizeAdaptedCopy,
+  findCompetitorCategoryLeakViolations,
 } from './copy-sanitize';
 import { sanitizeImagePromptForKie } from './sanitize-image-prompt';
 import { copyAgentPrompt } from './prompt-blocks';
@@ -35,9 +36,14 @@ function normalizeCopy(
 /** Call 2 — adapt copy only (text, no product images). */
 async function runCopyAgent(
   ai: GoogleGenAI,
-  ctx: AdaptationContext
+  ctx: AdaptationContext,
+  fixIssues?: string[]
 ): Promise<{ copy: CopyAdaptationResult; usage: ReturnType<typeof mergeStep2Usage> }> {
-  const prompt = copyAgentPrompt(ctx);
+  const feedback =
+    fixIssues && fixIssues.length > 0
+      ? `\nFix these issues before writing copy:\n${fixIssues.map((i) => `- ${i}`).join('\n')}\n`
+      : '';
+  const prompt = `${copyAgentPrompt(ctx)}${feedback}`;
   const { text, usage } = await generateText(ai, prompt, { json: true });
   const copy = normalizeCopy(parseJson<CopyAdaptationResult>(text), ctx);
   console.log('\n=== CALL 2: Copy adaptation ===', {
@@ -81,6 +87,7 @@ function programmaticQa(
     ...findCatalogContainerViolations(finalPrompt, ctx.catalogContainerHint),
     ...findProductVisibilityViolations(finalPrompt, ctx.referenceProductVisibility),
     ...findInventedScreenViolations(finalPrompt, ctx.productName, ctx.productDescription),
+    ...findCompetitorCategoryLeakViolations(copy, finalPrompt, ctx),
   ];
   if (ctx.referenceHasPriceVisual && ctx.allowedPrice) {
     if (!finalPrompt.includes(ctx.allowedPrice)) {
@@ -107,8 +114,16 @@ export async function runAdaptationAgent(
 
   const usages: (ReturnType<typeof mergeStep2Usage>)[] = [];
 
-  const { copy, usage: copyUsage } = await runCopyAgent(ai, ctx);
+  let { copy, usage: copyUsage } = await runCopyAgent(ai, ctx);
   usages.push(copyUsage);
+
+  const copyLeakIssues = findCompetitorCategoryLeakViolations(copy, '', ctx);
+  if (copyLeakIssues.length > 0) {
+    console.log('\n=== CALL 2 retry (category leak in copy) ===', copyLeakIssues);
+    const retryCopy = await runCopyAgent(ai, ctx, copyLeakIssues);
+    copy = retryCopy.copy;
+    usages.push(retryCopy.usage);
+  }
 
   let { finalPrompt, usage: finalUsage } = await runFinalPromptAgent(
     ai,
@@ -124,6 +139,13 @@ export async function runAdaptationAgent(
   if (qaIssues.length > 0) {
     retried = true;
     console.log('\n=== CALL 3 retry (programmatic QA) ===', qaIssues);
+    // If leak is in copy, rewrite copy once more then regenerate prompt.
+    const copyLeaks = findCompetitorCategoryLeakViolations(copy, '', ctx);
+    if (copyLeaks.length > 0) {
+      const retryCopy = await runCopyAgent(ai, ctx, copyLeaks);
+      copy = retryCopy.copy;
+      usages.push(retryCopy.usage);
+    }
     const retry = await runFinalPromptAgent(ai, ctx, copy, productFiles, qaIssues);
     finalPrompt = retry.finalPrompt;
     usages.push(retry.usage);

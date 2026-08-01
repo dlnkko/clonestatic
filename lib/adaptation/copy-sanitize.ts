@@ -251,12 +251,58 @@ ${dismissalCount > 0 ? `- **Strikethrough dismissals:** exactly **${dismissalCou
 export function productCategoryAnchorBlock(ctx: AdaptationContext): string {
   const name = ctx.productName?.trim();
   const summary = ctx.scrapedSummary?.slice(0, 500) ?? '';
-  if (!name && !summary) {
+  const desc = ctx.productDescription?.trim().slice(0, 160) ?? '';
+  if (!name && !summary && !desc) {
     return `**USER PRODUCT CATEGORY:** Infer from scraped data. All symptoms, metaphors, and visuals must match THAT category — not the reference competitor's world.`;
   }
   return `**USER PRODUCT (anchor everything to this — NOT reference category):**
 - Product: ${name || 'see scrape'}
+${desc ? `- Description: ${desc}` : ''}
 ${summary ? `- Context: ${summary}` : ''}
-- **Copy:** Translate reference *structure* but symptoms/outcomes must fit **this** product's buyers (e.g. creatine → training plateau, flat strength, gym energy — NOT libido/bedroom copy from a different niche unless this product is in that niche).
-- **Visual metaphor:** Symbol must relate to **this** product's problem (e.g. deflated gym ball, slack resistance band, flat dumbbell) — clear, recognizable, on-white like reference — NOT abstract blobs, brains, or unrelated shapes.`;
+- **Copy:** Translate reference *structure/rhetorical pattern* only. Symptoms, outcomes, and key nouns must fit **this** product's buyers and benefit (e.g. joint relief → comfort, mobility, easier movement — NOT "card game", "play", "stories", board-game world from a different niche).
+- **Visual metaphor/props:** Keep composition grammar (layout zones, journey/boat framing if present) but REPLACE competitor-category objects (playing cards, game motifs, toys) with props that fit THIS product world.
+- **FORBIDDEN:** Headline/body that still reads like the competitor category when categories differ (e.g. joint soft chews with "world of play" / "card game" / "sea of stories"). Rewrite so a stranger would know the ad is about the user's product category.`;
+}
+
+/** Compact lock for Call 3 — props/scene must not leak competitor category. */
+export function categoryPropsLockForImagePrompt(ctx: AdaptationContext): string {
+  const name = ctx.productName?.trim();
+  if (!name && !ctx.productDescription) return '';
+  return `CATEGORY PROPS: User product = "${name || 'catalog product'}"${ctx.productDescription ? ` (${ctx.productDescription.slice(0, 100)})` : ''}. Keep layout/composition; REPLACE competitor-category props (e.g. playing cards, board-game seas, game motifs) with on-theme props for THIS product. Never leave reference category objects as the main visual metaphor when categories differ.`;
+}
+
+/** Detect copy/prompt still using obvious competitor-category nouns vs user product. */
+export function findCompetitorCategoryLeakViolations(
+  copy: CopyAdaptationResult,
+  finalPrompt: string,
+  ctx: AdaptationContext
+): string[] {
+  const productHay = `${ctx.productName ?? ''} ${ctx.productDescription ?? ''} ${ctx.scrapedSummary ?? ''}`.toLowerCase();
+  const userIsHealthOrSupp =
+    /\b(joint|articul|nem|glucosamine|supplement|soft chew|gumm|vitamin|creatine|protein|collagen|sleep|melatonin|cbd|skincare|serum)\b/i.test(
+      productHay
+    );
+  if (!userIsHealthOrSupp) return [];
+
+  const text = [
+    copy.tagline,
+    copy.mainLine,
+    copy.specLine,
+    ...(copy.textLines?.map((l) => l.text) ?? []),
+    finalPrompt,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  if (
+    /\b(playing cards?|card game|board game|sea of (?:stories|cards|play)|world of play|poker cards?|uno cards?)\b/i.test(
+      text
+    )
+  ) {
+    return [
+      'CATEGORY LEAK: user product is health/supplement — remove card-game/play motifs from copy and scene; use on-theme benefit world (comfort/mobility/use-case) instead',
+    ];
+  }
+  return [];
 }

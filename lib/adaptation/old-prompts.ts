@@ -30,6 +30,7 @@ import {
   noInventedScreenBlock,
   stripCompetitorContainerLanguage,
 } from '@/lib/products/catalog-container';
+import { categoryPropsLockForImagePrompt } from './copy-sanitize';
 import type { CopywritingProfile, ReferenceTextLayout } from './types';
 
 export function featureRowInstructionsBlock(ctx: AdaptationContext): string {
@@ -583,6 +584,7 @@ export function buildCall3FinalPrompt(
 ${catalogContainerLockBlock(ctx.catalogContainerHint, ctx.productName, ctx.referenceProductVisibility)}
 ${referenceProductVisibilityBlock(ctx.referenceProductVisibility)}
 ${noInventedScreenBlock(ctx.productName, ctx.productDescription)}
+${categoryPropsLockForImagePrompt(ctx)}
 
 ${formatApprovedCopyBlock(copy, ctx.copywritingProfile, ctx.referenceTextLayout)}
 
