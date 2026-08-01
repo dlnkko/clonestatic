@@ -33,6 +33,27 @@ import { ProxiedImage } from '../components/ProxiedImage';
 import { StepHeader } from '../components/dashboard/StepHeader';
 import { TeamMembersPanel } from '../components/dashboard/TeamMembersPanel';
 
+async function markCreationFailedOnClient(
+  creationId: string | null | undefined,
+  message?: string
+): Promise<void> {
+  if (!creationId) return;
+  try {
+    await fetch('/api/creations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        id: creationId,
+        status: 'failed',
+        error_message: message || 'Server error. Please try again shortly.',
+      }),
+    });
+  } catch {
+    // ignore
+  }
+}
+
 /** Parse response as JSON; if body is not JSON (e.g. "Request Entity Too Large"), return null and set friendly error. */
 async function createGeneratingCreation(
   aspectRatio: string,
@@ -756,7 +777,7 @@ function StaticAdAppPage() {
           aspectRatio: aspect,
         };
         if (creationId) imageBody.creationId = creationId;
-        if (productImageUrls.length > 1) imageBody.productImageUrls = productImageUrls;
+        if (productImageUrls.length > 0) imageBody.productImageUrls = productImageUrls;
         else if (productImageUrl) imageBody.productImageUrl = productImageUrl;
         else if (productBase64) imageBody.productImageBase64 = productBase64;
         if (data.hasDedicatedLogo) imageBody.hasDedicatedLogo = true;
@@ -801,7 +822,11 @@ function StaticAdAppPage() {
         }
 
         if (imgErrMsg) {
+          await markCreationFailedOnClient(creationId, imgErrMsg);
+          clearPendingImageJob(creationId ?? undefined);
+          setPendingPreviewCreationId(null);
           setError(imgErrMsg);
+          void loadCreations({ silent: true });
           return;
         }
         if (imgRes.ok && imgData?.imageUrl) {
@@ -820,11 +845,20 @@ function StaticAdAppPage() {
             return;
           }
           if (imgRes.status === 402 || imgRes.status === 404) {
+            await markCreationFailedOnClient(creationId, 'Upgrade required');
+            clearPendingImageJob(creationId ?? undefined);
+            setPendingPreviewCreationId(null);
             setError(null);
             setShowPricingModal(true);
+            void loadCreations({ silent: true });
             return;
           }
-          setError(imgData?.error || 'Failed to generate image.');
+          const failMsg = imgData?.error || 'Failed to generate image.';
+          await markCreationFailedOnClient(creationId, failMsg);
+          clearPendingImageJob(creationId ?? undefined);
+          setPendingPreviewCreationId(null);
+          setError(failMsg);
+          void loadCreations({ silent: true });
         }
       } catch (imgErr: unknown) {
         if (creationId) {

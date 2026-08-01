@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { CREATIONS_LIST_LIMIT } from '@/lib/creations/constants';
-import { creationsRetentionCutoff, purgeExpiredCreations } from '@/lib/creations/purge';
+import { creationsRetentionCutoff, failStaleGeneratingCreations, purgeExpiredCreations } from '@/lib/creations/purge';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +30,7 @@ export async function GET() {
 
     const admin = createAdminClient();
     await purgeExpiredCreations(admin, user.id);
+    await failStaleGeneratingCreations(admin, user.id);
 
     const cutoff = creationsRetentionCutoff();
     const { data, error } = await supabase
@@ -65,13 +66,51 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
     const body = await request.json();
-    const { image_url, aspect_ratio, prompt, status: statusParam, reference_image_url } = body as {
+    const {
+      image_url,
+      aspect_ratio,
+      prompt,
+      status: statusParam,
+      reference_image_url,
+      id: updateId,
+      error_message: errorMessageParam,
+    } = body as {
       image_url?: string;
       aspect_ratio?: string;
       prompt?: string;
       status?: 'generating' | 'completed' | 'failed';
       reference_image_url?: string;
+      id?: string;
+      error_message?: string;
     };
+
+    // Mark an existing generating creation as failed (client recovery path).
+    if (
+      typeof updateId === 'string' &&
+      updateId.trim() &&
+      statusParam === 'failed'
+    ) {
+      const admin = createAdminClient();
+      const { data, error } = await admin
+        .from('creations')
+        .update({
+          status: 'failed',
+          error_message:
+            typeof errorMessageParam === 'string' && errorMessageParam.trim()
+              ? errorMessageParam.trim().slice(0, 2000)
+              : 'Server error. Please try again shortly.',
+        })
+        .eq('id', updateId.trim())
+        .eq('user_id', user.id)
+        .eq('status', 'generating')
+        .select('id, status, error_message')
+        .maybeSingle();
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      return NextResponse.json(data ?? { ok: true });
+    }
+
     const referenceUrl =
       typeof reference_image_url === 'string' && reference_image_url.startsWith('http')
         ? reference_image_url

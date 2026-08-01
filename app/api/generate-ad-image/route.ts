@@ -6,8 +6,28 @@ import { runAdImageGenerationJob } from '@/lib/creations/generate-job';
 import { useCreditForGeneration } from '@/lib/creations/use-credit';
 import { uploadBase64ToImgBB } from '@/lib/imgbb';
 import type { AdVisualMode } from '@/lib/ad-visual-mode';
+import { GENERATION_SERVER_ERROR } from '@/lib/user-facing-errors';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export const maxDuration = 300;
+
+async function markCreationFailedSafe(
+  admin: SupabaseClient,
+  creationId: string | null,
+  userId: string,
+  message: string
+) {
+  if (!creationId) return;
+  await admin
+    .from('creations')
+    .update({
+      status: 'failed',
+      error_message: message.slice(0, 2000),
+    })
+    .eq('id', creationId)
+    .eq('user_id', userId)
+    .eq('status', 'generating');
+}
 
 const ALLOWED_RATIOS = [
   '9:16',
@@ -102,6 +122,12 @@ export async function POST(request: NextRequest) {
     const admin = createAdminClient();
     const credit = await useCreditForGeneration(request, admin, email, isOwner);
     if (!credit.ok) {
+      await markCreationFailedSafe(
+        admin,
+        creationId,
+        user.id,
+        credit.error || 'Not enough credits'
+      );
       return NextResponse.json(
         { error: credit.error, credits_remaining: credit.credits_remaining },
         { status: credit.status }
@@ -132,6 +158,12 @@ export async function POST(request: NextRequest) {
       }
     }
     if (productImageUrls.length === 0 && referenceProductVisibilityParam !== 'none') {
+      await markCreationFailedSafe(
+        admin,
+        creationId,
+        user.id,
+        'Missing product images for generation'
+      );
       return NextResponse.json(
         { error: 'Missing productImageUrls, productImageUrl or productImageBase64' },
         { status: 400 }
@@ -218,6 +250,12 @@ export async function POST(request: NextRequest) {
         await runAdImageGenerationJob(backgroundParams);
       } catch (err) {
         console.error('generate-ad-image after() job failed:', err);
+        await markCreationFailedSafe(
+          admin,
+          jobCreationId,
+          user.id,
+          GENERATION_SERVER_ERROR
+        );
       }
     });
 
