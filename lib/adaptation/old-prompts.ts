@@ -579,7 +579,14 @@ export function buildCall3FinalPrompt(
     ? `Type ladder: headline dominant; sub/CTA ~${ctx.typographyHierarchy.sizeRatioHeadlineToSub}.`
     : 'Type ladder: headline largest, footer/CTA smallest.';
 
+  const userGuidelines = ctx.guidelinesTrimmed?.trim()
+    ? `USER GUIDELINES (HIGHEST PRIORITY — follow literally over reference scene details): ${ctx.guidelinesTrimmed.trim().slice(0, 280)}
+If guidelines name a subject (e.g. tiger) and how to use the product (e.g. wear earplugs), the image MUST show that exact subject using the attached product correctly (in ears if "wear"/"use", not in mouth). Do not substitute a different animal or placement.`
+    : '';
+
   return `Write ONE Kie.ai image prompt (~900 chars max). Output prompt text only — no JSON, no analysis headers.
+
+${userGuidelines}
 
 ${catalogContainerLockBlock(ctx.catalogContainerHint, ctx.productName, ctx.referenceProductVisibility)}
 ${referenceProductVisibilityBlock(ctx.referenceProductVisibility)}

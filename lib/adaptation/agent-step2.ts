@@ -96,6 +96,28 @@ function programmaticQa(
   } else if (/\$\d|price badge|price sticker/i.test(finalPrompt)) {
     issues.push('Reference had no price badge — remove dollar amounts from prompt');
   }
+
+  const g = ctx.guidelinesTrimmed?.trim();
+  if (g && g.length >= 8) {
+    const lowerP = finalPrompt.toLowerCase();
+    const tokens = g
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length >= 4 && !/^(make|with|that|this|from|into|them|they|wear|wearing|using|want|please|just|also)$/.test(w));
+    const missing = tokens.filter((w) => !lowerP.includes(w)).slice(0, 4);
+    if (missing.length >= 1 && tokens.length <= 12) {
+      issues.push(
+        `USER GUIDELINES not followed in image prompt — include and obey: "${g.slice(0, 180)}"`
+      );
+    }
+    if (
+      /\b(wear|wearing|in (?:the |its |their )?ears?)\b/i.test(g) &&
+      /\b(tongue|in (?:the |its )?mouth|inside (?:the |its )?mouth)\b/i.test(lowerP)
+    ) {
+      issues.push('USER GUIDELINES: product must be worn correctly (e.g. in ears), not in the mouth');
+    }
+  }
   return issues;
 }
 
