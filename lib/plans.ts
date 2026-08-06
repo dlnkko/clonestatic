@@ -54,6 +54,30 @@ export const ONE_TIME_PACK: OneTimePlanLimits = {
   whopPlanId: 'plan_J9fyEIeUSVd8d',
 };
 
+/** Landing one-time credit slider. Fill `checkoutKey` + WHOP_CHECKOUT_URLS when Whop plans are ready. */
+export type CreditPackOption = {
+  credits: number;
+  /** Shown on landing when set; null = price TBD */
+  priceUsd: number | null;
+  /** Checkout query key → WHOP_CHECKOUT_URLS. null = not purchasable yet */
+  checkoutKey: string | null;
+};
+
+export const CREDIT_PACK_OPTIONS: CreditPackOption[] = [
+  { credits: 10, priceUsd: 9.99, checkoutKey: 'pack_10' },
+  { credits: 30, priceUsd: null, checkoutKey: null },
+  { credits: 50, priceUsd: null, checkoutKey: null },
+  { credits: 70, priceUsd: null, checkoutKey: null },
+  { credits: 120, priceUsd: null, checkoutKey: null },
+  { credits: 150, priceUsd: null, checkoutKey: null },
+  { credits: 200, priceUsd: null, checkoutKey: null },
+  { credits: 250, priceUsd: null, checkoutKey: null },
+  { credits: 300, priceUsd: null, checkoutKey: null },
+  { credits: 350, priceUsd: null, checkoutKey: null },
+  { credits: 400, priceUsd: null, checkoutKey: null },
+  { credits: 500, priceUsd: null, checkoutKey: null },
+];
+
 export const PAID_PLANS: PlanLimits[] = [
   {
     key: 'standard',

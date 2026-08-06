@@ -1,23 +1,34 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { cn } from '@/lib/cn';
-import { Reveal } from './Reveal';
 import {
-  ONE_TIME_PACK,
+  CREDIT_PACK_OPTIONS,
   PAID_PLANS,
-  oneTimePlanFeatureList,
   planDisplayPrice,
-  planFeatureList,
   type BillingPeriod,
+  type PlanLimits,
 } from '@/lib/plans';
 
 function Check() {
   return (
-    <svg className="h-5 w-5 shrink-0 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+    <svg
+      className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--landing-accent)]"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
     </svg>
   );
+}
+
+function planBullets(plan: PlanLimits): string[] {
+  if (plan.key === 'scale') {
+    return [`${plan.credits} images/month`, 'Unlimited products', 'Priority support'];
+  }
+  return [`${plan.credits} images/month`, `${plan.maxProducts} saved products`, 'HD export'];
 }
 
 function BillingToggle({
@@ -28,13 +39,13 @@ function BillingToggle({
   onChange: (b: BillingPeriod) => void;
 }) {
   return (
-    <div className="landing-pricing-toggle inline-flex items-center gap-1 rounded-full border border-slate-200/80 bg-white p-1 shadow-lg shadow-slate-200/40">
+    <div className="inline-flex items-center gap-0.5 rounded-md border border-white/10 bg-white/[0.03] p-0.5">
       <button
         type="button"
         onClick={() => onChange('monthly')}
         className={cn(
-          'rounded-full px-6 py-2.5 text-sm font-semibold transition-all duration-300',
-          billing === 'monthly' ? 'landing-pricing-toggle-active text-white' : 'text-slate-600 hover:text-slate-900'
+          'rounded px-3 py-1.5 text-xs font-medium transition-colors',
+          billing === 'monthly' ? 'bg-white text-zinc-900' : 'text-white/55 hover:text-white'
         )}
       >
         Monthly
@@ -43,24 +54,125 @@ function BillingToggle({
         type="button"
         onClick={() => onChange('yearly')}
         className={cn(
-          'flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-all duration-300',
-          billing === 'yearly' ? 'landing-pricing-toggle-active text-white' : 'text-slate-600 hover:text-slate-900'
+          'flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors',
+          billing === 'yearly' ? 'bg-white text-zinc-900' : 'text-white/55 hover:text-white'
         )}
       >
         Annual
         <span
           className={cn(
-            'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
-            billing === 'yearly' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'
+            'text-[9px] font-semibold uppercase tracking-wide',
+            billing === 'yearly' ? 'text-zinc-500' : 'text-[var(--landing-accent)]'
           )}
         >
-          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h10v10M7 17L17 7" />
-          </svg>
-          20% off
+          −20%
         </span>
       </button>
     </div>
+  );
+}
+
+function CreditPackSlider() {
+  const [index, setIndex] = useState(0);
+  const pack = CREDIT_PACK_OPTIONS[index] ?? CREDIT_PACK_OPTIONS[0];
+  const canBuy = Boolean(pack.checkoutKey);
+  const buyHref = canBuy ? `/login?next=checkout&plan=${pack.checkoutKey}` : undefined;
+  const progress = (index / Math.max(CREDIT_PACK_OPTIONS.length - 1, 1)) * 100;
+
+  const ticks = useMemo(
+    () =>
+      CREDIT_PACK_OPTIONS.map((p, i) => ({
+        i,
+        label: String(p.credits),
+        show: i === 0 || i === CREDIT_PACK_OPTIONS.length - 1 || i % 3 === 0,
+      })),
+    []
+  );
+
+  return (
+    <article className="landing-window overflow-hidden rounded-xl border border-white/[0.08] bg-[#080c18]/90 p-4 sm:p-5">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">
+            One-time credits
+          </p>
+          <h3 className="mt-1 text-base font-semibold tracking-tight text-[var(--landing-fg)] sm:text-lg">
+            Pay once. Ship ads.
+          </h3>
+          <p className="mt-0.5 text-xs text-white/40">1 credit = 1 image · no subscription</p>
+        </div>
+        <div className="text-left sm:text-right">
+          <p className="text-2xl font-semibold tracking-tight text-[var(--landing-fg)] tabular-nums">
+            {pack.credits}
+            <span className="ml-1 text-sm font-medium text-white/40">credits</span>
+          </p>
+          {pack.priceUsd != null ? (
+            <p className="text-xs text-[var(--landing-accent)]">${pack.priceUsd.toFixed(2)} once</p>
+          ) : (
+            <p className="text-xs text-white/35">Checkout link coming soon</p>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <label className="sr-only" htmlFor="credit-pack-slider">
+          Select credits
+        </label>
+        <input
+          id="credit-pack-slider"
+          type="range"
+          min={0}
+          max={CREDIT_PACK_OPTIONS.length - 1}
+          step={1}
+          value={index}
+          onChange={(e) => setIndex(Number(e.target.value))}
+          className="landing-credit-slider landing-credit-slider-sm w-full"
+          style={{
+            background: `linear-gradient(90deg, rgba(34,211,238,0.75) 0%, rgba(34,211,238,0.75) ${progress}%, rgba(255,255,255,0.1) ${progress}%, rgba(255,255,255,0.1) 100%)`,
+          }}
+        />
+        <div className="mt-2 flex justify-between px-0.5 text-[9px] tabular-nums text-white/30 sm:text-[10px]">
+          {ticks.map((t) => (
+            <button
+              key={t.i}
+              type="button"
+              onClick={() => setIndex(t.i)}
+              className={cn(
+                'transition-colors hover:text-white/70',
+                t.i === index && 'font-semibold text-[var(--landing-accent)]',
+                !t.show && 'hidden sm:inline'
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+        {canBuy && buyHref ? (
+          <a
+            href={buyHref}
+            className="landing-btn-gold landing-btn-compact inline-flex w-full justify-center sm:w-auto sm:min-w-[10rem]"
+          >
+            Buy {pack.credits} credits
+          </a>
+        ) : (
+          <button
+            type="button"
+            disabled
+            className="inline-flex w-full cursor-not-allowed justify-center rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/35 sm:w-auto sm:min-w-[10rem]"
+          >
+            Buy {pack.credits} credits
+          </button>
+        )}
+        <p className="text-[11px] text-white/35 sm:ml-1">
+          {canBuy
+            ? 'Opens Whop checkout after sign-in'
+            : 'Whop URL pending — select 10 credits to buy now'}
+        </p>
+      </div>
+    </article>
   );
 }
 
@@ -68,107 +180,85 @@ export function LandingPricing() {
   const [billing, setBilling] = useState<BillingPeriod>('monthly');
 
   return (
-    <div className="mx-auto max-w-6xl">
-      <Reveal direction="down" className="text-center">
-        <p className="landing-section-label landing-section-label-dark mx-auto">Pricing</p>
-        <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
-          Simple pricing. Serious output.
+    <div className="mx-auto max-w-4xl">
+      <div className="mx-auto max-w-lg text-center">
+        <h2 className="text-2xl font-semibold tracking-tight text-[var(--landing-fg)] sm:text-3xl">
+          Simple pricing. Ship more.
         </h2>
-        <p className="mx-auto mt-3 max-w-lg text-sm text-slate-500 sm:text-base">
-          Pick a plan and start mirroring winning static ads with your products.
+        <p className="mt-2 text-sm text-white/50">Buy credits once, or pick a monthly plan.</p>
+      </div>
+
+      <div className="mt-8">
+        <CreditPackSlider />
+      </div>
+
+      <div className="mt-8 flex flex-col items-center gap-3">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">
+          Or subscribe monthly
         </p>
-      </Reveal>
-
-      <Reveal direction="up" delayMs={60} className="mt-10 flex justify-center">
-        <article className="landing-pricing-card relative w-full max-w-md rounded-3xl border-2 border-emerald-300/70 bg-gradient-to-b from-emerald-50/90 to-white p-7 shadow-lg shadow-emerald-100/40">
-          <span className="absolute right-5 top-5 rounded-full bg-emerald-500 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
-            One-time
-          </span>
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{ONE_TIME_PACK.name}</p>
-          <p className="mt-2 text-sm leading-snug text-slate-500">{ONE_TIME_PACK.tagline}</p>
-          <p className="mt-6 flex items-baseline gap-1">
-            <span className="text-4xl font-bold tracking-tight text-slate-900">${ONE_TIME_PACK.priceUsd}</span>
-            <span className="text-slate-500">once</span>
-          </p>
-          <ul className="mt-5 space-y-2.5 text-sm text-slate-600">
-            {oneTimePlanFeatureList().map((f) => (
-              <li key={f} className="flex items-start gap-2.5">
-                <Check />
-                <span>{f}</span>
-              </li>
-            ))}
-          </ul>
-          <a
-            href={`/login?next=checkout&plan=${ONE_TIME_PACK.checkoutKey}`}
-            className="mt-8 inline-flex w-full items-center justify-center rounded-xl border-2 border-emerald-600 bg-emerald-600 py-3.5 text-sm font-semibold text-white transition-all hover:bg-emerald-700"
-          >
-            Buy 10 ads
-          </a>
-        </article>
-      </Reveal>
-
-      <Reveal direction="up" delayMs={80} className="mt-10 flex justify-center">
         <BillingToggle billing={billing} onChange={setBilling} />
-      </Reveal>
+      </div>
 
-      <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {PAID_PLANS.map((plan, i) => {
+      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+        {PAID_PLANS.map((plan) => {
           const isFeatured = plan.badge === 'popular';
           const price = planDisplayPrice(plan, billing);
           const href = `/login?next=checkout&plan=${billing === 'yearly' ? plan.checkoutYearly : plan.checkoutMonthly}`;
 
           return (
-            <Reveal key={plan.key} direction="up" delayMs={i * 70}>
-              <article
+            <article
+              key={plan.key}
+              className={cn(
+                'landing-price-card relative flex flex-col rounded-xl border p-4',
+                isFeatured
+                  ? 'border-[var(--landing-accent)]/35 bg-[var(--landing-accent)]/[0.06]'
+                  : 'border-white/[0.08] bg-white/[0.03]'
+              )}
+            >
+              {isFeatured && (
+                <span className="absolute right-3 top-3 rounded bg-[var(--brand-indigo)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+                  Most popular
+                </span>
+              )}
+              <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-white/40">
+                {plan.name}
+              </p>
+              <p className="mt-2 flex items-baseline gap-1">
+                <span className="text-2xl font-semibold tracking-tight text-[var(--landing-fg)]">
+                  ${price.amount}
+                </span>
+                <span className="text-xs text-white/45">{price.suffix}</span>
+              </p>
+              {price.sublabel && (
+                <p className="mt-0.5 text-[11px] font-medium text-[var(--landing-accent)]">
+                  {price.sublabel}
+                </p>
+              )}
+              <ul className="mt-3 flex-1 space-y-1.5 text-xs text-white/60">
+                {planBullets(plan).map((f) => (
+                  <li key={f} className="flex items-start gap-2">
+                    <Check />
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+              <a
+                href={href}
                 className={cn(
-                  'relative flex h-full flex-col rounded-3xl p-7 transition-all',
+                  'mt-4 inline-flex w-full justify-center',
                   isFeatured
-                    ? 'landing-pricing-card-featured border-2 border-indigo-400/60 bg-gradient-to-b from-indigo-50/80 to-white shadow-lg shadow-indigo-100/50'
-                    : 'landing-pricing-card border border-slate-200/80 bg-white shadow-sm hover:shadow-md'
+                    ? 'landing-btn-gold landing-btn-compact'
+                    : 'landing-btn-outline landing-btn-compact'
                 )}
               >
-                {isFeatured && (
-                  <span className="absolute right-5 top-5 rounded-full bg-[var(--brand-gradient)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
-                    Most popular
-                  </span>
-                )}
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{plan.name}</p>
-                <p className="mt-2 min-h-[2.5rem] text-sm leading-snug text-slate-500">{plan.tagline}</p>
-                <p className="mt-6 flex items-baseline gap-1">
-                  <span className="text-4xl font-bold tracking-tight text-slate-900">${price.amount}</span>
-                  <span className="text-slate-500">{price.suffix}</span>
-                </p>
-                {price.sublabel && (
-                  <p className="mt-1 text-sm font-medium text-emerald-600">{price.sublabel}</p>
-                )}
-                <ul className="mt-5 flex-1 space-y-2.5 text-sm text-slate-600">
-                  {planFeatureList(plan).map((f) => (
-                    <li key={f} className="flex items-start gap-2.5">
-                      <Check />
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-                <a
-                  href={href}
-                  className={cn(
-                    'mt-8 inline-flex w-full items-center justify-center rounded-xl py-3.5 text-sm font-semibold transition-all',
-                    isFeatured
-                      ? 'landing-btn-primary shadow-md'
-                      : 'border-2 border-slate-900 text-slate-900 hover:bg-slate-50'
-                  )}
-                >
-                  Get started
-                </a>
-              </article>
-            </Reveal>
+                Get started
+              </a>
+            </article>
           );
         })}
       </div>
 
-      <Reveal direction="up" delayMs={100} className="mt-6 text-center">
-        <p className="text-xs text-slate-400">1 credit = 1 image · Subscriptions cancel anytime</p>
-      </Reveal>
+      <p className="mt-5 text-center text-[11px] text-white/30">1 credit = 1 image · Cancel anytime</p>
     </div>
   );
 }

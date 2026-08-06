@@ -12,9 +12,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "admirror · Mirror winning static ads",
+  title: "admirror · Clone winning ads. Ship in seconds.",
   description:
-    "Turn top performing Meta Ad Library statics into ready to publish creatives for your product. Reference, scrape, generate in minutes.",
+    "Turn any proven static ad into a ready-to-publish creative for your own product — no designer, no brief, no waiting.",
 };
 
 export default function RootLayout({
