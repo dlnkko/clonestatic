@@ -1,6 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AdVisualMode } from '@/lib/ad-visual-mode';
-import { generateAdImageWithKie, toUserFacingGenerationError } from '@/lib/kie';
+import {
+  generateAdImageWithKie,
+  isKiePollTimeoutError,
+  toUserFacingGenerationError,
+} from '@/lib/kie';
 
 export type AdImageGenerationParams = {
   prompt: string;
@@ -72,14 +76,34 @@ export async function runAdImageGenerationJob(params: AdImageGenerationParams): 
       allowedPrice: params.allowedPrice,
       productBrandColors: params.productBrandColors,
       referenceProductVisibility: params.referenceProductVisibility,
+      onTaskCreated: async (taskId) => {
+        await admin
+          .from('creations')
+          .update({ kie_task_id: taskId })
+          .eq('id', creationId)
+          .eq('user_id', userId)
+          .eq('status', 'generating');
+      },
     });
 
     await admin
       .from('creations')
-      .update({ image_url: imageUrl, status: 'completed', error_message: null })
+      .update({
+        image_url: imageUrl,
+        status: 'completed',
+        error_message: null,
+        kie_task_id: null,
+      })
       .eq('id', creationId)
       .eq('user_id', userId);
   } catch (err) {
+    // Job still running on Kie — keep "generating" so the next creations poll can attach the image.
+    if (isKiePollTimeoutError(err)) {
+      console.warn(
+        `runAdImageGenerationJob: Kie still running for ${creationId}; leaving status=generating for UI sync`
+      );
+      return;
+    }
     const message = toUserFacingGenerationError(err);
     console.error('runAdImageGenerationJob failed:', err);
     await markCreationFailed(admin, creationId, userId, message);

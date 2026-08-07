@@ -46,6 +46,42 @@ function isKieTaskFailedError(err: unknown): boolean {
   );
 }
 
+export function isKiePollTimeoutError(err: unknown): boolean {
+  return (
+    err instanceof KiePollTimeoutError ||
+    (typeof err === 'object' &&
+      err !== null &&
+      'isKiePollTimeout' in err &&
+      (err as { isKiePollTimeout?: boolean }).isKiePollTimeout === true)
+  );
+}
+
+/** One-shot status check — used to recover results after serverless cutoff. */
+export async function getKieTaskResultOnce(
+  taskId: string
+): Promise<
+  | { state: 'success'; urls: string[] }
+  | { state: 'fail' }
+  | { state: 'pending' }
+> {
+  try {
+    const json = await kieFetch<KieRecordResponse>(
+      `/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`
+    );
+    const state = (json.data?.state ?? '').toLowerCase();
+    if (state === 'success') {
+      const urls = parseResultUrls(json.data?.resultJson);
+      return urls.length > 0 ? { state: 'success', urls } : { state: 'fail' };
+    }
+    if (state === 'fail' || state === 'failed' || state === 'error') {
+      return { state: 'fail' };
+    }
+    return { state: 'pending' };
+  } catch {
+    return { state: 'pending' };
+  }
+}
+
 type KieCreateResponse = {
   code?: number;
   msg?: string;
@@ -196,6 +232,7 @@ type GenerateOnceParams = {
   mode: AdVisualMode;
   referenceProductVisibility?: import('@/lib/adaptation/parse-reference-analysis').ReferenceProductVisibility;
   pollTimeoutMs?: number;
+  onTaskCreated?: (taskId: string, model: string) => void | Promise<void>;
 };
 
 async function generateOnceWithMode(
@@ -208,6 +245,7 @@ async function generateOnceWithMode(
     mode,
     referenceProductVisibility,
     pollTimeoutMs = 270_000,
+    onTaskCreated,
   } = params;
   const ratio = mapAspectRatio(aspectRatio, mode);
 
@@ -251,6 +289,15 @@ async function generateOnceWithMode(
     });
   }
 
+  // Persist ASAP so UI can recover if this serverless invocation dies mid-poll.
+  if (onTaskCreated) {
+    try {
+      await onTaskCreated(taskId, model);
+    } catch (err) {
+      console.warn('[image-gen] onTaskCreated failed:', err);
+    }
+  }
+
   const resultUrls = await pollKieTask(taskId, { timeoutMs: pollTimeoutMs });
   return {
     imageUrl: resultUrls[0],
@@ -275,6 +322,8 @@ export async function generateAdImageWithKie(params: {
   allowedPrice?: string | null;
   productBrandColors?: string[];
   referenceProductVisibility?: import('@/lib/adaptation/parse-reference-analysis').ReferenceProductVisibility;
+  /** Called as soon as a Kie task id exists (primary or fallback). */
+  onTaskCreated?: (taskId: string, model: string) => void | Promise<void>;
 }): Promise<{ imageUrl: string; taskId: string; model: string; adVisualMode: AdVisualMode }> {
   const {
     prompt,
@@ -291,6 +340,7 @@ export async function generateAdImageWithKie(params: {
     allowedPrice,
     productBrandColors,
     referenceProductVisibility,
+    onTaskCreated,
   } = params;
 
   const maxCatalog = 16;
@@ -319,6 +369,7 @@ export async function generateAdImageWithKie(params: {
       aspectRatio,
       mode: primary,
       referenceProductVisibility,
+      onTaskCreated,
     });
   } catch (primaryErr) {
     // Only switch models on an explicit Kie failure — never on slow poll / timeout.
@@ -327,6 +378,8 @@ export async function generateAdImageWithKie(params: {
         `[image-gen] primary model (${primary}) timed out or aborted — not falling back:`,
         primaryErr instanceof Error ? primaryErr.message : primaryErr
       );
+      // Preserve timeout type so callers can leave the creation as "generating".
+      if (isKiePollTimeoutError(primaryErr)) throw primaryErr;
       throw new Error(toUserFacingGenerationError(primaryErr));
     }
 
@@ -341,12 +394,14 @@ export async function generateAdImageWithKie(params: {
         aspectRatio,
         mode: secondary,
         referenceProductVisibility,
+        onTaskCreated,
       });
     } catch (secondaryErr) {
       console.error(
         `[image-gen] fallback model (${secondary}) also failed:`,
         secondaryErr instanceof Error ? secondaryErr.message : secondaryErr
       );
+      if (isKiePollTimeoutError(secondaryErr)) throw secondaryErr;
       throw new Error(toUserFacingGenerationError(secondaryErr));
     }
   }
