@@ -10,6 +10,42 @@ export { GENERATION_SERVER_ERROR, toUserFacingGenerationError };
 
 const KIE_API_BASE = 'https://api.kie.ai';
 
+/** Hard model/API failure — safe to try the other image model. */
+export class KieTaskFailedError extends Error {
+  readonly isKieTaskFailed = true as const;
+  constructor(message = GENERATION_SERVER_ERROR) {
+    super(message);
+    this.name = 'KieTaskFailedError';
+  }
+}
+
+/** Transient API/network error while polling — keep waiting, do not switch models. */
+class KieApiError extends Error {
+  constructor(message = GENERATION_SERVER_ERROR) {
+    super(message);
+    this.name = 'KieApiError';
+  }
+}
+
+/** Poll ran out of time while the job was still running — do NOT switch models. */
+export class KiePollTimeoutError extends Error {
+  readonly isKiePollTimeout = true as const;
+  constructor(message = GENERATION_SERVER_ERROR) {
+    super(message);
+    this.name = 'KiePollTimeoutError';
+  }
+}
+
+function isKieTaskFailedError(err: unknown): boolean {
+  return (
+    err instanceof KieTaskFailedError ||
+    (typeof err === 'object' &&
+      err !== null &&
+      'isKieTaskFailed' in err &&
+      (err as { isKieTaskFailed?: boolean }).isKieTaskFailed === true)
+  );
+}
+
 type KieCreateResponse = {
   code?: number;
   msg?: string;
@@ -32,7 +68,7 @@ function getKieApiKey(): string {
   const key =
     process.env.KIE_API_KEY?.trim() || process.env.KIE_AI_API_KEY?.trim();
   if (!key) {
-    throw new Error(GENERATION_SERVER_ERROR);
+    throw new KieTaskFailedError(GENERATION_SERVER_ERROR);
   }
   return key;
 }
@@ -84,19 +120,24 @@ async function kieFetch<T>(path: string, init?: RequestInit): Promise<T> {
   });
   const json = (await res.json()) as T & { code?: number; msg?: string };
   if (!res.ok || (json.code !== undefined && json.code !== 200)) {
-    throw new Error(GENERATION_SERVER_ERROR);
+    throw new KieApiError(GENERATION_SERVER_ERROR);
   }
   return json;
 }
 
 export async function createKieTask(body: Record<string, unknown>): Promise<string> {
-  const json = await kieFetch<KieCreateResponse>('/api/v1/jobs/createTask', {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
-  const taskId = json.data?.taskId;
-  if (!taskId) throw new Error(GENERATION_SERVER_ERROR);
-  return taskId;
+  try {
+    const json = await kieFetch<KieCreateResponse>('/api/v1/jobs/createTask', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+    const taskId = json.data?.taskId;
+    if (!taskId) throw new KieTaskFailedError(GENERATION_SERVER_ERROR);
+    return taskId;
+  } catch (err) {
+    if (isKieTaskFailedError(err)) throw err;
+    throw new KieTaskFailedError(GENERATION_SERVER_ERROR);
+  }
 }
 
 export async function pollKieTask(
@@ -104,29 +145,35 @@ export async function pollKieTask(
   options: { pollIntervalMs?: number; timeoutMs?: number } = {}
 ): Promise<string[]> {
   const pollIntervalMs = options.pollIntervalMs ?? 3000;
-  const timeoutMs = options.timeoutMs ?? 300000;
+  /** Single-model wait under serverless maxDuration (300s) with headroom. */
+  const timeoutMs = options.timeoutMs ?? 270_000;
   const start = Date.now();
 
   while (Date.now() - start < timeoutMs) {
-    const json = await kieFetch<KieRecordResponse>(
-      `/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`
-    );
-    const state = (json.data?.state ?? '').toLowerCase();
+    try {
+      const json = await kieFetch<KieRecordResponse>(
+        `/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`
+      );
+      const state = (json.data?.state ?? '').toLowerCase();
 
-    if (state === 'success') {
-      const urls = parseResultUrls(json.data?.resultJson);
-      if (urls.length === 0) throw new Error(GENERATION_SERVER_ERROR);
-      return urls;
-    }
+      if (state === 'success') {
+        const urls = parseResultUrls(json.data?.resultJson);
+        if (urls.length === 0) throw new KieTaskFailedError(GENERATION_SERVER_ERROR);
+        return urls;
+      }
 
-    if (state === 'fail') {
-      throw new Error(GENERATION_SERVER_ERROR);
+      if (state === 'fail' || state === 'failed' || state === 'error') {
+        throw new KieTaskFailedError(GENERATION_SERVER_ERROR);
+      }
+    } catch (err) {
+      // Explicit job failure → stop. Transient poll/API blips → keep waiting.
+      if (isKieTaskFailedError(err)) throw err;
     }
 
     await new Promise((r) => setTimeout(r, pollIntervalMs));
   }
 
-  throw new Error(GENERATION_SERVER_ERROR);
+  throw new KiePollTimeoutError(GENERATION_SERVER_ERROR);
 }
 
 function parseResultUrls(resultJson: string | undefined): string[] {
@@ -148,7 +195,6 @@ type GenerateOnceParams = {
   aspectRatio: string;
   mode: AdVisualMode;
   referenceProductVisibility?: import('@/lib/adaptation/parse-reference-analysis').ReferenceProductVisibility;
-  /** Cap wait so primary+fallback fit under serverless maxDuration. */
   pollTimeoutMs?: number;
 };
 
@@ -161,7 +207,7 @@ async function generateOnceWithMode(
     aspectRatio,
     mode,
     referenceProductVisibility,
-    pollTimeoutMs = 130_000,
+    pollTimeoutMs = 270_000,
   } = params;
   const ratio = mapAspectRatio(aspectRatio, mode);
 
@@ -173,7 +219,7 @@ async function generateOnceWithMode(
     const urls = catalogUrls.slice(0, 8);
 
     if (urls.length === 0 && referenceProductVisibility !== 'none') {
-      throw new Error('No valid product image URLs for design generation');
+      throw new KieTaskFailedError('No valid product image URLs for design generation');
     }
 
     taskId = await createKieTask({
@@ -191,7 +237,7 @@ async function generateOnceWithMode(
     const urls = catalogUrls.slice(0, 16);
 
     if (urls.length === 0 && referenceProductVisibility !== 'none') {
-      throw new Error('No valid product image URLs for realistic generation');
+      throw new KieTaskFailedError('No valid product image URLs for realistic generation');
     }
 
     taskId = await createKieTask({
@@ -275,6 +321,15 @@ export async function generateAdImageWithKie(params: {
       referenceProductVisibility,
     });
   } catch (primaryErr) {
+    // Only switch models on an explicit Kie failure — never on slow poll / timeout.
+    if (!isKieTaskFailedError(primaryErr)) {
+      console.warn(
+        `[image-gen] primary model (${primary}) timed out or aborted — not falling back:`,
+        primaryErr instanceof Error ? primaryErr.message : primaryErr
+      );
+      throw new Error(toUserFacingGenerationError(primaryErr));
+    }
+
     console.warn(
       `[image-gen] primary model (${primary}) failed, trying ${secondary}:`,
       primaryErr instanceof Error ? primaryErr.message : primaryErr
@@ -297,7 +352,7 @@ export async function generateAdImageWithKie(params: {
   }
 }
 
-/** Edits prefer GPT Image 2; fall back to nano-banana-pro if it fails. */
+/** Edits prefer GPT Image 2; fall back to nano-banana-pro only if GPT returns a hard failure. */
 export async function editImageWithKie(params: {
   prompt: string;
   imageUrl: string;
@@ -320,6 +375,14 @@ export async function editImageWithKie(params: {
     const resultUrls = await pollKieTask(taskId);
     return { imageUrl: resultUrls[0], taskId };
   } catch (primaryErr) {
+    if (!isKieTaskFailedError(primaryErr)) {
+      console.warn(
+        '[image-gen] edit primary (gpt-image-2) timed out — not falling back:',
+        primaryErr instanceof Error ? primaryErr.message : primaryErr
+      );
+      throw new Error(toUserFacingGenerationError(primaryErr));
+    }
+
     console.warn(
       '[image-gen] edit primary (gpt-image-2) failed, trying nano-banana-pro:',
       primaryErr instanceof Error ? primaryErr.message : primaryErr
