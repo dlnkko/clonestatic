@@ -3,7 +3,7 @@ export type PaidPlanKey = 'standard' | 'pro' | 'scale';
 
 /** One-time purchase keys (Whop single payment, no renewal). */
 export type OneTimePlanKey =
-  | 'pack_10'
+  | 'pack_20'
   | 'pack_30'
   | 'pack_50'
   | 'pack_70'
@@ -12,7 +12,9 @@ export type OneTimePlanKey =
   | 'pack_200'
   | 'pack_300'
   | 'pack_400'
-  | 'pack_500';
+  | 'pack_500'
+  /** @deprecated Legacy key; same entitlement as pack_20 */
+  | 'pack_10';
 
 export type BillingPlanKey = PaidPlanKey | OneTimePlanKey;
 
@@ -62,13 +64,13 @@ export const ONE_TIME_MAX_TEAM_SEATS = 2;
 /** All purchasable one-time credit packs (landing slider + Whop). */
 export const ONE_TIME_PACKS: OneTimePlanLimits[] = [
   {
-    key: 'pack_10',
-    name: '10 Ads Pack',
-    tagline: 'Pay once, mirror 10 static ads',
-    credits: 10,
+    key: 'pack_20',
+    name: '20 Ads Pack',
+    tagline: 'Pay once, mirror 20 static ads',
+    credits: 20,
     maxProducts: ONE_TIME_MAX_PRODUCTS,
     priceUsd: 19.99,
-    checkoutKey: 'pack_10',
+    checkoutKey: 'pack_20',
     whopPlanId: 'plan_mSx19dfVltKNW',
   },
   {
@@ -167,8 +169,11 @@ export const ONE_TIME_PACK_BY_KEY = Object.fromEntries(
   ONE_TIME_PACKS.map((p) => [p.key, p])
 ) as Record<OneTimePlanKey, OneTimePlanLimits>;
 
+// Legacy DB / checkout key → same as 20-credit pack
+ONE_TIME_PACK_BY_KEY.pack_10 = ONE_TIME_PACK_BY_KEY.pack_20;
+
 /** Default / smallest one-time pack (dashboard pricing card). */
-export const ONE_TIME_PACK: OneTimePlanLimits = ONE_TIME_PACK_BY_KEY.pack_10;
+export const ONE_TIME_PACK: OneTimePlanLimits = ONE_TIME_PACK_BY_KEY.pack_20;
 
 /** Landing one-time credit slider options. */
 export type CreditPackOption = {
@@ -248,7 +253,7 @@ export const AGENCY_PLAN_DISPLAY = {
 /** Whop plan IDs → internal plan key (monthly + yearly + one-time). */
 export const WHOP_PLAN_ID_MAP: Record<string, BillingPlanKey> = {
   // One-time packs (current)
-  plan_mSx19dfVltKNW: 'pack_10',
+  plan_mSx19dfVltKNW: 'pack_20',
   plan_sTHkmsUgoluii: 'pack_30',
   plan_zXdo0TUmCMyOJ: 'pack_50',
   plan_O5mZ5qt9x5wFR: 'pack_70',
@@ -259,7 +264,7 @@ export const WHOP_PLAN_ID_MAP: Record<string, BillingPlanKey> = {
   plan_J0mfsxhuIDZIC: 'pack_400',
   plan_Af5yFMOb76Lg8: 'pack_500',
   // Legacy one-time pack
-  plan_J9fyEIeUSVd8d: 'pack_10',
+  plan_J9fyEIeUSVd8d: 'pack_20',
   // Subscriptions
   plan_tNyLmHA6Ecbve: 'standard',
   plan_o5L5Qt9SceSYe: 'standard',
@@ -276,6 +281,7 @@ export const WHOP_PLAN_ID_MAP: Record<string, BillingPlanKey> = {
 
 const PLAN_RANK: Record<BillingPlanKey, number> = {
   pack_10: 0,
+  pack_20: 0,
   pack_30: 0,
   pack_50: 0,
   pack_70: 0,
@@ -295,6 +301,8 @@ export function paidPlanRank(plan: BillingPlanKey): number {
 }
 
 export const WHOP_CHECKOUT_URLS: Record<string, string> = {
+  pack_20: 'https://whop.com/checkout/plan_mSx19dfVltKNW',
+  /** @deprecated use pack_20 */
   pack_10: 'https://whop.com/checkout/plan_mSx19dfVltKNW',
   pack_30: 'https://whop.com/checkout/plan_sTHkmsUgoluii',
   pack_50: 'https://whop.com/checkout/plan_zXdo0TUmCMyOJ',
@@ -366,7 +374,7 @@ export function resolveWhopPlanKey(planId: string | undefined): BillingPlanKey {
   if (WHOP_PLAN_ID_MAP[planId]) return WHOP_PLAN_ID_MAP[planId];
 
   const packEnv = process.env.NEXT_PUBLIC_WHOP_PLAN_PACK_10?.trim();
-  if (packEnv && planId === packEnv) return 'pack_10';
+  if (packEnv && planId === packEnv) return 'pack_20';
 
   const scaleMonthly = process.env.NEXT_PUBLIC_WHOP_PLAN_SCALE_MONTHLY;
   const scaleYearly = process.env.NEXT_PUBLIC_WHOP_PLAN_SCALE_YEARLY;

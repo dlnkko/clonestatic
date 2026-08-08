@@ -57,7 +57,7 @@ export function PricingModal({ open, onClose, billing, onBillingChange }: Props)
                 href={`/checkout-redirect?plan=${ONE_TIME_PACK.checkoutKey}`}
                 className="dash-btn shrink-0 bg-emerald-600 text-white hover:bg-emerald-700"
               >
-                Buy 10 ads
+                Buy 20 ads
               </a>
             </div>
           </div>

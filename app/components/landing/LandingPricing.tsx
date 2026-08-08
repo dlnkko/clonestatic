@@ -161,7 +161,7 @@ function CreditPackSlider() {
       <div className="mt-4">
         <a
           href={buyHref}
-          className="landing-btn-gold landing-btn-compact inline-flex w-full justify-center sm:w-auto sm:min-w-[12rem]"
+          className="landing-btn-gold inline-flex w-full items-center justify-center px-8 py-3.5 text-lg font-semibold tabular-nums tracking-tight sm:w-auto sm:min-w-[11rem]"
         >
           ${pack.priceUsd.toFixed(2)}
         </a>

@@ -8,7 +8,8 @@ export const dynamic = 'force-dynamic';
 const PLAN_URLS: Record<string, string> = {
   ...WHOP_CHECKOUT_URLS,
   // Env overrides for legacy / per-deploy config
-  pack_10: process.env.NEXT_PUBLIC_WHOP_CHECKOUT_PACK_10 || WHOP_CHECKOUT_URLS.pack_10,
+  pack_10: process.env.NEXT_PUBLIC_WHOP_CHECKOUT_PACK_10 || WHOP_CHECKOUT_URLS.pack_20,
+  pack_20: process.env.NEXT_PUBLIC_WHOP_CHECKOUT_PACK_10 || WHOP_CHECKOUT_URLS.pack_20,
   standard_monthly:
     process.env.NEXT_PUBLIC_WHOP_CHECKOUT_STANDARD_MONTHLY || WHOP_CHECKOUT_URLS.standard_monthly,
   standard_yearly:
