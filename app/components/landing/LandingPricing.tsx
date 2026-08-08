@@ -6,8 +6,8 @@ import {
   CREDIT_PACK_OPTIONS,
   PAID_PLANS,
   planDisplayPrice,
+  planFeatureList,
   type BillingPeriod,
-  type PlanLimits,
 } from '@/lib/plans';
 
 function Check() {
@@ -22,21 +22,6 @@ function Check() {
       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
     </svg>
   );
-}
-
-function planBullets(plan: PlanLimits): string[] {
-  if (plan.key === 'scale') {
-    return [
-      `${plan.credits} images/month`,
-      'Unlimited products',
-      `${plan.maxTeamSeats} team seats`,
-    ];
-  }
-  return [
-    `${plan.credits} images/month`,
-    `${plan.maxProducts} saved products`,
-    `${plan.maxTeamSeats} team seats`,
-  ];
 }
 
 function BillingToggle({
@@ -228,7 +213,7 @@ export function LandingPricing() {
                 </p>
               )}
               <ul className="mt-3 flex-1 space-y-1.5 text-xs text-white/60">
-                {planBullets(plan).map((f) => (
+                {planFeatureList(plan).map((f) => (
                   <li key={f} className="flex items-start gap-2">
                     <Check />
                     <span>{f}</span>

@@ -1452,6 +1452,7 @@ function StaticAdAppPage() {
         onClose={() => setShowPricingModal(false)}
         billing={pricingBilling}
         onBillingChange={setPricingBilling}
+        currentPlan={currentPlan}
       />
 
       {referencePreviewUrl && (

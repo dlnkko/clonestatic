@@ -437,19 +437,13 @@ export function oneTimePlanFeatureList(plan: OneTimePlanLimits = ONE_TIME_PACK):
 
 export function planFeatureList(plan: PlanLimits): string[] {
   const productLabel = isUnlimitedProducts(plan.maxProducts)
-    ? 'Unlimited saved products'
-    : `Up to ${plan.maxProducts} saved products`;
-  const features = [
-    `${plan.credits} images / month`,
+    ? 'Unlimited products'
+    : `${plan.maxProducts} saved products`;
+  return [
+    `${plan.credits} images/month`,
     productLabel,
     `${plan.maxTeamSeats} team seats`,
-    'Ad library',
-    'History',
   ];
-  if (plan.key === 'scale') {
-    features.push('Priority support');
-  }
-  return features;
 }
 
 /** Team member invite cap for a billing plan (monthly or annual same). */

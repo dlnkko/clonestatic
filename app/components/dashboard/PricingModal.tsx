@@ -6,6 +6,8 @@ import {
   AGENCY_PLAN_DISPLAY,
   CREDIT_PACK_OPTIONS,
   PAID_PLANS,
+  isPaidPlan,
+  planDisplayName,
   planDisplayPrice,
   planFeatureList,
   type BillingPeriod,
@@ -16,6 +18,8 @@ type Props = {
   onClose: () => void;
   billing: BillingPeriod;
   onBillingChange: (b: BillingPeriod) => void;
+  /** Active subscription plan key from /api/subscription (e.g. standard, free_trial). */
+  currentPlan?: string | null;
 };
 
 function CreditPackUpgradeSlider() {
@@ -105,10 +109,11 @@ function CreditPackUpgradeSlider() {
   );
 }
 
-export function PricingModal({ open, onClose, billing, onBillingChange }: Props) {
+export function PricingModal({ open, onClose, billing, onBillingChange, currentPlan = null }: Props) {
   if (!open) return null;
 
   const founderUrl = process.env.NEXT_PUBLIC_TELEGRAM_FOUNDER ?? 'https://t.me/yourusername';
+  const currentLabel = currentPlan ? planDisplayName(currentPlan) : null;
 
   return (
     <div className="dash-modal-root" role="dialog" aria-modal="true" aria-labelledby="pricing-title">
@@ -153,6 +158,12 @@ export function PricingModal({ open, onClose, billing, onBillingChange }: Props)
                 </span>
               </button>
             </div>
+            {currentLabel && (
+              <p className="text-xs text-[var(--dash-muted)]">
+                Current plan:{' '}
+                <span className="font-semibold text-[var(--dash-fg)]">{currentLabel}</span>
+              </p>
+            )}
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -160,17 +171,31 @@ export function PricingModal({ open, onClose, billing, onBillingChange }: Props)
               const featured = plan.badge === 'popular';
               const price = planDisplayPrice(plan, billing);
               const checkoutKey = billing === 'yearly' ? plan.checkoutYearly : plan.checkoutMonthly;
+              const isCurrent = isPaidPlan(currentPlan) && currentPlan === plan.key;
 
               return (
                 <div
                   key={plan.key}
-                  className={cn('dash-pricing-card relative', featured && 'dash-pricing-card-featured')}
+                  className={cn(
+                    'dash-pricing-card relative',
+                    featured && 'dash-pricing-card-featured',
+                    isCurrent && !featured && 'ring-2 ring-emerald-500/40'
+                  )}
                 >
-                  {featured && (
+                  {isCurrent ? (
+                    <span
+                      className={cn(
+                        'absolute right-4 top-4 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase',
+                        featured ? 'bg-white/20 text-white' : 'bg-emerald-500/15 text-emerald-700'
+                      )}
+                    >
+                      Current
+                    </span>
+                  ) : featured ? (
                     <span className="absolute right-4 top-4 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold uppercase text-white">
                       Popular
                     </span>
-                  )}
+                  ) : null}
                   <h3 className={cn('font-semibold', featured ? 'text-white' : 'text-[var(--dash-fg)]')}>
                     {plan.name}
                   </h3>
@@ -195,15 +220,28 @@ export function PricingModal({ open, onClose, billing, onBillingChange }: Props)
                       </li>
                     ))}
                   </ul>
-                  <a
-                    href={`/checkout-redirect?plan=${checkoutKey}`}
-                    className={cn(
-                      'dash-btn mt-5 w-full',
-                      featured ? 'bg-white text-zinc-900 hover:bg-zinc-100' : 'dash-btn-secondary'
-                    )}
-                  >
-                    Continue
-                  </a>
+                  {isCurrent ? (
+                    <button
+                      type="button"
+                      disabled
+                      className={cn(
+                        'dash-btn mt-5 w-full cursor-default opacity-80',
+                        featured ? 'bg-white/20 text-white' : 'dash-btn-secondary'
+                      )}
+                    >
+                      Current plan
+                    </button>
+                  ) : (
+                    <a
+                      href={`/checkout-redirect?plan=${checkoutKey}`}
+                      className={cn(
+                        'dash-btn mt-5 w-full',
+                        featured ? 'bg-white text-zinc-900 hover:bg-zinc-100' : 'dash-btn-secondary'
+                      )}
+                    >
+                      Continue
+                    </a>
+                  )}
                 </div>
               );
             })}

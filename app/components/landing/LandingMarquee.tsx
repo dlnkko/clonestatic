@@ -8,7 +8,7 @@ const ITEMS = [
   'Product page sync',
   'Copy that matches your brand',
   'No prompt engineering',
-  'HD export',
+  'Team seats',
   'Saved products',
   'Browse by category',
   'Ship in minutes',
