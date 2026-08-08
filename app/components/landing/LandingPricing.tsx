@@ -83,8 +83,7 @@ function BillingToggle({
 function CreditPackSlider() {
   const [index, setIndex] = useState(0);
   const pack = CREDIT_PACK_OPTIONS[index] ?? CREDIT_PACK_OPTIONS[0];
-  const canBuy = Boolean(pack.checkoutKey);
-  const buyHref = canBuy ? `/login?next=checkout&plan=${pack.checkoutKey}` : undefined;
+  const buyHref = `/login?next=checkout&plan=${pack.checkoutKey}`;
   const progress = (index / Math.max(CREDIT_PACK_OPTIONS.length - 1, 1)) * 100;
 
   const ticks = useMemo(
@@ -92,7 +91,7 @@ function CreditPackSlider() {
       CREDIT_PACK_OPTIONS.map((p, i) => ({
         i,
         label: String(p.credits),
-        show: i === 0 || i === CREDIT_PACK_OPTIONS.length - 1 || i % 3 === 0,
+        show: true,
       })),
     []
   );
@@ -108,17 +107,17 @@ function CreditPackSlider() {
             Pay once. Ship ads.
           </h3>
           <p className="mt-0.5 text-xs text-white/40">1 credit = 1 image · no subscription</p>
+          <p className="mt-1.5 text-[11px] leading-relaxed text-white/45">
+            Every pack includes 2 seats and 10 saved products. Upgrade to a monthly plan anytime to get
+            that plan&apos;s seats and product limits.
+          </p>
         </div>
         <div className="text-left sm:text-right">
           <p className="text-2xl font-semibold tracking-tight text-[var(--landing-fg)] tabular-nums">
             {pack.credits}
             <span className="ml-1 text-sm font-medium text-white/40">credits</span>
           </p>
-          {pack.priceUsd != null ? (
-            <p className="text-xs text-[var(--landing-accent)]">${pack.priceUsd.toFixed(2)} once</p>
-          ) : (
-            <p className="text-xs text-white/35">Checkout link coming soon</p>
-          )}
+          <p className="text-xs text-[var(--landing-accent)]">${pack.priceUsd.toFixed(2)} once</p>
         </div>
       </div>
 
@@ -139,16 +138,15 @@ function CreditPackSlider() {
             background: `linear-gradient(90deg, rgba(34,211,238,0.75) 0%, rgba(34,211,238,0.75) ${progress}%, rgba(255,255,255,0.1) ${progress}%, rgba(255,255,255,0.1) 100%)`,
           }}
         />
-        <div className="mt-2 flex justify-between px-0.5 text-[9px] tabular-nums text-white/30 sm:text-[10px]">
+        <div className="mt-2 flex justify-between gap-0.5 overflow-x-auto px-0.5 text-[9px] tabular-nums text-white/30 sm:text-[10px]">
           {ticks.map((t) => (
             <button
               key={t.i}
               type="button"
               onClick={() => setIndex(t.i)}
               className={cn(
-                'transition-colors hover:text-white/70',
-                t.i === index && 'font-semibold text-[var(--landing-accent)]',
-                !t.show && 'hidden sm:inline'
+                'shrink-0 transition-colors hover:text-white/70',
+                t.i === index && 'font-semibold text-[var(--landing-accent)]'
               )}
             >
               {t.label}
@@ -158,27 +156,13 @@ function CreditPackSlider() {
       </div>
 
       <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-        {canBuy && buyHref ? (
-          <a
-            href={buyHref}
-            className="landing-btn-gold landing-btn-compact inline-flex w-full justify-center sm:w-auto sm:min-w-[10rem]"
-          >
-            Buy {pack.credits} credits
-          </a>
-        ) : (
-          <button
-            type="button"
-            disabled
-            className="inline-flex w-full cursor-not-allowed justify-center rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/35 sm:w-auto sm:min-w-[10rem]"
-          >
-            Buy {pack.credits} credits
-          </button>
-        )}
-        <p className="text-[11px] text-white/35 sm:ml-1">
-          {canBuy
-            ? 'Opens Whop checkout after sign-in'
-            : 'Whop URL pending — select 10 credits to buy now'}
-        </p>
+        <a
+          href={buyHref}
+          className="landing-btn-gold landing-btn-compact inline-flex w-full justify-center sm:w-auto sm:min-w-[10rem]"
+        >
+          Buy {pack.credits} credits
+        </a>
+        <p className="text-[11px] text-white/35 sm:ml-1">Opens Whop checkout after sign-in</p>
       </div>
     </article>
   );

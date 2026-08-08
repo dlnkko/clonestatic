@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { enrichWhopPayloadFromApi } from '@/lib/whop';
 import { normalizeWhopEvent, upsertWhopSubscription } from '@/lib/whop-subscription';
 import { unwrapWhopWebhook } from '@/lib/whop-sdk';
+import { isOneTimePlan } from '@/lib/plans';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
         .eq('email', email)
         .maybeSingle();
 
-      if (sub?.plan === 'pack_10') {
+      if (sub?.plan && isOneTimePlan(sub.plan)) {
         return NextResponse.json({
           received: true,
           skipped: true,

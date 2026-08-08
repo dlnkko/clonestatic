@@ -2,7 +2,17 @@
 export type PaidPlanKey = 'standard' | 'pro' | 'scale';
 
 /** One-time purchase keys (Whop single payment, no renewal). */
-export type OneTimePlanKey = 'pack_10';
+export type OneTimePlanKey =
+  | 'pack_10'
+  | 'pack_30'
+  | 'pack_50'
+  | 'pack_70'
+  | 'pack_120'
+  | 'pack_150'
+  | 'pack_200'
+  | 'pack_300'
+  | 'pack_400'
+  | 'pack_500';
 
 export type BillingPlanKey = PaidPlanKey | OneTimePlanKey;
 
@@ -45,40 +55,133 @@ export const FREE_TRIAL_CREDITS = 2;
 /** Practical unlimited cap (same as owner). */
 export const UNLIMITED_MAX_PRODUCTS = 9999;
 
-export const ONE_TIME_PACK: OneTimePlanLimits = {
-  key: 'pack_10',
-  name: '10 Ads Pack',
-  tagline: 'Pay once, mirror 10 static ads',
-  credits: 10,
-  maxProducts: 3,
-  priceUsd: 9.99,
-  checkoutKey: 'pack_10',
-  whopPlanId: 'plan_J9fyEIeUSVd8d',
-};
+const ONE_TIME_MAX_PRODUCTS = 10;
+/** Team seats included with every one-time credit pack. */
+export const ONE_TIME_MAX_TEAM_SEATS = 2;
 
-/** Landing one-time credit slider. Fill `checkoutKey` + WHOP_CHECKOUT_URLS when Whop plans are ready. */
+/** All purchasable one-time credit packs (landing slider + Whop). */
+export const ONE_TIME_PACKS: OneTimePlanLimits[] = [
+  {
+    key: 'pack_10',
+    name: '10 Ads Pack',
+    tagline: 'Pay once, mirror 10 static ads',
+    credits: 10,
+    maxProducts: ONE_TIME_MAX_PRODUCTS,
+    priceUsd: 19.99,
+    checkoutKey: 'pack_10',
+    whopPlanId: 'plan_mSx19dfVltKNW',
+  },
+  {
+    key: 'pack_30',
+    name: '30 Ads Pack',
+    tagline: 'Pay once, mirror 30 static ads',
+    credits: 30,
+    maxProducts: ONE_TIME_MAX_PRODUCTS,
+    priceUsd: 27.99,
+    checkoutKey: 'pack_30',
+    whopPlanId: 'plan_sTHkmsUgoluii',
+  },
+  {
+    key: 'pack_50',
+    name: '50 Ads Pack',
+    tagline: 'Pay once, mirror 50 static ads',
+    credits: 50,
+    maxProducts: ONE_TIME_MAX_PRODUCTS,
+    priceUsd: 44.99,
+    checkoutKey: 'pack_50',
+    whopPlanId: 'plan_zXdo0TUmCMyOJ',
+  },
+  {
+    key: 'pack_70',
+    name: '70 Ads Pack',
+    tagline: 'Pay once, mirror 70 static ads',
+    credits: 70,
+    maxProducts: ONE_TIME_MAX_PRODUCTS,
+    priceUsd: 59.99,
+    checkoutKey: 'pack_70',
+    whopPlanId: 'plan_O5mZ5qt9x5wFR',
+  },
+  {
+    key: 'pack_120',
+    name: '120 Ads Pack',
+    tagline: 'Pay once, mirror 120 static ads',
+    credits: 120,
+    maxProducts: ONE_TIME_MAX_PRODUCTS,
+    priceUsd: 95.99,
+    checkoutKey: 'pack_120',
+    whopPlanId: 'plan_M5PoCa6aDcn92',
+  },
+  {
+    key: 'pack_150',
+    name: '150 Ads Pack',
+    tagline: 'Pay once, mirror 150 static ads',
+    credits: 150,
+    maxProducts: ONE_TIME_MAX_PRODUCTS,
+    priceUsd: 114.99,
+    checkoutKey: 'pack_150',
+    whopPlanId: 'plan_XJuVQAW7pWRNG',
+  },
+  {
+    key: 'pack_200',
+    name: '200 Ads Pack',
+    tagline: 'Pay once, mirror 200 static ads',
+    credits: 200,
+    maxProducts: ONE_TIME_MAX_PRODUCTS,
+    priceUsd: 147.99,
+    checkoutKey: 'pack_200',
+    whopPlanId: 'plan_zyKt0nmmJ3u5e',
+  },
+  {
+    key: 'pack_300',
+    name: '300 Ads Pack',
+    tagline: 'Pay once, mirror 300 static ads',
+    credits: 300,
+    maxProducts: ONE_TIME_MAX_PRODUCTS,
+    priceUsd: 209.99,
+    checkoutKey: 'pack_300',
+    whopPlanId: 'plan_VEYdxIdmkmxGx',
+  },
+  {
+    key: 'pack_400',
+    name: '400 Ads Pack',
+    tagline: 'Pay once, mirror 400 static ads',
+    credits: 400,
+    maxProducts: ONE_TIME_MAX_PRODUCTS,
+    priceUsd: 259.99,
+    checkoutKey: 'pack_400',
+    whopPlanId: 'plan_J0mfsxhuIDZIC',
+  },
+  {
+    key: 'pack_500',
+    name: '500 Ads Pack',
+    tagline: 'Pay once, mirror 500 static ads',
+    credits: 500,
+    maxProducts: ONE_TIME_MAX_PRODUCTS,
+    priceUsd: 319.99,
+    checkoutKey: 'pack_500',
+    whopPlanId: 'plan_Af5yFMOb76Lg8',
+  },
+];
+
+export const ONE_TIME_PACK_BY_KEY = Object.fromEntries(
+  ONE_TIME_PACKS.map((p) => [p.key, p])
+) as Record<OneTimePlanKey, OneTimePlanLimits>;
+
+/** Default / smallest one-time pack (dashboard pricing card). */
+export const ONE_TIME_PACK: OneTimePlanLimits = ONE_TIME_PACK_BY_KEY.pack_10;
+
+/** Landing one-time credit slider options. */
 export type CreditPackOption = {
   credits: number;
-  /** Shown on landing when set; null = price TBD */
-  priceUsd: number | null;
-  /** Checkout query key → WHOP_CHECKOUT_URLS. null = not purchasable yet */
-  checkoutKey: string | null;
+  priceUsd: number;
+  checkoutKey: OneTimePlanKey;
 };
 
-export const CREDIT_PACK_OPTIONS: CreditPackOption[] = [
-  { credits: 10, priceUsd: 9.99, checkoutKey: 'pack_10' },
-  { credits: 30, priceUsd: null, checkoutKey: null },
-  { credits: 50, priceUsd: null, checkoutKey: null },
-  { credits: 70, priceUsd: null, checkoutKey: null },
-  { credits: 120, priceUsd: null, checkoutKey: null },
-  { credits: 150, priceUsd: null, checkoutKey: null },
-  { credits: 200, priceUsd: null, checkoutKey: null },
-  { credits: 250, priceUsd: null, checkoutKey: null },
-  { credits: 300, priceUsd: null, checkoutKey: null },
-  { credits: 350, priceUsd: null, checkoutKey: null },
-  { credits: 400, priceUsd: null, checkoutKey: null },
-  { credits: 500, priceUsd: null, checkoutKey: null },
-];
+export const CREDIT_PACK_OPTIONS: CreditPackOption[] = ONE_TIME_PACKS.map((p) => ({
+  credits: p.credits,
+  priceUsd: p.priceUsd,
+  checkoutKey: p.key,
+}));
 
 export const PAID_PLANS: PlanLimits[] = [
   {
@@ -144,7 +247,20 @@ export const AGENCY_PLAN_DISPLAY = {
 
 /** Whop plan IDs → internal plan key (monthly + yearly + one-time). */
 export const WHOP_PLAN_ID_MAP: Record<string, BillingPlanKey> = {
+  // One-time packs (current)
+  plan_mSx19dfVltKNW: 'pack_10',
+  plan_sTHkmsUgoluii: 'pack_30',
+  plan_zXdo0TUmCMyOJ: 'pack_50',
+  plan_O5mZ5qt9x5wFR: 'pack_70',
+  plan_M5PoCa6aDcn92: 'pack_120',
+  plan_XJuVQAW7pWRNG: 'pack_150',
+  plan_zyKt0nmmJ3u5e: 'pack_200',
+  plan_VEYdxIdmkmxGx: 'pack_300',
+  plan_J0mfsxhuIDZIC: 'pack_400',
+  plan_Af5yFMOb76Lg8: 'pack_500',
+  // Legacy one-time pack
   plan_J9fyEIeUSVd8d: 'pack_10',
+  // Subscriptions
   plan_tNyLmHA6Ecbve: 'standard',
   plan_o5L5Qt9SceSYe: 'standard',
   plan_3kuJzf26hKZk4: 'pro',
@@ -160,6 +276,15 @@ export const WHOP_PLAN_ID_MAP: Record<string, BillingPlanKey> = {
 
 const PLAN_RANK: Record<BillingPlanKey, number> = {
   pack_10: 0,
+  pack_30: 0,
+  pack_50: 0,
+  pack_70: 0,
+  pack_120: 0,
+  pack_150: 0,
+  pack_200: 0,
+  pack_300: 0,
+  pack_400: 0,
+  pack_500: 0,
   standard: 1,
   pro: 2,
   scale: 3,
@@ -169,15 +294,24 @@ export function paidPlanRank(plan: BillingPlanKey): number {
   return PLAN_RANK[plan] ?? 0;
 }
 
-export const WHOP_CHECKOUT_URLS = {
-  pack_10: 'https://whop.com/checkout/plan_J9fyEIeUSVd8d',
+export const WHOP_CHECKOUT_URLS: Record<string, string> = {
+  pack_10: 'https://whop.com/checkout/plan_mSx19dfVltKNW',
+  pack_30: 'https://whop.com/checkout/plan_sTHkmsUgoluii',
+  pack_50: 'https://whop.com/checkout/plan_zXdo0TUmCMyOJ',
+  pack_70: 'https://whop.com/checkout/plan_O5mZ5qt9x5wFR',
+  pack_120: 'https://whop.com/checkout/plan_M5PoCa6aDcn92',
+  pack_150: 'https://whop.com/checkout/plan_XJuVQAW7pWRNG',
+  pack_200: 'https://whop.com/checkout/plan_zyKt0nmmJ3u5e',
+  pack_300: 'https://whop.com/checkout/plan_VEYdxIdmkmxGx',
+  pack_400: 'https://whop.com/checkout/plan_J0mfsxhuIDZIC',
+  pack_500: 'https://whop.com/checkout/plan_Af5yFMOb76Lg8',
   standard_monthly: 'https://whop.com/checkout/plan_tNyLmHA6Ecbve',
   standard_yearly: 'https://whop.com/checkout/plan_o5L5Qt9SceSYe',
   pro_monthly: 'https://whop.com/checkout/plan_3kuJzf26hKZk4',
   pro_yearly: 'https://whop.com/checkout/plan_PPgQmxqA06tS1',
   scale_monthly: 'https://whop.com/checkout/plan_5MIJfbYUpkoBx',
   scale_yearly: 'https://whop.com/checkout/plan_gnK3r9F8Qx3pX',
-} as const;
+};
 
 export type BillingPeriod = 'monthly' | 'yearly';
 
@@ -216,9 +350,13 @@ export function isYearlyWhopPlanId(planId: string | undefined): boolean {
   return Boolean(yearlyEnv && planId === yearlyEnv);
 }
 
+const ONE_TIME_WHOP_PLAN_IDS = new Set(ONE_TIME_PACKS.map((p) => p.whopPlanId));
+// Legacy pack id still counts as one-time.
+ONE_TIME_WHOP_PLAN_IDS.add('plan_J9fyEIeUSVd8d');
+
 export function isOneTimeWhopPlanId(planId: string | undefined): boolean {
   if (!planId) return false;
-  if (planId === ONE_TIME_PACK.whopPlanId) return true;
+  if (ONE_TIME_WHOP_PLAN_IDS.has(planId)) return true;
   const fromEnv = process.env.NEXT_PUBLIC_WHOP_PLAN_PACK_10?.trim();
   return Boolean(fromEnv && planId === fromEnv);
 }
@@ -239,14 +377,14 @@ export function resolveWhopPlanKey(planId: string | undefined): BillingPlanKey {
 }
 
 export function creditsForPlan(plan: BillingPlanKey): number {
-  if (plan === 'pack_10') return ONE_TIME_PACK.credits;
+  if (isOneTimePlan(plan)) return ONE_TIME_PACK_BY_KEY[plan].credits;
   return PAID_PLAN_BY_KEY[plan]?.credits ?? PAID_PLAN_BY_KEY.standard.credits;
 }
 
 export function maxProductsForPlan(plan: SubscriptionPlan): number {
   if (plan === 'owner') return UNLIMITED_MAX_PRODUCTS;
   if (plan === 'free_trial') return FREE_TRIAL_MAX_PRODUCTS;
-  if (plan === 'pack_10') return ONE_TIME_PACK.maxProducts;
+  if (isOneTimePlan(plan)) return ONE_TIME_PACK_BY_KEY[plan].maxProducts;
   return PAID_PLAN_BY_KEY[plan as PaidPlanKey]?.maxProducts ?? FREE_TRIAL_MAX_PRODUCTS;
 }
 
@@ -263,7 +401,7 @@ export function isPaidPlan(plan: string | null | undefined): plan is PaidPlanKey
 }
 
 export function isOneTimePlan(plan: string | null | undefined): plan is OneTimePlanKey {
-  return plan === 'pack_10';
+  return typeof plan === 'string' && plan in ONE_TIME_PACK_BY_KEY;
 }
 
 /** Active billing entitlement: recurring subscription or one-time pack purchase. */
@@ -274,7 +412,7 @@ export function isEntitledPlan(plan: string | null | undefined): plan is Billing
 export function planDisplayName(plan: SubscriptionPlan | string): string {
   if (plan === 'free_trial') return 'Free trial';
   if (plan === 'owner') return 'Owner';
-  if (isOneTimePlan(plan)) return ONE_TIME_PACK.name;
+  if (isOneTimePlan(plan)) return ONE_TIME_PACK_BY_KEY[plan].name;
   if (isPaidPlan(plan)) return PAID_PLAN_BY_KEY[plan].name;
   return String(plan);
 }
@@ -283,6 +421,7 @@ export function oneTimePlanFeatureList(plan: OneTimePlanLimits = ONE_TIME_PACK):
   return [
     `${plan.credits} AI image generations`,
     `${plan.maxProducts} saved products`,
+    `${ONE_TIME_MAX_TEAM_SEATS} team seats`,
     'Ad library',
     'History',
     'HD export',
@@ -311,7 +450,7 @@ export function planFeatureList(plan: PlanLimits): string[] {
 export function maxTeamSeatsForPlan(plan: string | null | undefined): number {
   if (plan === 'owner') return 50;
   if (isPaidPlan(plan)) return PAID_PLAN_BY_KEY[plan].maxTeamSeats;
-  if (isOneTimePlan(plan)) return 1;
+  if (isOneTimePlan(plan)) return ONE_TIME_MAX_TEAM_SEATS;
   return 0;
 }
 
