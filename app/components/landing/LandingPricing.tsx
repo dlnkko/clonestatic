@@ -85,6 +85,7 @@ function CreditPackSlider() {
   const pack = CREDIT_PACK_OPTIONS[index] ?? CREDIT_PACK_OPTIONS[0];
   const buyHref = `/login?next=checkout&plan=${pack.checkoutKey}`;
   const progress = (index / Math.max(CREDIT_PACK_OPTIONS.length - 1, 1)) * 100;
+  const pricePerCredit = pack.priceUsd / pack.credits;
 
   const ticks = useMemo(
     () =>
@@ -107,7 +108,7 @@ function CreditPackSlider() {
             Pay once. Ship ads.
           </h3>
           <p className="mt-0.5 text-xs text-white/40">1 credit = 1 image · no subscription</p>
-          <p className="mt-1.5 text-[11px] leading-relaxed text-white/45">
+          <p className="mt-2 max-w-md text-sm leading-relaxed text-white/55">
             Every pack includes 2 seats and 10 saved products. Upgrade to a monthly plan anytime to get
             that plan&apos;s seats and product limits.
           </p>
@@ -116,6 +117,9 @@ function CreditPackSlider() {
           <p className="text-2xl font-semibold tracking-tight text-[var(--landing-fg)] tabular-nums">
             {pack.credits}
             <span className="ml-1 text-sm font-medium text-white/40">credits</span>
+          </p>
+          <p className="mt-0.5 text-xs tabular-nums text-white/50">
+            ${pricePerCredit.toFixed(2)} / credit
           </p>
           <p className="text-xs text-[var(--landing-accent)]">${pack.priceUsd.toFixed(2)} once</p>
         </div>
@@ -155,14 +159,13 @@ function CreditPackSlider() {
         </div>
       </div>
 
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+      <div className="mt-4">
         <a
           href={buyHref}
-          className="landing-btn-gold landing-btn-compact inline-flex w-full justify-center sm:w-auto sm:min-w-[10rem]"
+          className="landing-btn-gold landing-btn-compact inline-flex w-full justify-center sm:w-auto sm:min-w-[12rem]"
         >
-          Buy {pack.credits} credits
+          Buy {pack.credits} credits · ${pack.priceUsd.toFixed(2)}
         </a>
-        <p className="text-[11px] text-white/35 sm:ml-1">Opens Whop checkout after sign-in</p>
       </div>
     </article>
   );
