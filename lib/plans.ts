@@ -243,6 +243,8 @@ export const AGENCY_PLAN_DISPLAY = {
     'Custom image volume',
     'Unlimited products',
     'Unlimited seats',
+    'Ad library',
+    'History',
     'Priority support',
     'Custom billing',
   ],
@@ -427,6 +429,8 @@ export function oneTimePlanFeatureList(plan: OneTimePlanLimits = ONE_TIME_PACK):
   return [
     `${plan.credits} AI image generations`,
     'Credits stack on your account',
+    'Ad library',
+    'History',
     'One-time payment · no subscription',
   ];
 }
@@ -456,5 +460,7 @@ export const PLAN_FEATURES = planFeatureList;
 export const FREE_PLAN_FEATURES = [
   `${FREE_TRIAL_CREDITS} free generations`,
   '1 saved product',
+  'Ad library',
+  'History',
   'All aspect ratios',
 ];
