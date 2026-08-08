@@ -121,7 +121,6 @@ function CreditPackSlider() {
           <p className="mt-0.5 text-xs tabular-nums text-white/50">
             ${pricePerCredit.toFixed(2)} / credit
           </p>
-          <p className="text-xs text-[var(--landing-accent)]">${pack.priceUsd.toFixed(2)} once</p>
         </div>
       </div>
 
@@ -164,7 +163,7 @@ function CreditPackSlider() {
           href={buyHref}
           className="landing-btn-gold landing-btn-compact inline-flex w-full justify-center sm:w-auto sm:min-w-[12rem]"
         >
-          Buy {pack.credits} credits · ${pack.priceUsd.toFixed(2)}
+          ${pack.priceUsd.toFixed(2)}
         </a>
       </div>
     </article>
