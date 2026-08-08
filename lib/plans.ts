@@ -300,7 +300,6 @@ export function planFeatureList(plan: PlanLimits): string[] {
     `${plan.maxTeamSeats} team seats`,
     'Ad library',
     'History',
-    'HD export',
   ];
   if (plan.key === 'scale') {
     features.push('Priority support');
