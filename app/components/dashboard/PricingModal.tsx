@@ -1,7 +1,15 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { cn } from '@/lib/cn';
-import { AGENCY_PLAN_DISPLAY, ONE_TIME_PACK, PAID_PLANS, oneTimePlanFeatureList, planDisplayPrice, planFeatureList, type BillingPeriod } from '@/lib/plans';
+import {
+  AGENCY_PLAN_DISPLAY,
+  CREDIT_PACK_OPTIONS,
+  PAID_PLANS,
+  planDisplayPrice,
+  planFeatureList,
+  type BillingPeriod,
+} from '@/lib/plans';
 
 type Props = {
   open: boolean;
@@ -9,6 +17,93 @@ type Props = {
   billing: BillingPeriod;
   onBillingChange: (b: BillingPeriod) => void;
 };
+
+function CreditPackUpgradeSlider() {
+  const [index, setIndex] = useState(0);
+  const pack = CREDIT_PACK_OPTIONS[index] ?? CREDIT_PACK_OPTIONS[0];
+  const buyHref = `/checkout-redirect?plan=${pack.checkoutKey}`;
+  const progress = (index / Math.max(CREDIT_PACK_OPTIONS.length - 1, 1)) * 100;
+  const pricePerCredit = pack.priceUsd / pack.credits;
+
+  const ticks = useMemo(
+    () => CREDIT_PACK_OPTIONS.map((p, i) => ({ i, label: String(p.credits) })),
+    []
+  );
+
+  return (
+    <div className="rounded-2xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50/90 to-white p-4 sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-semibold text-[var(--dash-fg)]">One-time credits</h3>
+            <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-700">
+              Credits only
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-[var(--dash-muted)]">
+            Adds credits to your account. Seats and saved products stay as they are — use a monthly plan
+            to raise those limits.
+          </p>
+        </div>
+        <div className="text-left sm:text-right">
+          <p className="text-2xl font-bold tabular-nums text-[var(--dash-fg)]">
+            {pack.credits}
+            <span className="ml-1 text-sm font-medium text-[var(--dash-muted)]">credits</span>
+          </p>
+          <p className="mt-0.5 text-xs tabular-nums text-[var(--dash-muted)]">
+            ${pricePerCredit.toFixed(2)} / credit
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <label className="sr-only" htmlFor="upgrade-credit-pack-slider">
+          Select credits
+        </label>
+        <input
+          id="upgrade-credit-pack-slider"
+          type="range"
+          min={0}
+          max={CREDIT_PACK_OPTIONS.length - 1}
+          step={1}
+          value={index}
+          onChange={(e) => setIndex(Number(e.target.value))}
+          className="w-full accent-emerald-600"
+          style={{
+            background: `linear-gradient(90deg, rgb(5 150 105) 0%, rgb(5 150 105) ${progress}%, rgb(226 232 240) ${progress}%, rgb(226 232 240) 100%)`,
+            height: 6,
+            borderRadius: 999,
+            appearance: 'none',
+          }}
+        />
+        <div className="mt-2 flex justify-between gap-0.5 overflow-x-auto px-0.5 text-[9px] tabular-nums text-slate-400 sm:text-[10px]">
+          {ticks.map((t) => (
+            <button
+              key={t.i}
+              type="button"
+              onClick={() => setIndex(t.i)}
+              className={cn(
+                'shrink-0 transition-colors hover:text-slate-700',
+                t.i === index && 'font-semibold text-emerald-700'
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <a
+          href={buyHref}
+          className="dash-btn inline-flex min-w-[8.5rem] justify-center bg-emerald-600 px-6 py-2.5 text-base font-semibold tabular-nums text-white hover:bg-emerald-700"
+        >
+          ${pack.priceUsd.toFixed(2)}
+        </a>
+      </div>
+    </div>
+  );
+}
 
 export function PricingModal({ open, onClose, billing, onBillingChange }: Props) {
   if (!open) return null;
@@ -33,34 +128,7 @@ export function PricingModal({ open, onClose, billing, onBillingChange }: Props)
         </div>
 
         <div className="dash-modal-body">
-          <div className="rounded-2xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50/90 to-white p-4 sm:p-5">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-semibold text-[var(--dash-fg)]">{ONE_TIME_PACK.name}</h3>
-                  <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-700">
-                    One-time
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-[var(--dash-muted)]">{ONE_TIME_PACK.tagline}</p>
-                <p className="mt-3 flex items-baseline gap-1 text-[var(--dash-fg)]">
-                  <span className="text-2xl font-bold">${ONE_TIME_PACK.priceUsd}</span>
-                  <span className="text-sm text-[var(--dash-muted)]">once</span>
-                </p>
-                <ul className="mt-3 grid gap-1.5 text-xs text-[var(--dash-muted)] sm:grid-cols-2">
-                  {oneTimePlanFeatureList().slice(0, 4).map((f) => (
-                    <li key={f} className="dash-check-item">{f}</li>
-                  ))}
-                </ul>
-              </div>
-              <a
-                href={`/checkout-redirect?plan=${ONE_TIME_PACK.checkoutKey}`}
-                className="dash-btn shrink-0 bg-emerald-600 text-white hover:bg-emerald-700"
-              >
-                Buy 20 ads
-              </a>
-            </div>
-          </div>
+          <CreditPackUpgradeSlider />
 
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
             <div className="dash-segmented">
@@ -85,7 +153,6 @@ export function PricingModal({ open, onClose, billing, onBillingChange }: Props)
                 </span>
               </button>
             </div>
-            <p className="text-xs text-[var(--dash-muted)]">Whop checkout · same Google email</p>
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">

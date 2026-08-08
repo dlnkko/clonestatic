@@ -206,11 +206,17 @@ export async function upsertWhopSubscription(
     } else if (existing) {
       row.credits_remaining = Math.max(0, existing.credits_remaining ?? 0);
     }
-    if (existing?.plan && isPaidPlan(existing.plan)) {
+    if (existing?.plan) {
+      // One-time packs only top up credits; never change seats/products plan limits.
       row.plan = existing.plan;
       row.period_end = existing.period_end ?? row.period_end;
-      row.whop_membership_id = existing.whop_membership_id ?? row.whop_membership_id;
-      row.cancel_at_period_end = existing.cancel_at_period_end === true;
+      if (isPaidPlan(existing.plan)) {
+        row.whop_membership_id = existing.whop_membership_id ?? row.whop_membership_id;
+        row.cancel_at_period_end = existing.cancel_at_period_end === true;
+      } else {
+        row.whop_membership_id = existing.whop_membership_id ?? null;
+        row.cancel_at_period_end = false;
+      }
     }
   } else if (!grantFreshCredits && existing) {
     row.credits_remaining = Math.max(0, existing.credits_remaining ?? 0);
