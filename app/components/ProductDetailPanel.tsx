@@ -171,8 +171,9 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
           <div className="mx-auto flex max-w-2xl flex-col gap-5">
             <div className="flex gap-4 rounded-2xl border border-[var(--dash-border)] bg-slate-50/80 p-4">
               <ProxiedImage
-                src={product.primary_image_url}
+                src={product.primary_image_url || product.images.find((i) => i.kind !== 'logo')?.url || product.images[0]?.url || ''}
                 alt=""
+                preferDirect
                 className="h-24 w-24 shrink-0 rounded-xl object-cover ring-1 ring-slate-200"
               />
               <div className="min-w-0 flex-1">

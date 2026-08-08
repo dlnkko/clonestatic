@@ -1983,7 +1983,12 @@ function StaticAdAppPage() {
                     className="dash-product-card-main"
                   >
                     <div className="dash-product-card-thumb">
-                      <ProxiedImage src={p.primary_image_url} alt={p.name} className="h-full w-full object-cover" />
+                      <ProxiedImage
+                        src={p.primary_image_url || p.images.find((i) => i.kind !== 'logo')?.url || p.images[0]?.url || ''}
+                        alt={p.name}
+                        preferDirect
+                        className="h-full w-full object-cover"
+                      />
                     </div>
                     <div className="dash-product-card-body">
                       <h3 className="dash-product-card-title">{p.name}</h3>

@@ -29,6 +29,7 @@ export function pickImgbbDirectUrl(data: Record<string, unknown>): string {
 export function normalizeStoredImageUrl(url: string | null | undefined): string {
   const trimmed = url?.trim() ?? '';
   if (!trimmed) return '';
+  if (trimmed.startsWith('//')) return `https:${trimmed}`;
   return trimmed;
 }
 

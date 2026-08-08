@@ -7,9 +7,17 @@ import { cn } from '@/lib/cn';
 type ProxiedImageProps = React.ImgHTMLAttributes<HTMLImageElement> & {
   src: string;
   fallbackClassName?: string;
+  /** Prefer raw URL first (product CDNs). Falls back to proxy on error. */
+  preferDirect?: boolean;
 };
 
 type LoadMode = 'proxy' | 'direct' | 'failed';
+
+function initialMode(src: string, preferDirect: boolean): LoadMode {
+  if (!src.startsWith('http')) return 'direct';
+  if (preferDirect || shouldBypassImageProxy(src)) return 'direct';
+  return 'proxy';
+}
 
 /** Loads external image URLs via same-origin proxy when needed (fixes mobile CDN / hotlink failures). */
 export function ProxiedImage({
@@ -17,40 +25,39 @@ export function ProxiedImage({
   alt = '',
   className,
   fallbackClassName,
+  preferDirect = false,
   onError,
   ...rest
 }: ProxiedImageProps) {
-  const [mode, setMode] = useState<LoadMode>(() =>
-    shouldBypassImageProxy(src) ? 'direct' : 'proxy'
-  );
+  const [mode, setMode] = useState<LoadMode>(() => initialMode(src, preferDirect));
 
   useEffect(() => {
-    setMode(shouldBypassImageProxy(src) ? 'direct' : 'proxy');
-  }, [src]);
+    setMode(initialMode(src, preferDirect));
+  }, [src, preferDirect]);
 
   const handleError = useCallback(
     (e: React.SyntheticEvent<HTMLImageElement>) => {
-      if (mode === 'proxy' && src.startsWith('http')) {
+      if (preferDirect) {
+        if (mode === 'direct' && src.startsWith('http')) {
+          setMode('proxy');
+          return;
+        }
+      } else if (mode === 'proxy' && src.startsWith('http')) {
         setMode('direct');
         return;
       }
       setMode('failed');
       onError?.(e);
     },
-    [mode, onError, src]
+    [mode, onError, preferDirect, src]
   );
 
   if (!src) {
     return (
       <div
-        className={cn(
-          'flex items-center justify-center bg-slate-100 text-[10px] text-slate-400',
-          fallbackClassName,
-          className
-        )}
-      >
-        —
-      </div>
+        className={cn('bg-slate-100', fallbackClassName, className)}
+        aria-hidden
+      />
     );
   }
 
@@ -58,18 +65,20 @@ export function ProxiedImage({
     return (
       <div
         className={cn(
-          'flex flex-col items-center justify-center gap-0.5 overflow-hidden bg-slate-100 p-1 text-center',
-          fallbackClassName
+          'flex flex-col items-center justify-center gap-0.5 overflow-hidden bg-slate-100 p-0.5 text-center',
+          fallbackClassName,
+          className
         )}
       >
-        <span className="text-[9px] font-medium leading-tight text-slate-500">Error</span>
+        <span className="text-[8px] font-medium leading-tight text-slate-500">Error</span>
         <a
           href={src}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[9px] font-semibold leading-tight text-indigo-600 underline"
+          className="text-[8px] font-semibold leading-tight text-indigo-600 underline"
+          onClick={(e) => e.stopPropagation()}
         >
-          Abrir
+          Open
         </a>
       </div>
     );
@@ -82,7 +91,9 @@ export function ProxiedImage({
       {...rest}
       src={resolvedSrc}
       alt={alt}
-      className={className}
+      className={cn('block object-cover', className)}
+      referrerPolicy="no-referrer"
+      decoding="async"
       onError={handleError}
     />
   );

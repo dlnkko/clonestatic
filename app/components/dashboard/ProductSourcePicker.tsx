@@ -22,6 +22,16 @@ function formatProductLabel(name: string): string {
   return trimmed;
 }
 
+function productThumbUrl(p: ProductRecord): string {
+  const primary = p.primary_image_url?.trim() ?? '';
+  if (primary.startsWith('http')) return primary;
+  const fromImages =
+    p.images.find((i) => i.kind !== 'logo' && i.url?.startsWith('http'))?.url ??
+    p.images.find((i) => i.url?.startsWith('http'))?.url ??
+    '';
+  return fromImages;
+}
+
 export function ProductSourcePicker({
   products,
   value,
@@ -67,7 +77,12 @@ export function ProductSourcePicker({
       >
         {selected ? (
           <>
-            <ProxiedImage src={selected.primary_image_url} alt="" className="dash-product-picker-thumb" />
+            <ProxiedImage
+              src={productThumbUrl(selected)}
+              alt=""
+              preferDirect
+              className="dash-product-picker-thumb"
+            />
             <span className="dash-product-picker-value">{formatProductLabel(selected.name)}</span>
           </>
         ) : (
@@ -109,7 +124,12 @@ export function ProductSourcePicker({
                     setOpen(false);
                   }}
                 >
-                  <ProxiedImage src={p.primary_image_url} alt="" className="dash-product-picker-option-thumb" />
+                  <ProxiedImage
+                    src={productThumbUrl(p)}
+                    alt=""
+                    preferDirect
+                    className="dash-product-picker-option-thumb"
+                  />
                   <span className="dash-product-picker-option-text">
                     <span className="dash-product-picker-option-title">{formatProductLabel(p.name)}</span>
                     <span className="dash-product-picker-option-sub">

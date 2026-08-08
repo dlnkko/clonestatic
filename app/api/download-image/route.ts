@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
 
   const inline = request.nextUrl.searchParams.get('display') === '1';
   const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const fetchTimeoutMs = inline ? 15_000 : 120_000;
 
   try {
     const fetchUrl = await resolveProductImageFetchUrl(url);
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
         Referer: 'https://imgbb.com/',
       },
       cache: 'no-store',
-      signal: AbortSignal.timeout(120_000),
+      signal: AbortSignal.timeout(fetchTimeoutMs),
     });
     if (!res.ok) {
       return NextResponse.json({ error: 'Failed to fetch image' }, { status: 502 });

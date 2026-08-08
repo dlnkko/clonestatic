@@ -2689,16 +2689,21 @@ pre::-webkit-scrollbar-thumb:hover {
   object-fit: cover;
   background: #f1f5f9;
   border: 1px solid rgba(15, 27, 61, 0.08);
+  overflow: hidden;
 }
 
 .dash-product-picker-thumb {
   width: 2rem;
   height: 2rem;
+  min-width: 2rem;
+  min-height: 2rem;
 }
 
 .dash-product-picker-option-thumb {
   width: 2.5rem;
   height: 2.5rem;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
 }
 
 .dash-product-picker-value {

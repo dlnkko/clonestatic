@@ -3,6 +3,10 @@ export function shouldBypassImageProxy(url: string): boolean {
   if (!url.startsWith('http')) return true;
   if (/^https?:\/\/i\.ibb\.co\//i.test(url)) return true;
   if (/imgbb\.com\/images\//i.test(url)) return true;
+  // Common product CDNs load fine (and faster) without our proxy.
+  if (/cdn\.shopify\.com/i.test(url)) return true;
+  if (/cloudinary\.com/i.test(url)) return true;
+  if (/images\.unsplash\.com/i.test(url)) return true;
   return false;
 }
 
