@@ -3,6 +3,7 @@ import {
   creditsForPlan,
   isEntitledPlan,
   isPaidPlan,
+  maxTeamSeatsForPlan,
   type BillingPlanKey,
   type PaidPlanKey,
 } from '@/lib/plans';
@@ -14,19 +15,8 @@ export type TeamMemberRecord = {
   created_at: string;
 };
 
-const MAX_TEAM_MEMBERS: Record<BillingPlanKey, number> = {
-  pack_10: 2,
-  standard: 3,
-  pro: 5,
-  scale: 15,
-};
-
 export function maxTeamMembersForPlan(plan: string | null | undefined): number {
-  if (plan === 'owner') return 50;
-  if (plan && plan in MAX_TEAM_MEMBERS) {
-    return MAX_TEAM_MEMBERS[plan as BillingPlanKey];
-  }
-  return 0;
+  return maxTeamSeatsForPlan(plan);
 }
 
 export function normalizeTeamEmail(email: string): string {

@@ -26,9 +26,17 @@ function Check() {
 
 function planBullets(plan: PlanLimits): string[] {
   if (plan.key === 'scale') {
-    return [`${plan.credits} images/month`, 'Unlimited products', 'Priority support'];
+    return [
+      `${plan.credits} images/month`,
+      'Unlimited products',
+      `${plan.maxTeamSeats} team seats`,
+    ];
   }
-  return [`${plan.credits} images/month`, `${plan.maxProducts} saved products`, 'HD export'];
+  return [
+    `${plan.credits} images/month`,
+    `${plan.maxProducts} saved products`,
+    `${plan.maxTeamSeats} team seats`,
+  ];
 }
 
 function BillingToggle({

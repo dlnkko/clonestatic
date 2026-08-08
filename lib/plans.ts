@@ -16,6 +16,8 @@ export type PlanLimits = {
   tagline: string;
   credits: number;
   maxProducts: number;
+  /** Max team member invites (seats) for this subscription. */
+  maxTeamSeats: number;
   /** Display price on landing (USD / month). Checkout amount is on Whop. */
   monthlyPriceUsd: number;
   /** Whop yearly charge (USD / year). */
@@ -85,6 +87,7 @@ export const PAID_PLANS: PlanLimits[] = [
     tagline: 'Explore and validate your first AI ads',
     credits: 40,
     maxProducts: 10,
+    maxTeamSeats: 2,
     monthlyPriceUsd: 29,
     yearlyTotalUsd: 279,
     annualMonthlyDisplayUsd: 23,
@@ -97,6 +100,7 @@ export const PAID_PLANS: PlanLimits[] = [
     tagline: 'For creators scaling content consistently',
     credits: 100,
     maxProducts: 25,
+    maxTeamSeats: 5,
     monthlyPriceUsd: 59,
     yearlyTotalUsd: 569,
     annualMonthlyDisplayUsd: 47,
@@ -109,6 +113,7 @@ export const PAID_PLANS: PlanLimits[] = [
     tagline: 'For active brands producing ads at volume',
     credits: 200,
     maxProducts: UNLIMITED_MAX_PRODUCTS,
+    maxTeamSeats: 10,
     monthlyPriceUsd: 99,
     yearlyTotalUsd: 950,
     annualMonthlyDisplayUsd: 79,
@@ -292,6 +297,7 @@ export function planFeatureList(plan: PlanLimits): string[] {
   const features = [
     `${plan.credits} images / month`,
     productLabel,
+    `${plan.maxTeamSeats} team seats`,
     'Ad library',
     'History',
     'HD export',
@@ -300,6 +306,14 @@ export function planFeatureList(plan: PlanLimits): string[] {
     features.push('Priority support');
   }
   return features;
+}
+
+/** Team member invite cap for a billing plan (monthly or annual same). */
+export function maxTeamSeatsForPlan(plan: string | null | undefined): number {
+  if (plan === 'owner') return 50;
+  if (isPaidPlan(plan)) return PAID_PLAN_BY_KEY[plan].maxTeamSeats;
+  if (isOneTimePlan(plan)) return 1;
+  return 0;
 }
 
 /** @deprecated Use planFeatureList */
