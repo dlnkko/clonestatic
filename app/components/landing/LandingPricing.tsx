@@ -93,7 +93,8 @@ function CreditPackSlider() {
           </h3>
           <p className="mt-0.5 text-xs text-white/40">1 credit = 1 image · no subscription</p>
           <p className="mt-2 max-w-md text-sm leading-relaxed text-white/55">
-            Credits only — seats and saved-product limits come with monthly plans.
+            Every pack includes 2 team seats and 5 saved products. Upgrade to a monthly plan anytime for
+            higher limits.
           </p>
         </div>
         <div className="text-left sm:text-right">

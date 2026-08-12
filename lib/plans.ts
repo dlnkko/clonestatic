@@ -55,9 +55,9 @@ export type OneTimePlanLimits = {
 /** Practical unlimited cap (same as owner). */
 export const UNLIMITED_MAX_PRODUCTS = 9999;
 
-const ONE_TIME_MAX_PRODUCTS = 1;
-/** One-time packs are credit top-ups only; seats come from monthly plans. */
-export const ONE_TIME_MAX_TEAM_SEATS = 0;
+const ONE_TIME_MAX_PRODUCTS = 5;
+/** Team seats included with every one-time credit pack. */
+export const ONE_TIME_MAX_TEAM_SEATS = 2;
 
 /** All purchasable one-time credit packs (landing slider + Whop). */
 export const ONE_TIME_PACKS: OneTimePlanLimits[] = [
@@ -426,7 +426,8 @@ export function planDisplayName(plan: SubscriptionPlan | string): string {
 export function oneTimePlanFeatureList(plan: OneTimePlanLimits = ONE_TIME_PACK): string[] {
   return [
     `${plan.credits} AI image generations`,
-    'Credits stack on your account',
+    `${plan.maxProducts} saved products`,
+    `${ONE_TIME_MAX_TEAM_SEATS} team seats`,
     'Ad library',
     'History',
     'One-time payment · no subscription',

@@ -41,12 +41,12 @@ function CreditPackUpgradeSlider() {
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-semibold text-[var(--dash-fg)]">One-time credits</h3>
             <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-700">
-              Credits only
+              One-time
             </span>
           </div>
           <p className="mt-1 text-xs text-[var(--dash-muted)]">
-            Adds credits to your account. Seats and saved products stay as they are — use a monthly plan
-            to raise those limits.
+            Adds credits to your account. Every pack includes 2 team seats and 5 saved products (monthly
+            plans keep their own higher limits).
           </p>
         </div>
         <div className="text-left sm:text-right">
