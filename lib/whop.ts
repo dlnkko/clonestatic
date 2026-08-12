@@ -1,5 +1,5 @@
 import { getWhopClient, getWhopClientOrNull } from '@/lib/whop-sdk';
-import { paidPlanRank, resolveWhopPlanKey, type BillingPlanKey } from '@/lib/plans';
+import { isOneTimePlan, paidPlanRank, resolveWhopPlanKey, type BillingPlanKey } from '@/lib/plans';
 import type { WhopSubscriptionInput, UpsertWhopSubscriptionOptions } from '@/lib/whop-subscription';
 import type Whop from '@whop/sdk';
 
@@ -386,14 +386,21 @@ export async function syncWhopSubscriptionForEmail(
     const best = pickBestMembership(candidates);
 
     if (best) {
-      const { row, error } = await upsertFromWhopData(best);
+      const { row, error } = await upsertFromWhopData(best, {
+        // One-time membership sync: grant pack if balance empty (idempotent via credit logic).
+        // Do not stack here — stacking is payment-id / payment webhook only.
+        incrementOneTimeCredits: false,
+      });
       if (error) return { ok: false, error: error.message };
       return { ok: true, plan: row.plan, credits: row.credits_remaining };
     }
 
     const paymentInput = await findPaymentForEmail(normalizedEmail, companyId);
     if (paymentInput) {
-      const { row, error } = await upsertFromWhopData(paymentInput);
+      const planKey = resolveWhopPlanKey(paymentInput.planId);
+      const { row, error } = await upsertFromWhopData(paymentInput, {
+        incrementOneTimeCredits: isOneTimePlan(planKey),
+      });
       if (error) return { ok: false, error: error.message };
       return { ok: true, plan: row.plan, credits: row.credits_remaining };
     }

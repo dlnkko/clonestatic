@@ -199,24 +199,26 @@ export async function upsertWhopSubscription(
     if (alreadyCredited) {
       row.credits_remaining = Math.max(0, existing?.credits_remaining ?? 0);
     } else if (incrementOneTimeCredits) {
+      // Payment webhook / payment-id sync: stack pack credits onto current balance.
       row.credits_remaining = Math.max(0, existing?.credits_remaining ?? 0) + addCredits;
       if (paymentId) {
         (row as Record<string, unknown>).last_credited_payment_id = paymentId;
       }
-    } else if (existing) {
-      row.credits_remaining = Math.max(0, existing.credits_remaining ?? 0);
+    } else {
+      // Membership sync without payment event: never wipe a paid balance; grant pack
+      // credits when the account still has none (e.g. exhausted free trial).
+      const current = Math.max(0, existing?.credits_remaining ?? 0);
+      row.credits_remaining = current > 0 ? current : addCredits;
     }
-    if (existing?.plan) {
-      // One-time packs only top up credits; never change seats/products plan limits.
+
+    // Keep monthly/annual entitlement when topping up credits.
+    // Never leave plan as free_trial — isEntitledPlan(free_trial) is false and the API
+    // would report 0 credits even if credits_remaining was updated.
+    if (existing?.plan && isPaidPlan(existing.plan)) {
       row.plan = existing.plan;
       row.period_end = existing.period_end ?? row.period_end;
-      if (isPaidPlan(existing.plan)) {
-        row.whop_membership_id = existing.whop_membership_id ?? row.whop_membership_id;
-        row.cancel_at_period_end = existing.cancel_at_period_end === true;
-      } else {
-        row.whop_membership_id = existing.whop_membership_id ?? null;
-        row.cancel_at_period_end = false;
-      }
+      row.whop_membership_id = existing.whop_membership_id ?? row.whop_membership_id;
+      row.cancel_at_period_end = existing.cancel_at_period_end === true;
     }
   } else if (!grantFreshCredits && existing) {
     row.credits_remaining = Math.max(0, existing.credits_remaining ?? 0);
