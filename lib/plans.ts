@@ -18,7 +18,7 @@ export type OneTimePlanKey =
 
 export type BillingPlanKey = PaidPlanKey | OneTimePlanKey;
 
-export type SubscriptionPlan = BillingPlanKey | 'free_trial' | 'owner';
+export type SubscriptionPlan = BillingPlanKey | 'none' | 'owner';
 
 export type PlanBadge = 'popular' | 'best_value';
 
@@ -52,12 +52,10 @@ export type OneTimePlanLimits = {
   whopPlanId: string;
 };
 
-export const FREE_TRIAL_MAX_PRODUCTS = 1;
-export const FREE_TRIAL_CREDITS = 2;
 /** Practical unlimited cap (same as owner). */
 export const UNLIMITED_MAX_PRODUCTS = 9999;
 
-const ONE_TIME_MAX_PRODUCTS = FREE_TRIAL_MAX_PRODUCTS;
+const ONE_TIME_MAX_PRODUCTS = 1;
 /** One-time packs are credit top-ups only; seats come from monthly plans. */
 export const ONE_TIME_MAX_TEAM_SEATS = 0;
 
@@ -391,9 +389,9 @@ export function creditsForPlan(plan: BillingPlanKey): number {
 
 export function maxProductsForPlan(plan: SubscriptionPlan): number {
   if (plan === 'owner') return UNLIMITED_MAX_PRODUCTS;
-  if (plan === 'free_trial') return FREE_TRIAL_MAX_PRODUCTS;
+  if (plan === 'none') return 0;
   if (isOneTimePlan(plan)) return ONE_TIME_PACK_BY_KEY[plan].maxProducts;
-  return PAID_PLAN_BY_KEY[plan as PaidPlanKey]?.maxProducts ?? FREE_TRIAL_MAX_PRODUCTS;
+  return PAID_PLAN_BY_KEY[plan as PaidPlanKey]?.maxProducts ?? 0;
 }
 
 export function isUnlimitedProducts(maxProducts: number): boolean {
@@ -418,7 +416,7 @@ export function isEntitledPlan(plan: string | null | undefined): plan is Billing
 }
 
 export function planDisplayName(plan: SubscriptionPlan | string): string {
-  if (plan === 'free_trial') return 'Free trial';
+  if (plan === 'none' || plan === 'free_trial') return 'No plan';
   if (plan === 'owner') return 'Owner';
   if (isOneTimePlan(plan)) return ONE_TIME_PACK_BY_KEY[plan].name;
   if (isPaidPlan(plan)) return PAID_PLAN_BY_KEY[plan].name;
@@ -456,11 +454,3 @@ export function maxTeamSeatsForPlan(plan: string | null | undefined): number {
 
 /** @deprecated Use planFeatureList */
 export const PLAN_FEATURES = planFeatureList;
-
-export const FREE_PLAN_FEATURES = [
-  `${FREE_TRIAL_CREDITS} free generations`,
-  '1 saved product',
-  'Ad library',
-  'History',
-  'All aspect ratios',
-];

@@ -34,8 +34,8 @@ export default function PrivacyPolicyPage() {
           your account history for a limited time (see Retention below).
         </li>
         <li>
-          <strong>Usage and device data</strong> — Log data such as IP address (hashed where applicable
-          for free-trial abuse prevention), browser type, pages visited, and actions taken in the app.
+          <strong>Usage and device data</strong> — Log data such as IP address (hashed where applicable),
+          browser type, pages visited, and actions taken in the app.
         </li>
         <li>
           <strong>Payment information</strong> — Subscriptions are processed by Whop. We do not store

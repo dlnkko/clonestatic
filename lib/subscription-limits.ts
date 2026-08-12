@@ -111,7 +111,7 @@ export async function getUserSubscriptionContext(
   }
 
   return {
-    plan: 'free_trial',
+    plan: 'none',
     creditsRemaining: 0,
     maxProducts: 0,
     productCount,

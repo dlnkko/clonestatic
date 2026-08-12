@@ -18,7 +18,7 @@ type Props = {
   onClose: () => void;
   billing: BillingPeriod;
   onBillingChange: (b: BillingPeriod) => void;
-  /** Active subscription plan key from /api/subscription (e.g. standard, free_trial). */
+  /** Active subscription plan key from /api/subscription (e.g. standard, pack_20). */
   currentPlan?: string | null;
 };
 

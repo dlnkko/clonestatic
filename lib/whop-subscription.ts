@@ -212,8 +212,7 @@ export async function upsertWhopSubscription(
     }
 
     // Keep monthly/annual entitlement when topping up credits.
-    // Never leave plan as free_trial — isEntitledPlan(free_trial) is false and the API
-    // would report 0 credits even if credits_remaining was updated.
+    // Never leave the account without an entitled plan after a one-time purchase.
     if (existing?.plan && isPaidPlan(existing.plan)) {
       row.plan = existing.plan;
       row.period_end = existing.period_end ?? row.period_end;

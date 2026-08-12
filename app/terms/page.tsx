@@ -60,7 +60,7 @@ export default function TermsOfServicePage() {
         <li>Generate ads that violate advertising platform policies, consumer protection laws, or third-party rights</li>
         <li>Attempt to reverse engineer, scrape, or overload our systems</li>
         <li>Share account access or resell the Service without authorization</li>
-        <li>Circumvent usage limits, credit systems, or free-trial restrictions</li>
+        <li>Circumvent usage limits or credit systems</li>
       </ul>
       <p>
         We may suspend or terminate access if we reasonably believe you have violated these Terms or pose

@@ -1,6 +1,5 @@
 import type { NextRequest } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getClientIpHash, tryClaimFreeTrial } from '@/lib/free-trial';
 import { resolveBillingEmail } from '@/lib/team-members';
 
 export type UseCreditResult =
@@ -8,7 +7,7 @@ export type UseCreditResult =
   | { ok: false; status: number; error: string; credits_remaining?: number };
 
 export async function useCreditForGeneration(
-  request: NextRequest,
+  _request: NextRequest,
   admin: SupabaseClient,
   email: string,
   isOwner: boolean
@@ -67,15 +66,10 @@ export async function useCreditForGeneration(
     };
   }
 
-  const ipHash = getClientIpHash(request);
-  const claimed = await tryClaimFreeTrial(admin, ipHash);
-  if (!claimed) {
-    return {
-      ok: false,
-      status: 402,
-      error: 'No credits remaining',
-      credits_remaining: 0,
-    };
-  }
-  return { ok: true };
+  return {
+    ok: false,
+    status: 402,
+    error: 'No credits remaining',
+    credits_remaining: 0,
+  };
 }
