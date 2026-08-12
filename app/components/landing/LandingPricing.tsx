@@ -32,12 +32,12 @@ function BillingToggle({
   onChange: (b: BillingPeriod) => void;
 }) {
   return (
-    <div className="inline-flex items-center gap-0.5 rounded-md border border-white/10 bg-white/[0.03] p-0.5">
+    <div className="inline-flex items-center gap-1 rounded-lg border border-white/12 bg-white/[0.04] p-1">
       <button
         type="button"
         onClick={() => onChange('monthly')}
         className={cn(
-          'rounded px-3 py-1.5 text-xs font-medium transition-colors',
+          'rounded-md px-4 py-2 text-sm font-medium transition-colors',
           billing === 'monthly' ? 'bg-white text-zinc-900' : 'text-white/55 hover:text-white'
         )}
       >
@@ -47,14 +47,14 @@ function BillingToggle({
         type="button"
         onClick={() => onChange('yearly')}
         className={cn(
-          'flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors',
+          'flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors',
           billing === 'yearly' ? 'bg-white text-zinc-900' : 'text-white/55 hover:text-white'
         )}
       >
         Annual
         <span
           className={cn(
-            'text-[9px] font-semibold uppercase tracking-wide',
+            'text-[10px] font-semibold uppercase tracking-wide',
             billing === 'yearly' ? 'text-zinc-500' : 'text-[var(--landing-accent)]'
           )}
         >
@@ -77,7 +77,6 @@ function CreditPackSlider() {
       CREDIT_PACK_OPTIONS.map((p, i) => ({
         i,
         label: String(p.credits),
-        show: true,
       })),
     []
   );
@@ -158,26 +157,21 @@ export function LandingPricing() {
   const [billing, setBilling] = useState<BillingPeriod>('monthly');
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <div className="mx-auto max-w-lg text-center">
-        <h2 className="text-2xl font-semibold tracking-tight text-[var(--landing-fg)] sm:text-3xl">
+    <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-xl text-center">
+        <h2 className="text-3xl font-semibold tracking-tight text-[var(--landing-fg)] sm:text-4xl">
           Simple pricing. Ship more.
         </h2>
-        <p className="mt-2 text-sm text-white/50">Buy credits once, or pick a monthly plan.</p>
-      </div>
-
-      <div className="mt-8">
-        <CreditPackSlider />
-      </div>
-
-      <div className="mt-8 flex flex-col items-center gap-3">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">
-          Or subscribe monthly
+        <p className="mt-3 text-base text-white/50">
+          Pick a monthly plan — or buy credits once below.
         </p>
+      </div>
+
+      <div className="mt-8 flex justify-center">
         <BillingToggle billing={billing} onChange={setBilling} />
       </div>
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+      <div className="mt-8 grid items-stretch gap-4 sm:grid-cols-3 sm:gap-5">
         {PAID_PLANS.map((plan) => {
           const isFeatured = plan.badge === 'popular';
           const price = planDisplayPrice(plan, billing);
@@ -187,34 +181,38 @@ export function LandingPricing() {
             <article
               key={plan.key}
               className={cn(
-                'landing-price-card relative flex flex-col rounded-xl border p-4',
+                'landing-price-card relative flex flex-col rounded-2xl border p-6 sm:p-7',
                 isFeatured
-                  ? 'border-[var(--landing-accent)]/35 bg-[var(--landing-accent)]/[0.06]'
-                  : 'border-white/[0.08] bg-white/[0.03]'
+                  ? 'z-[1] border-[var(--landing-accent)]/50 bg-gradient-to-b from-[var(--landing-accent)]/[0.14] to-[#080c18] shadow-[0_24px_64px_-20px_rgba(34,211,238,0.35)] sm:-mt-2 sm:mb-[-0.5rem] sm:pb-8'
+                  : 'border-white/[0.1] bg-[#080c18]/85'
               )}
             >
               {isFeatured && (
-                <span className="absolute right-3 top-3 rounded bg-[var(--brand-indigo)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+                <span className="absolute right-4 top-4 rounded-md bg-[var(--brand-indigo)] px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
                   Most popular
                 </span>
               )}
-              <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-white/40">
+              <p
+                className={cn(
+                  'text-xs font-semibold uppercase tracking-[0.14em]',
+                  isFeatured ? 'text-[var(--landing-accent)]' : 'text-white/45'
+                )}
+              >
                 {plan.name}
               </p>
-              <p className="mt-2 flex items-baseline gap-1">
-                <span className="text-2xl font-semibold tracking-tight text-[var(--landing-fg)]">
+              <p className="mt-1 text-sm text-white/45">{plan.tagline}</p>
+              <p className="mt-5 flex items-baseline gap-1.5">
+                <span className="text-4xl font-semibold tracking-tight text-[var(--landing-fg)] tabular-nums sm:text-5xl">
                   ${price.amount}
                 </span>
-                <span className="text-xs text-white/45">{price.suffix}</span>
+                <span className="text-sm text-white/45">{price.suffix}</span>
               </p>
               {price.sublabel && (
-                <p className="mt-0.5 text-[11px] font-medium text-[var(--landing-accent)]">
-                  {price.sublabel}
-                </p>
+                <p className="mt-1 text-sm font-medium text-[var(--landing-accent)]">{price.sublabel}</p>
               )}
-              <ul className="mt-3 flex-1 space-y-1.5 text-xs text-white/60">
+              <ul className="mt-6 flex-1 space-y-3 text-sm text-white/70">
                 {planFeatureList(plan).map((f) => (
-                  <li key={f} className="flex items-start gap-2">
+                  <li key={f} className="flex items-start gap-2.5">
                     <Check />
                     <span>{f}</span>
                   </li>
@@ -223,10 +221,8 @@ export function LandingPricing() {
               <a
                 href={href}
                 className={cn(
-                  'mt-4 inline-flex w-full justify-center',
-                  isFeatured
-                    ? 'landing-btn-gold landing-btn-compact'
-                    : 'landing-btn-outline landing-btn-compact'
+                  'mt-8 inline-flex w-full justify-center px-6 py-3.5 text-sm font-semibold',
+                  isFeatured ? 'landing-btn-gold' : 'landing-btn-outline'
                 )}
               >
                 Get started
@@ -236,7 +232,17 @@ export function LandingPricing() {
         })}
       </div>
 
-      <p className="mt-5 text-center text-[11px] text-white/30">1 credit = 1 image · Cancel anytime</p>
+      <p className="mt-6 text-center text-xs text-white/35">1 credit = 1 image · Cancel anytime</p>
+
+      <div className="mt-14 flex flex-col items-center gap-2">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">
+          Or buy credits once
+        </p>
+      </div>
+
+      <div className="mt-4">
+        <CreditPackSlider />
+      </div>
     </div>
   );
 }

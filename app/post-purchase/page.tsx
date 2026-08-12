@@ -4,6 +4,7 @@ import { Suspense, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { isEntitledPlan } from '@/lib/plans';
+import { POST_PURCHASE_ONBOARDING_KEY } from '@/lib/discovery-sources';
 
 function readWhopPaymentId(searchParams: URLSearchParams): string | null {
   for (const key of ['payment_id', 'receipt_id']) {
@@ -63,6 +64,12 @@ function PostPurchaseContent() {
 
   useEffect(() => {
     void markPendingCheckout(paymentId);
+
+    try {
+      sessionStorage.setItem(POST_PURCHASE_ONBOARDING_KEY, '1');
+    } catch {
+      /* ignore */
+    }
 
     let redirected = false;
     const go = (path: string) => {

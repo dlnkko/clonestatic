@@ -3467,6 +3467,10 @@ button.dash-library-card-title:hover {
   animation: dash-fade-up 0.4s var(--dash-ease) both;
 }
 
+.dash-onboarding-modal--wide {
+  max-width: 34rem;
+}
+
 .dash-onboarding-glow {
   position: absolute;
   inset: -40% -20%;
