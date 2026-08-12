@@ -579,8 +579,10 @@ export function buildCall3FinalPrompt(
     ? `Type ladder: headline dominant; sub/CTA ~${ctx.typographyHierarchy.sizeRatioHeadlineToSub}.`
     : 'Type ladder: headline largest, footer/CTA smallest.';
 
-  const userGuidelines = ctx.guidelinesTrimmed?.trim()
-    ? `USER GUIDELINES (HIGHEST PRIORITY — follow literally over reference scene details): ${ctx.guidelinesTrimmed.trim().slice(0, 280)}
+  const gRaw = ctx.guidelinesTrimmed?.trim() ?? '';
+  const userGuidelines = gRaw
+    ? `CLIENT CREATIVE GUIDELINES (HIGHEST PRIORITY — edits applied ON the cloned ad; override reference layout when they conflict): ${gRaw.slice(0, 500)}
+Apply these AFTER mirroring the reference: e.g. product size (%, smaller/larger), corner/edge placement, background, remove overlays — keep product identity from the attached photo; change only what the guidelines ask.
 If guidelines name a subject (e.g. tiger) and how to use the product (e.g. wear earplugs), the image MUST show that exact subject using the attached product correctly (in ears if "wear"/"use", not in mouth). Do not substitute a different animal or placement.`
     : '';
 
@@ -603,13 +605,13 @@ Layout zone to mirror (interaction/placement only — use catalog product shape)
 ${peopleRule}
 ${photoOverlay}
 ${ctx.pricingInstructions.slice(0, 200)}
-Visual medium: ${refMedium}.${ctx.referenceProductVisibility === 'none' ? ' Brand via copy/colors only — NO product render.' : ' Attached image(s) = product truth (container, label, logo, colors).'} Clone reference composition + text design; recolor accents to product brand.
+Visual medium: ${refMedium}.${ctx.referenceProductVisibility === 'none' ? ' Brand via copy/colors only — NO product render.' : ' Attached image(s) = product truth (container, label, logo, colors).'} Clone reference composition + text design${gRaw ? ' EXCEPT where CLIENT CREATIVE GUIDELINES require different product size, position, crop, or scene' : ''}; recolor accents to product brand.
 ${extraBlocks ?? ''}
 
 FORBIDDEN: reference competitor container on user product; reskinning; **adding product/packaging zones the reference did not have**.
 ${ctx.referenceProductVisibility === 'none' ? '' : `Product look: refer as "the attached product" (and loose units from the attached photo) — NEVER invent colors/gradients/label look. ALLOWED: match the reference render style (sketch, illustration, photo, 3D, etc.), pose, angle, lighting, texture — identity from the photo, style from the reference.`}
 
-Output: Scene | Product ONLY where reference showed it (attached identity + reference style) | Each copy line with size tier | Lighting/effects.`;
+Output: Scene | Product ONLY where reference showed it (attached identity + reference style) | Each copy line with size tier | Lighting/effects.${gRaw ? ' End with one short clause restating CLIENT CREATIVE GUIDELINES (size/position/scene) so they cannot be dropped.' : ''}`;
 }
 
 function buildAgentSynthesisPrompt(
@@ -748,8 +750,9 @@ ${copywritingInstructions}
 ${ctx.trustBadgeInstructions ? `\n${ctx.trustBadgeInstructions}\n` : ''}
 ${options.approvedCopy ? '**Use the Approved copy block above verbatim** — do not rewrite or simplify it.' : ''}
 ${guidelinesTrimmed ? `
-7. **Guidelines from the user (apply these changes):**
+7. **Client creative guidelines (HIGHEST PRIORITY — apply ON the cloned ad):**
 ${guidelinesTrimmed}
+Mirror the reference first, then apply these edits (product size %, corner/edge placement, background, remove overlays, etc.). When guidelines conflict with exact composition clone, guidelines win. Keep product identity from the attached photo.
 You MUST take these instructions into account when generating the final prompt.` : ''}
 
 ${options.extraBlocks ?? ''}

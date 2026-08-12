@@ -72,7 +72,7 @@ async function runFinalPromptAgent(
 
   const { text, usage } = await generateWithProductImages(ai, productFiles, prompt);
   if (!text) throw new Error('Final prompt generation returned empty');
-  const finalPrompt = sanitizeImagePromptForKie(text);
+  const finalPrompt = sanitizeImagePromptForKie(text, ctx.guidelinesTrimmed);
   return { finalPrompt, usage };
 }
 
@@ -100,13 +100,32 @@ function programmaticQa(
   const g = ctx.guidelinesTrimmed?.trim();
   if (g && g.length >= 8) {
     const lowerP = finalPrompt.toLowerCase();
-    const tokens = g
-      .toLowerCase()
+    const lowerG = g.toLowerCase();
+    const placementTerms = (
+      lowerG.match(
+        /\b(\d+\s*%|percent|smaller|larger|bigger|corner|bottom|top|left|right|center|background|move|resize|scale|tiny|huge)\b/g
+      ) ?? []
+    ).map((t) => t.replace(/\s+/g, ' ').trim());
+    if (placementTerms.length >= 1) {
+      const reflected = placementTerms.filter((t) => lowerP.includes(t));
+      if (reflected.length === 0) {
+        issues.push(
+          `CLIENT CREATIVE GUIDELINES (size/position) missing from image prompt — obey: "${g.slice(0, 180)}"`
+        );
+      }
+    }
+    const tokens = lowerG
       .replace(/[^a-z0-9\s]/g, ' ')
       .split(/\s+/)
-      .filter((w) => w.length >= 4 && !/^(make|with|that|this|from|into|them|they|wear|wearing|using|want|please|just|also)$/.test(w));
+      .filter(
+        (w) =>
+          w.length >= 4 &&
+          !/^(make|with|that|this|from|into|them|they|wear|wearing|using|want|please|just|also|product|the|and)$/.test(
+            w
+          )
+      );
     const missing = tokens.filter((w) => !lowerP.includes(w)).slice(0, 4);
-    if (missing.length >= 1 && tokens.length <= 12) {
+    if (missing.length >= 2 && tokens.length <= 14) {
       issues.push(
         `USER GUIDELINES not followed in image prompt — include and obey: "${g.slice(0, 180)}"`
       );
