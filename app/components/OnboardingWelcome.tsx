@@ -89,11 +89,6 @@ export function OnboardingWelcome({
           {step === 'thanks' && (
             <>
               <span className="dash-onboarding-badge">You&apos;re in</span>
-              <div className="mt-5 grid place-items-center rounded-2xl border border-slate-200/70 bg-white/60 px-4 py-3 shadow-sm backdrop-blur">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-cyan-500/15 via-indigo-500/10 to-transparent ring-1 ring-indigo-200/50">
-                  <span className="font-semibold tracking-tight text-indigo-600">A</span>
-                </div>
-              </div>
               <h2
                 id="onboarding-title"
                 className="mt-5 text-2xl font-bold tracking-tight text-[var(--dash-fg)] sm:text-3xl"
@@ -150,11 +145,6 @@ export function OnboardingWelcome({
               <span className="dash-onboarding-badge max-w-[26rem] leading-snug">
                 {t('onboarding', 'optional')}
               </span>
-              <div className="mt-5 grid place-items-center rounded-2xl border border-slate-200/70 bg-white/60 px-4 py-3 shadow-sm backdrop-blur">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-cyan-500/15 via-indigo-500/10 to-transparent ring-1 ring-indigo-200/50">
-                  <span className="font-semibold tracking-tight text-indigo-600">A</span>
-                </div>
-              </div>
               <h2
                 id="onboarding-title"
                 className="mt-5 text-2xl font-bold tracking-tight text-[var(--dash-fg)] sm:text-3xl"
