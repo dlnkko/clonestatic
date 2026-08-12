@@ -227,5 +227,16 @@ export async function upsertWhopSubscription(
   }
 
   const { error } = await supabase.from('subscriptions').upsert(row, { onConflict: 'email' });
+  if (error) {
+    console.error('upsertWhopSubscription failed:', {
+      email: input.email,
+      planId: input.planId,
+      planKey,
+      credits: row.credits_remaining,
+      message: error.message,
+      code: error.code,
+      details: error.details,
+    });
+  }
   return { row, error };
 }

@@ -83,7 +83,7 @@ export async function getUserSubscriptionContext(
         const refreshed = await admin
           .from('subscriptions')
           .select('plan, credits_remaining, period_end, whop_membership_id, cancel_at_period_end')
-          .eq('email', normalizedEmail)
+          .eq('email', billingEmail)
           .maybeSingle();
         if (refreshed.data && isEntitledPlan(refreshed.data.plan)) {
           activeSub = refreshed.data;
