@@ -541,13 +541,59 @@ pre::-webkit-scrollbar-thumb:hover {
   transform: translateY(-2px);
 }
 
+.onboarding-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  height: 2.5rem;
+  padding: 0 1.1rem;
+  border-radius: 0.65rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #fff;
+  background: var(--brand-gradient);
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  box-shadow: 0 8px 20px -10px rgba(99, 102, 241, 0.55);
+  transition:
+    transform 0.25s var(--landing-ease),
+    box-shadow 0.25s var(--landing-ease),
+    filter 0.25s var(--landing-ease);
+}
+
+.onboarding-btn-arrow {
+  width: 0.9rem;
+  height: 0.9rem;
+  transition: transform 0.25s var(--landing-ease);
+}
+
+.onboarding-btn:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px -10px rgba(99, 102, 241, 0.65);
+}
+
+.onboarding-btn:hover .onboarding-btn-arrow {
+  transform: translateX(3px);
+}
+
+.onboarding-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  margin-top: 2rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .onboarding-step,
   .onboarding-chip {
     animation: none;
   }
 
-  .onboarding-chip:hover:not(:disabled) {
+  .onboarding-chip:hover:not(:disabled),
+  .onboarding-btn:hover {
     transform: none;
   }
 }
