@@ -145,12 +145,12 @@ export function LandingPage() {
                 admirror
               </p>
               <h1 className="mt-4 text-[1.7rem] font-semibold leading-[1.15] tracking-tight text-[var(--landing-fg)] sm:text-4xl md:text-[2.75rem]">
-                Turn any winning ad into yours.
+                Turn any winning static ad into yours.
               </h1>
 
               <p className="mx-auto mt-5 max-w-lg text-[15px] leading-relaxed text-white/55 sm:text-base">
-                Paste your product page URL, upload any winning ad as reference, and get a version
-                built for your product in one click.
+                Paste your product page URL, upload any winning static ad as reference, and get a
+                version built for your product in one click.
               </p>
 
               <a
