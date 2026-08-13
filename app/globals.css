@@ -468,6 +468,51 @@ pre::-webkit-scrollbar-thumb:hover {
     0 0 56px -8px rgba(34, 211, 238, 0.45);
 }
 
+.landing-btn-hero {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.85rem;
+  padding: 1rem 1.85rem;
+  font-size: 0.975rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #fff;
+  background: var(--brand-gradient);
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(15, 27, 61, 0.15) inset,
+    0 10px 36px -8px rgba(99, 102, 241, 0.45),
+    0 0 40px -14px rgba(34, 211, 238, 0.3);
+  transition:
+    transform 0.3s var(--landing-ease),
+    box-shadow 0.3s var(--landing-ease),
+    filter 0.3s var(--landing-ease),
+    border-color 0.3s var(--landing-ease);
+}
+
+.landing-btn-hero-arrow {
+  transition: transform 0.3s var(--landing-ease);
+}
+
+.landing-btn-hero:hover {
+  filter: brightness(1.08);
+  transform: translateY(-3px) scale(1.02);
+  border-color: rgba(34, 211, 238, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(15, 27, 61, 0.15) inset,
+    0 18px 48px -8px rgba(99, 102, 241, 0.65),
+    0 0 64px -8px rgba(34, 211, 238, 0.45);
+}
+
+.landing-btn-hero:hover .landing-btn-hero-arrow {
+  transform: translateX(4px);
+}
+
+.landing-btn-hero:active {
+  transform: translateY(-1px) scale(1.01);
+}
+
 .landing-minimal .landing-btn-primary {
   border-radius: 0.75rem;
   background: var(--brand-gradient);
