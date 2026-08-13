@@ -140,20 +140,34 @@ export function LandingPage() {
           </GhostWindow>
 
           <div className="landing-hero-window relative z-10 w-full max-w-xl overflow-hidden rounded-2xl border border-white/[0.1] backdrop-blur-md sm:max-w-2xl">
-            <div className="px-6 py-10 text-center sm:px-12 sm:py-14">
-              <h1 className="text-[1.65rem] font-semibold leading-[1.12] tracking-tight text-[var(--landing-fg)] sm:text-4xl md:text-[2.65rem]">
-                Clone winning ads.
-                <br />
-                Ship in seconds.
+            <div className="px-6 py-11 text-center sm:px-14 sm:py-16">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/40">
+                admirror
+              </p>
+              <h1 className="mt-4 text-[1.7rem] font-semibold leading-[1.15] tracking-tight text-[var(--landing-fg)] sm:text-4xl md:text-[2.75rem]">
+                Turn any winning ad into yours.
               </h1>
 
-              <p className="mx-auto mt-5 max-w-md text-[15px] leading-relaxed text-white/55 sm:text-base">
-                No prompts. Paste your product page URL, pick a reference, and clone in one click —
-                we adapt everything to your product automatically.
+              <p className="mx-auto mt-5 max-w-lg text-[15px] leading-relaxed text-white/55 sm:text-base">
+                Paste your product page URL, upload any winning ad as reference, and get a version
+                built for your product in one click.
               </p>
 
-              <a href="#pricing" className="landing-btn-gold mx-auto mt-9 inline-flex w-full max-w-xs justify-center sm:w-auto sm:min-w-[14rem]">
-                Get admirror
+              <a
+                href="/login?next=/app"
+                className="landing-btn-hero mx-auto mt-10 inline-flex w-full max-w-xs items-center justify-center gap-2 sm:w-auto sm:min-w-[15rem]"
+              >
+                Start cloning ads
+                <svg
+                  className="landing-btn-hero-arrow h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth="2.25"
+                  aria-hidden
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                </svg>
               </a>
             </div>
           </div>
