@@ -5,7 +5,6 @@ import { createClient as createSupabaseClient, isSupabaseConfigured } from '@/li
 import { DashboardShell } from '../components/dashboard/DashboardShell';
 import { AdPreviewLoading } from '../components/dashboard/AdPreviewLoading';
 import { PricingModal } from '../components/dashboard/PricingModal';
-import { OnboardingWelcome } from '../components/OnboardingWelcome';
 import { DashCombobox } from '../components/dashboard/DashCombobox';
 import { ProductSourcePicker } from '../components/dashboard/ProductSourcePicker';
 import { ProductDetailPanel } from '../components/ProductDetailPanel';
@@ -14,7 +13,11 @@ import { ConfirmModal } from '../components/dashboard/ConfirmModal';
 import { AppProviders } from './providers';
 import { useI18n } from '@/lib/i18n/LocaleProvider';
 import { formatMaxProductsLabel, isEntitledPlan, isPaidPlan } from '@/lib/plans';
-import { POST_PURCHASE_ONBOARDING_KEY, POST_PURCHASE_ONBOARDING_PATH } from '@/lib/discovery-sources';
+import {
+  hasCompletedPostPurchaseOnboarding,
+  POST_PURCHASE_ONBOARDING_KEY,
+  POST_PURCHASE_ONBOARDING_PATH,
+} from '@/lib/discovery-sources';
 import { CopyLanguagePicker } from '../components/dashboard/CopyLanguagePicker';
 import type { ProductRecord } from '@/lib/products/types';
 import type { AdVisualMode } from '@/lib/ad-visual-mode';
@@ -240,24 +243,6 @@ export type LibraryPeriod = {
   label: string;
 };
 
-const ONBOARDING_STORAGE = 'admirror_onboarding_dismissed';
-const LAST_PLAN_STORAGE = 'admirror_last_plan';
-
-function subscriptionPlanRank(plan: string | null | undefined): number {
-  switch (plan) {
-    case 'owner':
-      return 99;
-    case 'scale':
-      return 3;
-    case 'pro':
-      return 2;
-    case 'standard':
-      return 1;
-    default:
-      return 0;
-  }
-}
-
 function StaticAdAppPage() {
   const { t } = useI18n();
   const [staticAdImage, setStaticAdImage] = useState<File | null>(null);
@@ -323,7 +308,6 @@ function StaticAdAppPage() {
   const [libraryMetaLoaded, setLibraryMetaLoaded] = useState(false);
   const [libraryFilteredCount, setLibraryFilteredCount] = useState<number | null>(null);
   const [libraryNextCursor, setLibraryNextCursor] = useState<string | null>(null);
-  const [onboardingDismissed, setOnboardingDismissed] = useState(true);
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
   const [libraryLastRun, setLibraryLastRun] = useState<{
     status: string;
@@ -1285,7 +1269,10 @@ function StaticAdAppPage() {
             /* ignore */
           }
           await fetchSubscription();
-          if (pendingCheckout || pendingFromServer) {
+          if (
+            (pendingCheckout || pendingFromServer) &&
+            !hasCompletedPostPurchaseOnboarding()
+          ) {
             window.location.replace(POST_PURCHASE_ONBOARDING_PATH);
             return;
           }
@@ -1315,12 +1302,12 @@ function StaticAdAppPage() {
 
   useEffect(() => {
     try {
-      setOnboardingDismissed(localStorage.getItem(ONBOARDING_STORAGE) === '1');
+      if (hasCompletedPostPurchaseOnboarding()) return;
       if (sessionStorage.getItem(POST_PURCHASE_ONBOARDING_KEY) === '1') {
         window.location.replace(POST_PURCHASE_ONBOARDING_PATH);
       }
     } catch {
-      setOnboardingDismissed(false);
+      /* ignore */
     }
   }, []);
 
@@ -1336,35 +1323,6 @@ function StaticAdAppPage() {
       /* ignore */
     }
   }, []);
-
-  useEffect(() => {
-    if (!currentPlan || productsLoading) return;
-    try {
-      const lastPlan = localStorage.getItem(LAST_PLAN_STORAGE);
-      const upgraded =
-        lastPlan != null &&
-        subscriptionPlanRank(currentPlan) > subscriptionPlanRank(lastPlan);
-      if (upgraded && products.length === 0) {
-        localStorage.removeItem(ONBOARDING_STORAGE);
-        setOnboardingDismissed(false);
-      }
-      localStorage.setItem(LAST_PLAN_STORAGE, currentPlan);
-    } catch {
-      // ignore
-    }
-  }, [currentPlan, products.length, productsLoading]);
-
-  const showOnboarding =
-    hasSupabase && !productsLoading && products.length === 0 && !onboardingDismissed;
-
-  const dismissOnboarding = () => {
-    try {
-      localStorage.setItem(ONBOARDING_STORAGE, '1');
-    } catch {
-      // ignore
-    }
-    setOnboardingDismissed(true);
-  };
 
   const libraryResultTotal =
     libraryFilteredCount != null ? libraryFilteredCount : libraryTotalCount;
@@ -2076,7 +2034,7 @@ function StaticAdAppPage() {
             <h1 className="dash-title">{t('mirror', 'title')}</h1>
             <div className="dash-title-accent" aria-hidden />
             <p className="dash-subtitle mt-3">{t('mirror', 'subtitle')}</p>
-            {hasSupabase && products.length === 0 && !productsLoading && !showOnboarding && (
+            {hasSupabase && products.length === 0 && !productsLoading && (
               <div className="dash-onboarding-tip mt-5">
                 <div className="dash-onboarding-tip-icon" aria-hidden>
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
@@ -2320,15 +2278,6 @@ function StaticAdAppPage() {
         }}
       />
 
-      <OnboardingWelcome
-        open={showOnboarding}
-        onUpload={() => {
-          dismissOnboarding();
-          setActiveTab('products');
-          setShowProductModal(true);
-        }}
-        onSkip={dismissOnboarding}
-      />
     </>
   );
 }

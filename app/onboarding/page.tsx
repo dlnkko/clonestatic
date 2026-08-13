@@ -3,7 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { OnboardingWelcome } from '@/app/components/OnboardingWelcome';
-import { POST_PURCHASE_ONBOARDING_KEY } from '@/lib/discovery-sources';
+import {
+  hasCompletedPostPurchaseOnboarding,
+  markPostPurchaseOnboardingComplete,
+  POST_PURCHASE_ONBOARDING_KEY,
+} from '@/lib/discovery-sources';
 
 export default function PostPurchaseOnboardingPage() {
   const router = useRouter();
@@ -13,6 +17,12 @@ export default function PostPurchaseOnboardingPage() {
   useEffect(() => {
     try {
       sessionStorage.removeItem(POST_PURCHASE_ONBOARDING_KEY);
+      sessionStorage.removeItem('pending_whop_checkout');
+      sessionStorage.removeItem('whop_payment_id');
+      if (hasCompletedPostPurchaseOnboarding()) {
+        router.replace('/app');
+        return;
+      }
     } catch {
       /* ignore */
     }
@@ -40,36 +50,26 @@ export default function PostPurchaseOnboardingPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [router]);
 
   const goApp = (addProduct = false) => {
+    markPostPurchaseOnboardingComplete();
     router.replace(addProduct ? '/app?addProduct=1' : '/app');
   };
 
   if (!ready) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-indigo-500" />
+      <main className="flex min-h-screen items-center justify-center bg-[#050810]">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/15 border-t-cyan-300" />
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <OnboardingWelcome
-        open
-        postPurchase
-        hasProducts={hasProducts}
-        onUpload={() => goApp(true)}
-        onSkip={() => goApp(false)}
-        onComplete={() => {
-          try {
-            sessionStorage.removeItem(POST_PURCHASE_ONBOARDING_KEY);
-          } catch {
-            /* ignore */
-          }
-        }}
-      />
-    </main>
+    <OnboardingWelcome
+      hasProducts={hasProducts}
+      onUpload={() => goApp(true)}
+      onSkip={() => goApp(false)}
+    />
   );
 }
