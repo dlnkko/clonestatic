@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { isEntitledPlan } from '@/lib/plans';
-import { POST_PURCHASE_ONBOARDING_KEY } from '@/lib/discovery-sources';
+import { POST_PURCHASE_ONBOARDING_KEY, POST_PURCHASE_ONBOARDING_PATH } from '@/lib/discovery-sources';
 
 function readWhopPaymentId(searchParams: URLSearchParams): string | null {
   for (const key of ['payment_id', 'receipt_id']) {
@@ -137,7 +137,7 @@ function PostPurchaseContent() {
     };
 
     const hardTimeout = window.setTimeout(() => {
-      go('/app');
+      go(POST_PURCHASE_ONBOARDING_PATH);
     }, 12000);
 
     const finish = async () => {
@@ -150,7 +150,7 @@ function PostPurchaseContent() {
         window.clearTimeout(hardTimeout);
         const loginNext = paymentId
           ? `/post-purchase?payment_id=${encodeURIComponent(paymentId)}`
-          : '/app';
+          : POST_PURCHASE_ONBOARDING_PATH;
         go(`/login?next=${encodeURIComponent(loginNext)}&from=whop`);
         return;
       }
@@ -164,7 +164,7 @@ function PostPurchaseContent() {
       }
 
       window.clearTimeout(hardTimeout);
-      go('/app');
+      go(POST_PURCHASE_ONBOARDING_PATH);
     };
 
     void finish();

@@ -14,7 +14,7 @@ import { ConfirmModal } from '../components/dashboard/ConfirmModal';
 import { AppProviders } from './providers';
 import { useI18n } from '@/lib/i18n/LocaleProvider';
 import { formatMaxProductsLabel, isEntitledPlan, isPaidPlan } from '@/lib/plans';
-import { POST_PURCHASE_ONBOARDING_KEY } from '@/lib/discovery-sources';
+import { POST_PURCHASE_ONBOARDING_KEY, POST_PURCHASE_ONBOARDING_PATH } from '@/lib/discovery-sources';
 import { CopyLanguagePicker } from '../components/dashboard/CopyLanguagePicker';
 import type { ProductRecord } from '@/lib/products/types';
 import type { AdVisualMode } from '@/lib/ad-visual-mode';
@@ -324,7 +324,6 @@ function StaticAdAppPage() {
   const [libraryFilteredCount, setLibraryFilteredCount] = useState<number | null>(null);
   const [libraryNextCursor, setLibraryNextCursor] = useState<string | null>(null);
   const [onboardingDismissed, setOnboardingDismissed] = useState(true);
-  const [postPurchaseOnboarding, setPostPurchaseOnboarding] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
   const [libraryLastRun, setLibraryLastRun] = useState<{
     status: string;
@@ -1286,13 +1285,9 @@ function StaticAdAppPage() {
             /* ignore */
           }
           await fetchSubscription();
-          try {
-            sessionStorage.setItem(POST_PURCHASE_ONBOARDING_KEY, '1');
-            setPostPurchaseOnboarding(true);
-            localStorage.removeItem(ONBOARDING_STORAGE);
-            setOnboardingDismissed(false);
-          } catch {
-            /* ignore */
+          if (pendingCheckout || pendingFromServer) {
+            window.location.replace(POST_PURCHASE_ONBOARDING_PATH);
+            return;
           }
           return;
         }
@@ -1321,9 +1316,24 @@ function StaticAdAppPage() {
   useEffect(() => {
     try {
       setOnboardingDismissed(localStorage.getItem(ONBOARDING_STORAGE) === '1');
-      setPostPurchaseOnboarding(sessionStorage.getItem(POST_PURCHASE_ONBOARDING_KEY) === '1');
+      if (sessionStorage.getItem(POST_PURCHASE_ONBOARDING_KEY) === '1') {
+        window.location.replace(POST_PURCHASE_ONBOARDING_PATH);
+      }
     } catch {
       setOnboardingDismissed(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('addProduct') === '1') {
+        setActiveTab('products');
+        setShowProductModal(true);
+        window.history.replaceState({}, '', '/app');
+      }
+    } catch {
+      /* ignore */
     }
   }, []);
 
@@ -1345,18 +1355,7 @@ function StaticAdAppPage() {
   }, [currentPlan, products.length, productsLoading]);
 
   const showOnboarding =
-    hasSupabase &&
-    !productsLoading &&
-    (postPurchaseOnboarding || (products.length === 0 && !onboardingDismissed));
-
-  const clearPostPurchaseOnboarding = () => {
-    try {
-      sessionStorage.removeItem(POST_PURCHASE_ONBOARDING_KEY);
-    } catch {
-      // ignore
-    }
-    setPostPurchaseOnboarding(false);
-  };
+    hasSupabase && !productsLoading && products.length === 0 && !onboardingDismissed;
 
   const dismissOnboarding = () => {
     try {
@@ -1365,7 +1364,6 @@ function StaticAdAppPage() {
       // ignore
     }
     setOnboardingDismissed(true);
-    clearPostPurchaseOnboarding();
   };
 
   const libraryResultTotal =
@@ -2324,15 +2322,12 @@ function StaticAdAppPage() {
 
       <OnboardingWelcome
         open={showOnboarding}
-        postPurchase={postPurchaseOnboarding}
-        hasProducts={products.length > 0}
         onUpload={() => {
           dismissOnboarding();
           setActiveTab('products');
           setShowProductModal(true);
         }}
         onSkip={dismissOnboarding}
-        onComplete={clearPostPurchaseOnboarding}
       />
     </>
   );
