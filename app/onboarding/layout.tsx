@@ -5,7 +5,7 @@ import { POST_PURCHASE_ONBOARDING_PATH } from '@/lib/discovery-sources';
 import { AppProviders } from '@/app/app/providers';
 
 export const metadata: Metadata = {
-  title: '-onboarding-',
+  title: 'onboarding',
   robots: { index: false, follow: false },
 };
 

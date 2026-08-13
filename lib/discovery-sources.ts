@@ -15,4 +15,4 @@ export const DISCOVERY_SOURCE_IDS: DiscoverySourceId[] = DISCOVERY_SOURCES.map((
 export const POST_PURCHASE_ONBOARDING_KEY = 'admirror_post_purchase_onboarding';
 
 /** Dedicated post-purchase URL so analytics can treat this pageview as a paid conversion. */
-export const POST_PURCHASE_ONBOARDING_PATH = '/-onboarding-';
+export const POST_PURCHASE_ONBOARDING_PATH = '/onboarding';
