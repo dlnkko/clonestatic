@@ -5,6 +5,10 @@ import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { isEntitledPlan } from '@/lib/plans';
 import { POST_PURCHASE_ONBOARDING_KEY, POST_PURCHASE_ONBOARDING_PATH } from '@/lib/discovery-sources';
+import {
+  onboardingPathWithPurchaseParams,
+  stashMetaPurchaseParamsFromUrl,
+} from '@/lib/meta-pixel';
 
 function readWhopPaymentId(searchParams: URLSearchParams): string | null {
   for (const key of ['payment_id', 'receipt_id']) {
@@ -121,6 +125,7 @@ function PostPurchaseContent() {
   const paymentId = readWhopPaymentId(searchParams);
 
   useEffect(() => {
+    stashMetaPurchaseParamsFromUrl();
     void markPendingCheckout(paymentId);
 
     try {
@@ -136,8 +141,10 @@ function PostPurchaseContent() {
       window.location.replace(path);
     };
 
+    const onboardingPath = onboardingPathWithPurchaseParams(POST_PURCHASE_ONBOARDING_PATH);
+
     const hardTimeout = window.setTimeout(() => {
-      go(POST_PURCHASE_ONBOARDING_PATH);
+      go(onboardingPath);
     }, 12000);
 
     const finish = async () => {
@@ -148,9 +155,17 @@ function PostPurchaseContent() {
 
       if (!user) {
         window.clearTimeout(hardTimeout);
-        const loginNext = paymentId
-          ? `/post-purchase?payment_id=${encodeURIComponent(paymentId)}`
-          : POST_PURCHASE_ONBOARDING_PATH;
+        const params = new URLSearchParams(window.location.search);
+        const value = params.get('value');
+        const plan = params.get('plan');
+        let loginNext = onboardingPath;
+        if (paymentId) {
+          const returnUrl = new URL('/post-purchase', window.location.origin);
+          returnUrl.searchParams.set('payment_id', paymentId);
+          if (value) returnUrl.searchParams.set('value', value);
+          if (plan) returnUrl.searchParams.set('plan', plan);
+          loginNext = `${returnUrl.pathname}${returnUrl.search}`;
+        }
         go(`/login?next=${encodeURIComponent(loginNext)}&from=whop`);
         return;
       }
@@ -164,7 +179,7 @@ function PostPurchaseContent() {
       }
 
       window.clearTimeout(hardTimeout);
-      go(POST_PURCHASE_ONBOARDING_PATH);
+      go(onboardingPath);
     };
 
     void finish();
