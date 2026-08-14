@@ -8,6 +8,7 @@ import {
   markPostPurchaseOnboardingComplete,
   POST_PURCHASE_ONBOARDING_KEY,
 } from '@/lib/discovery-sources';
+import { trackMetaPurchaseOnce } from '@/lib/meta-pixel';
 
 export default function PostPurchaseOnboardingPage() {
   const router = useRouter();
@@ -30,6 +31,7 @@ export default function PostPurchaseOnboardingPage() {
     const w = window as Window & { dataLayer?: Record<string, unknown>[] };
     w.dataLayer = w.dataLayer ?? [];
     w.dataLayer.push({ event: 'post_purchase_onboarding', page: '/onboarding' });
+    trackMetaPurchaseOnce();
 
     let cancelled = false;
     void (async () => {
