@@ -75,10 +75,8 @@ function markPurchaseSent() {
 function firePurchase(): boolean {
   try {
     if (typeof window === 'undefined') return false;
+    if (alreadySentPurchase()) return true;
     if (typeof window.fbq !== 'function') return false;
-
-    const onPostPurchase = window.location.pathname === '/post-purchase';
-    if (!onPostPurchase && alreadySentPurchase()) return true;
 
     const { value, plan } = readPurchaseParams();
     const parsed = value != null ? parseFloat(value) : NaN;

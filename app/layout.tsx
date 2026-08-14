@@ -55,12 +55,8 @@ fbq('track','PageView');
   var payload={currency:'USD'};
   if(isFinite(parsed)){payload.value=parsed;payload.content_name=plan||'unknown';}
   fbq('track','Purchase',payload);
-  var ping='https://www.facebook.com/tr?id=${META_PIXEL_ID}&ev=Purchase&cd[currency]=USD';
-  if(isFinite(parsed)){
-    ping+='&cd[value]='+encodeURIComponent(String(parsed))+'&cd[content_name]='+encodeURIComponent(plan||'unknown');
-  }
-  (new Image()).src=ping;
   window.__admirrorPurchaseSent=true;
+  try{sessionStorage.setItem('admirror_meta_purchase_sent','1');}catch(e){}
 })();`,
         }}
       />

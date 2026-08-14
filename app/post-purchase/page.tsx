@@ -8,7 +8,6 @@ import { POST_PURCHASE_ONBOARDING_KEY, POST_PURCHASE_ONBOARDING_PATH } from '@/l
 import {
   onboardingPathWithPurchaseParams,
   stashMetaPurchaseParamsFromUrl,
-  trackMetaPurchaseOnce,
 } from '@/lib/meta-pixel';
 
 function readWhopPaymentId(searchParams: URLSearchParams): string | null {
@@ -127,7 +126,6 @@ function PostPurchaseContent() {
 
   useEffect(() => {
     stashMetaPurchaseParamsFromUrl();
-    trackMetaPurchaseOnce();
     void markPendingCheckout(paymentId);
 
     try {
