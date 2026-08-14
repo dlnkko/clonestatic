@@ -672,6 +672,12 @@ pre::-webkit-scrollbar-thumb:hover {
   border-color: rgba(255, 255, 255, 0.16);
 }
 
+.landing-credits-card {
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.08) inset,
+    0 24px 64px -24px rgba(34, 211, 238, 0.28);
+}
+
 .landing-hero-window {
   background: rgba(8, 12, 24, 0.92);
   box-shadow:
@@ -680,9 +686,196 @@ pre::-webkit-scrollbar-thumb:hover {
     0 0 80px -30px rgba(34, 211, 238, 0.22);
 }
 
+.landing-hero-enter {
+  animation: landing-hero-enter 1.05s var(--landing-ease) both;
+}
+
+@keyframes landing-hero-enter {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .landing-ghost-window {
   filter: blur(0.3px);
   background: rgba(10, 14, 28, 0.55);
+}
+
+.landing-ghost-a {
+  animation: landing-ghost-float-a 6.5s ease-in-out infinite;
+}
+
+.landing-ghost-b {
+  animation: landing-ghost-float-b 7.5s ease-in-out infinite;
+}
+
+.landing-ghost-c {
+  animation: landing-ghost-float-c 10s ease-in-out infinite;
+}
+
+.landing-ghost-d {
+  animation: landing-ghost-float-d 12s ease-in-out infinite;
+}
+
+.landing-ghost-e {
+  animation: landing-ghost-float-e 7s ease-in-out infinite;
+}
+
+.landing-ghost-f {
+  animation: landing-ghost-float-f 8s ease-in-out infinite;
+}
+
+@keyframes landing-ghost-float-a {
+  0%,
+  100% {
+    transform: rotate(-7deg) translateY(0);
+  }
+  50% {
+    transform: rotate(-7deg) translateY(-18px);
+  }
+}
+
+@keyframes landing-ghost-float-b {
+  0%,
+  100% {
+    transform: rotate(7deg) translateY(0);
+  }
+  50% {
+    transform: rotate(7deg) translateY(-16px);
+  }
+}
+
+@keyframes landing-ghost-float-c {
+  0%,
+  100% {
+    transform: rotate(-4deg) translateX(0);
+  }
+  50% {
+    transform: rotate(-4deg) translateX(6px);
+  }
+}
+
+@keyframes landing-ghost-float-d {
+  0%,
+  100% {
+    transform: rotate(5deg) translateY(0);
+  }
+  50% {
+    transform: rotate(5deg) translateY(-6px);
+  }
+}
+
+@keyframes landing-ghost-float-e {
+  0%,
+  100% {
+    transform: rotate(-5deg) translateY(0);
+  }
+  50% {
+    transform: rotate(-5deg) translateY(16px);
+  }
+}
+
+@keyframes landing-ghost-float-f {
+  0%,
+  100% {
+    transform: rotate(5deg) translateY(0);
+  }
+  50% {
+    transform: rotate(5deg) translateY(18px);
+  }
+}
+
+.landing-lang-card {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    0 32px 80px -24px rgba(0, 0, 0, 0.65),
+    0 0 60px -30px rgba(34, 211, 238, 0.12);
+}
+
+.landing-lang-ad-frame {
+  box-shadow: 0 12px 40px -16px rgba(0, 0, 0, 0.5);
+}
+
+.landing-lang-headline {
+  transition:
+    opacity 0.32s var(--landing-ease),
+    transform 0.32s var(--landing-ease);
+}
+
+.landing-lang-cta {
+  transition:
+    opacity 0.32s var(--landing-ease),
+    transform 0.32s var(--landing-ease);
+}
+
+.landing-lang-marquee-row {
+  position: relative;
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+}
+
+.landing-lang-marquee-track {
+  display: flex;
+  width: max-content;
+  gap: 0.5rem;
+  padding-inline: 0.5rem;
+  animation: landing-lang-marquee 45s linear infinite;
+}
+
+.landing-lang-marquee-track-reverse {
+  animation-direction: reverse;
+  animation-duration: 52s;
+}
+
+.landing-lang-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  white-space: nowrap;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.35rem 0.75rem 0.35rem 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.55);
+  transition:
+    border-color 0.25s var(--landing-ease),
+    background-color 0.25s var(--landing-ease);
+}
+
+.landing-lang-chip-code {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: rgba(34, 211, 238, 0.65);
+}
+
+@keyframes landing-lang-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-ghost-a,
+  .landing-ghost-b,
+  .landing-ghost-c,
+  .landing-ghost-d,
+  .landing-ghost-e,
+  .landing-ghost-f,
+  .landing-lang-marquee-track,
+  .landing-hero-enter {
+    animation: none !important;
+  }
 }
 
 .landing-credit-slider {
@@ -783,7 +976,15 @@ pre::-webkit-scrollbar-thumb:hover {
   .landing-scroll-chevron,
   .landing-parallax-fast,
   .landing-parallax-mid,
-  .landing-parallax-slow {
+  .landing-parallax-slow,
+  .landing-ghost-a,
+  .landing-ghost-b,
+  .landing-ghost-c,
+  .landing-ghost-d,
+  .landing-ghost-e,
+  .landing-ghost-f,
+  .landing-marquee-track,
+  .landing-lang-marquee-track {
     animation: none !important;
   }
 }

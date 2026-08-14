@@ -82,33 +82,32 @@ function CreditPackSlider() {
   );
 
   return (
-    <article className="landing-window overflow-hidden rounded-xl border border-white/[0.08] bg-[#080c18]/90 p-4 sm:p-5">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+    <article className="landing-credits-card overflow-hidden rounded-2xl border border-cyan-400/25 bg-[#080c18]/90 p-5 sm:p-7">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-300/80">
             One-time credits
           </p>
-          <h3 className="mt-1 text-base font-semibold tracking-tight text-[var(--landing-fg)] sm:text-lg">
+          <h3 className="mt-1.5 text-xl font-semibold tracking-tight text-[var(--landing-fg)] sm:text-2xl">
             Pay once. Ship ads.
           </h3>
-          <p className="mt-0.5 text-xs text-white/40">1 credit = 1 image · no subscription</p>
-          <p className="mt-2 max-w-md text-sm leading-relaxed text-white/55">
-            Every pack includes 2 team seats and 5 saved products. Upgrade to a monthly plan anytime for
-            higher limits.
+          <p className="mt-1 text-sm text-white/45">1 credit = 1 image · no subscription</p>
+          <p className="mt-2 max-w-lg text-sm leading-relaxed text-white/55">
+            Drag to pick a pack. Every pack includes 2 team seats and 5 saved products.
           </p>
         </div>
         <div className="text-left sm:text-right">
-          <p className="text-2xl font-semibold tracking-tight text-[var(--landing-fg)] tabular-nums">
+          <p className="text-3xl font-semibold tracking-tight text-[var(--landing-fg)] tabular-nums sm:text-4xl">
             {pack.credits}
-            <span className="ml-1 text-sm font-medium text-white/40">credits</span>
+            <span className="ml-1.5 text-sm font-medium text-white/40">credits</span>
           </p>
-          <p className="mt-0.5 text-xs tabular-nums text-white/50">
+          <p className="mt-1 text-xs tabular-nums text-white/50">
             ${pricePerCredit.toFixed(2)} / credit
           </p>
         </div>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-6">
         <label className="sr-only" htmlFor="credit-pack-slider">
           Select credits
         </label>
@@ -120,20 +119,20 @@ function CreditPackSlider() {
           step={1}
           value={index}
           onChange={(e) => setIndex(Number(e.target.value))}
-          className="landing-credit-slider landing-credit-slider-sm w-full"
+          className="landing-credit-slider w-full"
           style={{
-            background: `linear-gradient(90deg, rgba(34,211,238,0.75) 0%, rgba(34,211,238,0.75) ${progress}%, rgba(255,255,255,0.1) ${progress}%, rgba(255,255,255,0.1) 100%)`,
+            background: `linear-gradient(90deg, rgba(34,211,238,0.85) 0%, rgba(34,211,238,0.85) ${progress}%, rgba(255,255,255,0.12) ${progress}%, rgba(255,255,255,0.12) 100%)`,
           }}
         />
-        <div className="mt-2 flex justify-between gap-0.5 overflow-x-auto px-0.5 text-[9px] tabular-nums text-white/30 sm:text-[10px]">
+        <div className="mt-3 flex justify-between gap-0.5 overflow-x-auto px-0.5 text-[10px] tabular-nums text-white/35 sm:text-xs">
           {ticks.map((t) => (
             <button
               key={t.i}
               type="button"
               onClick={() => setIndex(t.i)}
               className={cn(
-                'shrink-0 transition-colors hover:text-white/70',
-                t.i === index && 'font-semibold text-[var(--landing-accent)]'
+                'shrink-0 rounded-md px-1 py-0.5 transition-colors hover:text-white/70',
+                t.i === index && 'font-semibold text-cyan-300'
               )}
             >
               {t.label}
@@ -142,10 +141,10 @@ function CreditPackSlider() {
         </div>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-6">
         <a
           href={buyHref}
-          className="landing-btn-gold inline-flex w-full items-center justify-center px-8 py-3.5 text-lg font-semibold tabular-nums tracking-tight sm:w-auto sm:min-w-[11rem]"
+          className="landing-btn-gold inline-flex w-full items-center justify-center px-8 py-3.5 text-lg font-semibold tabular-nums tracking-tight sm:w-auto sm:min-w-[12rem]"
         >
           ${pack.priceUsd.toFixed(2)}
         </a>
@@ -164,7 +163,11 @@ export function LandingPricing() {
           Simple pricing. Ship more.
         </h2>
         <p className="mt-3 text-base text-white/50">
-          Pick a monthly plan — or buy credits once below.
+          Pick a monthly plan, or{' '}
+          <a href="#credits" className="text-cyan-300/90 underline decoration-cyan-300/30 underline-offset-4 transition-colors hover:text-cyan-200">
+            buy credits once
+          </a>
+          .
         </p>
       </div>
 
@@ -235,13 +238,14 @@ export function LandingPricing() {
 
       <p className="mt-6 text-center text-xs text-white/35">1 credit = 1 image · Cancel anytime</p>
 
-      <div className="mt-14 flex flex-col items-center gap-2">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">
-          Or buy credits once
-        </p>
-      </div>
-
-      <div className="mt-4">
+      <div id="credits" className="mt-10 scroll-mt-24">
+        <div className="mb-5 flex items-center gap-4">
+          <div className="h-px flex-1 bg-white/[0.08]" />
+          <p className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-300/75">
+            Or buy credits once
+          </p>
+          <div className="h-px flex-1 bg-white/[0.08]" />
+        </div>
         <CreditPackSlider />
       </div>
     </div>
