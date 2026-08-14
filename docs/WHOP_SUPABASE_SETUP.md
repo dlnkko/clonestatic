@@ -121,15 +121,36 @@ No extra env vars are required for this.
 
 ## 5. Redirect after payment (Success URL) – importante
 
-Para que **tras pagar en Whop el usuario llegue directo al dashboard** de tu web app:
+Tras pagar, Whop debe redirigir a **`/post-purchase`** (activa créditos y luego manda a `/onboarding`, donde se dispara el Meta Pixel `Purchase`).
 
-1. En **Whop Dashboard** → tu producto/plan → configuración del checkout.
-2. Busca la opción **Success URL**, **Return URL** o **Redirect after payment**.
-3. Pon: **`https://TU-DOMINIO.com/app`** (en desarrollo: `http://localhost:3001/app`).
+1. En **Whop Dashboard** → cada plan → **Success URL** / **Redirect after payment**.
+2. Usa una URL distinta por plan (incluye `value` + `plan` para Meta). Los nombres de `plan=` son los de la landing (no los keys internos de checkout):
 
-Así el flujo queda: **Elegir plan → Login con Google → Pago en Whop → Redirección automática a /app (dashboard)**.
+### Mensuales
+- Starter $29/mo → `https://www.admirror.app/post-purchase?value=29&plan=starter_monthly`
+- Creator $59/mo → `https://www.admirror.app/post-purchase?value=59&plan=creator_monthly`
+- Pro $99/mo → `https://www.admirror.app/post-purchase?value=99&plan=pro_monthly`
 
-Si no configuras esta URL, el usuario se quedará en la página de éxito de Whop y tendrá que entrar manualmente a tu sitio y a **/app** (o usar el enlace "Dashboard" del header de la landing).
+### Anuales
+- Starter $279/yr → `https://www.admirror.app/post-purchase?value=279&plan=starter_yearly`
+- Creator $569/yr → `https://www.admirror.app/post-purchase?value=569&plan=creator_yearly`
+- Pro $950/yr → `https://www.admirror.app/post-purchase?value=950&plan=pro_yearly`
+
+### Packs one-time
+- 20 → `https://www.admirror.app/post-purchase?value=19.99&plan=pack_20`
+- 30 → `https://www.admirror.app/post-purchase?value=27.99&plan=pack_30`
+- 50 → `https://www.admirror.app/post-purchase?value=44.99&plan=pack_50`
+- 70 → `https://www.admirror.app/post-purchase?value=59.99&plan=pack_70`
+- 120 → `https://www.admirror.app/post-purchase?value=95.99&plan=pack_120`
+- 150 → `https://www.admirror.app/post-purchase?value=114.99&plan=pack_150`
+- 200 → `https://www.admirror.app/post-purchase?value=147.99&plan=pack_200`
+- 300 → `https://www.admirror.app/post-purchase?value=209.99&plan=pack_300`
+- 400 → `https://www.admirror.app/post-purchase?value=259.99&plan=pack_400`
+- 500 → `https://www.admirror.app/post-purchase?value=319.99&plan=pack_500`
+
+Así el flujo queda: **Elegir plan → Login → Whop → `/post-purchase` → `/onboarding`**.
+
+Si no configuras esta URL, el usuario se quedará en la página de éxito de Whop y tendrá que entrar manualmente a tu sitio.
 
 ---
 
