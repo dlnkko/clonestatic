@@ -168,6 +168,7 @@ function PostPurchaseContent() {
           if (plan) returnUrl.searchParams.set('plan', plan);
           loginNext = `${returnUrl.pathname}${returnUrl.search}`;
         }
+        await new Promise((resolve) => window.setTimeout(resolve, 1200));
         go(`/login?next=${encodeURIComponent(loginNext)}&from=whop`);
         return;
       }

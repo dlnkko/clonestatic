@@ -36,7 +36,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
       />
       <Script
         id="meta-pixel"
-        strategy="afterInteractive"
+        strategy="beforeInteractive"
         dangerouslySetInnerHTML={{
           __html: `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
 n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
@@ -44,7 +44,24 @@ n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
 t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script',
 'https://connect.facebook.net/en_US/fbevents.js');
 fbq('init','${META_PIXEL_ID}');
-fbq('track','PageView');`,
+fbq('track','PageView');
+(function(){
+  var path=location.pathname;
+  if(path!=='/post-purchase') return;
+  var q=new URLSearchParams(location.search);
+  var value=q.get('value');
+  var plan=q.get('plan');
+  var parsed=value?parseFloat(value):NaN;
+  var payload={currency:'USD'};
+  if(isFinite(parsed)){payload.value=parsed;payload.content_name=plan||'unknown';}
+  fbq('track','Purchase',payload);
+  var ping='https://www.facebook.com/tr?id=${META_PIXEL_ID}&ev=Purchase&cd[currency]=USD';
+  if(isFinite(parsed)){
+    ping+='&cd[value]='+encodeURIComponent(String(parsed))+'&cd[content_name]='+encodeURIComponent(plan||'unknown');
+  }
+  (new Image()).src=ping;
+  window.__admirrorPurchaseSent=true;
+})();`,
         }}
       />
       <body className="min-h-screen bg-[var(--background)] font-sans text-[var(--foreground)] antialiased selection:bg-[var(--primary)] selection:text-white">

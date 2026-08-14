@@ -1,6 +1,6 @@
 export const META_PIXEL_ID = '1310852860892585';
 
-const PURCHASE_TRACKED_KEY = 'admirror_meta_purchase_tracked';
+const PURCHASE_SENT_KEY = 'admirror_meta_purchase_sent';
 const META_VALUE_KEY = 'admirror_meta_purchase_value';
 const META_PLAN_KEY = 'admirror_meta_purchase_plan';
 
@@ -16,6 +16,7 @@ declare global {
   interface Window {
     fbq?: Fbq;
     _fbq?: Fbq;
+    __admirrorPurchaseSent?: boolean;
   }
 }
 
@@ -52,11 +53,32 @@ function clearStashedPurchaseParams() {
   }
 }
 
+function alreadySentPurchase(): boolean {
+  if (typeof window === 'undefined') return true;
+  if (window.__admirrorPurchaseSent) return true;
+  try {
+    return sessionStorage.getItem(PURCHASE_SENT_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markPurchaseSent() {
+  window.__admirrorPurchaseSent = true;
+  try {
+    sessionStorage.setItem(PURCHASE_SENT_KEY, '1');
+  } catch {
+    /* ignore */
+  }
+}
+
 function firePurchase(): boolean {
   try {
     if (typeof window === 'undefined') return false;
-    if (localStorage.getItem(PURCHASE_TRACKED_KEY) === '1') return true;
     if (typeof window.fbq !== 'function') return false;
+
+    const onPostPurchase = window.location.pathname === '/post-purchase';
+    if (!onPostPurchase && alreadySentPurchase()) return true;
 
     const { value, plan } = readPurchaseParams();
     const parsed = value != null ? parseFloat(value) : NaN;
@@ -71,7 +93,7 @@ function firePurchase(): boolean {
       window.fbq('track', 'Purchase', { currency: 'USD' });
     }
 
-    localStorage.setItem(PURCHASE_TRACKED_KEY, '1');
+    markPurchaseSent();
     clearStashedPurchaseParams();
     return true;
   } catch {
@@ -79,7 +101,7 @@ function firePurchase(): boolean {
   }
 }
 
-/** Fire Meta Purchase once per browser — /onboarding is the post-purchase conversion URL. */
+/** Fire Meta Purchase; /post-purchase always fires, /onboarding is a fallback. */
 export function trackMetaPurchaseOnce() {
   if (firePurchase()) return;
 
