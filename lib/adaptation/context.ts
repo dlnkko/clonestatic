@@ -401,12 +401,14 @@ function buildTrustBadgeInstructions(
 ): string {
   if (!badge.present) return '';
   const matchedSeal = matched.find((m) => m.role === 'trust_badge');
-  return `**TRUST BADGE / AWARD SEAL (CRITICAL — match reference composition):**
-The reference ad includes a trust/award seal (${badge.description || 'award or press badge'}).
-- Placement: ${badge.placement || 'same overlap position as reference (typically bottom-right on hero product)'}
-- Use the user's trust badge from the provided product image${matchedSeal ? ` (matched asset: ${matchedSeal.description})` : ''} — render it at similar size, with soft shadow, overlapping the product like the reference.
-- Do NOT omit the seal if a trust_badge image was provided.
-- Do NOT invent a competitor's award text; use only what appears on the user's badge image.`;
+  return `**TRUST BADGE / AWARD SEAL (CRITICAL — composition + STRICT DATA):**
+The reference ad includes a trust/award seal slot (${badge.description || 'award or press badge'}).
+- Placement/size: ${badge.placement || 'same overlap position as reference (typically bottom-right on hero product)'} — keep the visual role of the seal (circle/medal, soft shadow, overlap).
+- **CONTENT SOURCE (NEVER invent):** Award name, year, organization, "award-winning", "of the Year", press badge text, and seal lettering MUST come ONLY from (1) a user \`trust_badge\` catalog image if provided${matchedSeal ? ` (matched asset: ${matchedSeal.description})` : ''}, and/or (2) awards/press mentions **explicitly present in scraped product-page data**. Prefer exact scraped award strings when available.
+- **If scraped data has awards** — use those (real year + real award name). Do NOT paraphrase the reference competitor's award into a fake category award for the user brand.
+- **If a trust_badge image was provided** — render that graphic; do not invent different lettering on it.
+- **If neither scraped awards NOR a trust_badge image exist** — do NOT invent a seal, year, or award title. Either omit the seal entirely OR fill that layout slot with another **scraped** social-proof element (rating, press mention, certification found in scrape). The model may choose omit vs swap — inventing is forbidden.
+- Never copy the reference competitor's award name/year/org into the user's ad.`;
 }
 
 function buildBrandingIntegration(
@@ -558,7 +560,8 @@ Full page content (markdown):
 ${scrapedMarkdown.length > 4000 ? scrapedMarkdown.slice(0, 4000) + '\n\n[...]' : scrapedMarkdown}
 ---` : ''}
 
-**STRICT DATA RULE:** Use scraped data for product-specific facts (materials, benefits, awards on the user's product). Do NOT add "FREE GIFTS" or claims NOT in scraped data. Never copy competitor copy or numbers from the reference. **PRICES:** Never show a dollar amount unless allowed in pricing rules — never copy competitor prices.
+**STRICT DATA RULE:** Use scraped data for product-specific facts (materials, benefits, awards on the user's product). Do NOT invent awards, years, "of the Year" titles, press seals, or "FREE GIFTS"/claims NOT in scraped data. Never copy competitor copy, award names, or numbers from the reference. **PRICES:** Never show a dollar amount unless allowed in pricing rules — never copy competitor prices.
+**AWARDS (CRITICAL):** If the reference has an award seal / "award-winning" line, fill that slot ONLY with awards explicitly listed in scraped data (or a provided trust_badge image). If scrape has no awards, omit the seal/claim or swap to another scraped proof — never invent a parallel fake award.
 
 Create two short phrases: (1) a brief tagline (${headlineWords} words or fewer), (2) a brief main line (${mainCopyWords} words or fewer). Both must be grammatically correct and natural-sounding in the target copy language specified in adaptation context. In your final prompt, specify the exact short text to appear, e.g. centered text: "[TAGLINE]" and below "[MAIN COPY]".`;
   }
@@ -576,7 +579,7 @@ Match the reference TEXT ARCHITECTURE (all lines: brand, sub-tagline, headline, 
 - **Structure:** ${copywritingProfile?.textStructure || 'mirror every text block from reference'}
 - **Line 2 function:** Same rhetorical device as reference — not a generic spec dump unless reference line 2 is specs.
 - **Icon row:** If reference has icons, adapt all labels (1–3 words each), same count/order.
-- **STRICT DATA:** Do NOT add promo/discount lines unless reference had a promo slot. Never invent or copy competitor copy from reference.
+- **STRICT DATA:** Do NOT add promo/discount lines unless reference had a promo slot. Never invent awards/"of the Year"/press seals, or copy competitor copy from reference. Awards only from scraped data or a provided trust_badge image — otherwise omit.
 - Rhetorical figure: ${rhetoricalFigures?.primary || 'match reference'}
 - Tone: ${copywritingProfile?.tone || 'professional'}
 - Style: ${copywritingProfile?.styleCategory || 'persuasive'}`;

@@ -100,7 +100,8 @@ RULES:
 - promoClaimsUsed / promoClaimsOmitted: ${ctx.referenceHasPromoOfferLine ? 'only promos explicitly in scraped data' : 'MUST be [] — reference has no promo line; do not add flash sales or % off'}
 - reviewText / reviewNumericClaims
 ${ctx.pricingInstructions}
-- NEVER copy competitor numbers, prices, hooks, or offers from reference
+- NEVER invent awards, years, "of the Year" titles, or press-seal claims — only use awards explicitly in scraped data (or trust_badge image text)
+- NEVER copy competitor numbers, prices, hooks, awards, or offers from reference
 ${ctx.referenceVerbatimPhrases.length ? `- Forbidden verbatim phrases: ${ctx.referenceVerbatimPhrases.join(', ')}` : ''}
 
 ${buildCopyAgentInstructions(ctx)}
@@ -190,7 +191,7 @@ RULES (JSON output):
 - peopleAndSceneRules: must state on-theme environment/props for user's product category; clone reference framing/mood/aesthetic, NOT competitor-category setting when categories differ${ctx.hasPersonInReference ? '; **specify authentic product-on-body placement** (wear/apply/hold/consume correctly); for real photos: **iPhone candid snapshot** — match reference close-up distance, expression, motion/handheld feel — NOT stock sunset catalog polish' : ''}
 - compositionRules / brandingNotes / iconRowNotes / trustBadgeNotes
 - compositionRules: visual hierarchy (headline → icon/feature row → product row → CTA bar); ${ctx.hasPhotoGraphicOverlay ? '**single full-bleed photo with graphics overlaid on top** — NOT split top/bottom bands; ' : ''}preserve reference **vertical band proportions** and text block geometry; product row with **exact unit count** from reference (use distinct catalog variants when reference shows different flavors/colors); award seal overlaps product per reference; **typography size ladder** — headline largest, subheadline clearly smaller, footer/CTA smallest
-${ctx.referenceTrustBadge.present ? `- trustBadgeNotes: describe placing user's award seal (${ctx.referenceTrustBadge.placement || 'overlap on hero product'})` : ''}
+${ctx.referenceTrustBadge.present ? `- trustBadgeNotes: keep seal layout only with scraped awards and/or user trust_badge image; if neither, note omit or swap to other scraped proof — never invent award text` : ''}
 ${ctx.trustBadgeInstructions ? ctx.trustBadgeInstructions : ''}
 
 ${ctx.referenceProductPoseAndArrangement ? `Reference pose:\n${ctx.referenceProductPoseAndArrangement}` : ''}
@@ -258,7 +259,7 @@ ${ctx.hasReferenceRealScene ? '22b. REAL SCENE LOCK: Reference is a real photogr
 12. Logo placement rules respected
 13. Copy language: ${ctx.copyLanguageCode} (${ctx.copyLanguageName})
 14. Pricing: ${ctx.referenceHasPriceVisual ? (ctx.allowedPrice ? `reference had price badge — only "${ctx.allowedPrice}"` : 'reference had price badge but no verified product price — omit badge') : 'reference had NO price badge — FAIL if any $ amount, price sticker, or price tag appears'}
-${ctx.referenceTrustBadge.present ? `12. TRUST BADGE: Reference had award seal — prompt must describe overlapping trust badge${ctx.matchedProductVisuals.some((m) => m.role === 'trust_badge') ? ' (product catalog includes trust_badge image)' : ' — FAIL if omitted'}` : ''}
+${ctx.referenceTrustBadge.present ? `12. TRUST BADGE: Reference had award seal — FAIL if prompt invents award name/year/org not in scraped data and not on a provided trust_badge image. Prefer scraped awards when present. Omitting the seal (or swapping to other scraped proof) is OK when scrape has no awards and no trust_badge image.` : ''}
 ${iconCheck}
 ${structureCheck}
 15. Full-bleed composition, same layout modules as reference (oldprompts Output section)
