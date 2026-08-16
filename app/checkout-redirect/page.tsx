@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { trackMetaAddToCart } from '@/lib/meta-pixel';
 
 function CheckoutRedirectContent() {
   const searchParams = useSearchParams();
@@ -32,19 +33,25 @@ function CheckoutRedirectContent() {
         } catch {
           /* ignore */
         }
+        await trackMetaAddToCart(plan);
+        if (cancelled) return;
         window.location.href = data.url;
       } else {
         setError('Invalid plan');
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [plan]);
 
   if (error) {
     return (
       <main className="min-h-screen landing-dark flex flex-col items-center justify-center px-4 text-white">
         <p className="text-red-300">{error}</p>
-        <a href="/#pricing" className="mt-4 text-sky-400 hover:underline">Back to pricing</a>
+        <a href="/#pricing" className="mt-4 text-sky-400 hover:underline">
+          Back to pricing
+        </a>
       </main>
     );
   }

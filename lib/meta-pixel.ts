@@ -1,3 +1,5 @@
+import { ONE_TIME_PACK_BY_KEY, PAID_PLANS, isOneTimePlan } from '@/lib/plans';
+
 export const META_PIXEL_ID = '1310852860892585';
 
 const PURCHASE_SENT_KEY = 'admirror_meta_purchase_sent';
@@ -17,7 +19,84 @@ declare global {
     fbq?: Fbq;
     _fbq?: Fbq;
     __admirrorPurchaseSent?: boolean;
+    __admirrorAddToCartSent?: string;
   }
+}
+
+/** USD amount for a Whop checkout plan key (e.g. pack_20, pro_monthly). */
+export function metaCheckoutValueForPlan(plan: string | null | undefined): number | null {
+  if (!plan) return null;
+  const key = plan.trim().toLowerCase();
+  if (isOneTimePlan(key)) {
+    const pack = ONE_TIME_PACK_BY_KEY[key];
+    return pack?.priceUsd ?? null;
+  }
+  for (const p of PAID_PLANS) {
+    if (p.checkoutMonthly === key) return p.monthlyPriceUsd;
+    if (p.checkoutYearly === key) return p.yearlyTotalUsd;
+  }
+  if (key === 'pack_10') return ONE_TIME_PACK_BY_KEY.pack_20.priceUsd;
+  return null;
+}
+
+/**
+ * Fire Meta AddToCart when the user is about to leave for Whop checkout.
+ * Does not touch Purchase / post-purchase tracking.
+ */
+export function trackMetaAddToCart(plan: string): Promise<void> {
+  return new Promise((resolve) => {
+    const contentName = plan.trim() || 'unknown';
+    if (typeof window === 'undefined') {
+      resolve();
+      return;
+    }
+    if (window.__admirrorAddToCartSent === contentName) {
+      resolve();
+      return;
+    }
+
+    const value = metaCheckoutValueForPlan(contentName);
+    const payload: Record<string, string | number> = {
+      currency: 'USD',
+      content_name: contentName,
+      content_type: 'product',
+    };
+    if (value != null && Number.isFinite(value)) {
+      payload.value = value;
+    }
+
+    let fired = false;
+    const fire = (): boolean => {
+      try {
+        if (typeof window.fbq !== 'function') return false;
+        if (fired || window.__admirrorAddToCartSent === contentName) return true;
+        window.fbq('track', 'AddToCart', payload);
+        window.__admirrorAddToCartSent = contentName;
+        fired = true;
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    const done = () => {
+      window.setTimeout(() => resolve(), fired ? 400 : 0);
+    };
+
+    if (fire()) {
+      done();
+      return;
+    }
+
+    let attempts = 0;
+    const id = window.setInterval(() => {
+      attempts += 1;
+      if (fire() || attempts >= 12) {
+        window.clearInterval(id);
+        done();
+      }
+    }, 200);
+  });
 }
 
 /** Persist value/plan from Whop success URL so /onboarding can still read them after redirect. */
