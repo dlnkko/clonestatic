@@ -1,6 +1,6 @@
 import { ONE_TIME_PACK_BY_KEY, PAID_PLANS, isOneTimePlan } from '@/lib/plans';
 
-export const META_PIXEL_ID = '1310852860892585';
+export const META_PIXEL_ID = '1545793723950813';
 
 const PURCHASE_SENT_KEY = 'admirror_meta_purchase_sent';
 const META_VALUE_KEY = 'admirror_meta_purchase_value';
