@@ -29,8 +29,12 @@ export function pickImgbbDirectUrl(data: Record<string, unknown>): string {
 export function normalizeStoredImageUrl(url: string | null | undefined): string {
   const trimmed = url?.trim() ?? '';
   if (!trimmed) return '';
-  if (trimmed.startsWith('//')) return `https:${trimmed}`;
-  return trimmed;
+  let out = trimmed.replace(/&amp;/g, '&');
+  if (out.startsWith('//')) out = `https:${out}`;
+  out = out.replace(/%7Bwidth%7D/gi, '1200').replace(/%7Bheight%7D/gi, '1200');
+  out = out.replace(/\{width\}/g, '1200').replace(/\{height\}/g, '1200');
+  out = out.replace(/_\{width\}x/g, '_1200x');
+  return out;
 }
 
 /** Resolve ImgBB viewer pages (ibb.co/xxx) to direct i.ibb.co image URL. */

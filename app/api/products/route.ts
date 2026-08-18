@@ -11,7 +11,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { assertCanAddProduct } from '@/lib/subscription-limits';
 import { buildScrapeCacheFromPageScrape } from '@/lib/products/build-scrape-cache';
 import { pageDescriptionFromMetadata } from '@/lib/products/compare-scrape-cache';
-import { hostExternalImageUrls } from '@/lib/products/host-scraped-image';
+import { hostExternalImageUrl, hostExternalImageUrls } from '@/lib/products/host-scraped-image';
 
 export const dynamic = 'force-dynamic';
 
@@ -233,17 +233,8 @@ export async function POST(request: NextRequest) {
       const scraped = await scrapeProductPage(productUrl.trim());
       const imageUrls: ProductImage[] = [];
       for (const img of scraped.images.slice(0, 10)) {
-        try {
-          const res = await fetch(img.url, { signal: AbortSignal.timeout(20000) });
-          if (!res.ok) continue;
-          const buf = Buffer.from(await res.arrayBuffer());
-          const b64 = `data:${res.headers.get('content-type')?.split(';')[0] || 'image/jpeg'};base64,${buf.toString('base64')}`;
-          const hosted = await uploadBase64ToImgBB(b64);
-          imageUrls.push({ ...img, url: hosted });
-        } catch {
-          // keep original URL if upload fails
-          imageUrls.push(img);
-        }
+        const hosted = await hostExternalImageUrl(img.url);
+        imageUrls.push({ ...img, url: hosted });
       }
 
       const classifiedUrls = classifyProductImagesHeuristic(imageUrls);

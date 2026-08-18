@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isDirectImageUrl, resolveProductImageFetchUrl } from '@/lib/products/media-url';
+import { fetchRemoteImage } from '@/lib/images/fetch-remote-image';
 
 /** Proxies an image and returns it with Content-Disposition: attachment so mobile browsers trigger download. */
 function isValidImageUrl(url: string): boolean {
@@ -9,12 +9,6 @@ function isValidImageUrl(url: string): boolean {
   } catch {
     return false;
   }
-}
-
-function isImageContentType(ct: string | null): boolean {
-  if (!ct) return false;
-  const main = ct.split(';')[0].trim().toLowerCase();
-  return main === 'image/jpeg' || main === 'image/jpg' || main === 'image/png' || main === 'image/webp' || main === 'image/gif' || main.startsWith('image/');
 }
 
 export async function GET(request: NextRequest) {
@@ -30,29 +24,9 @@ export async function GET(request: NextRequest) {
   const fetchTimeoutMs = inline ? 15_000 : 120_000;
 
   try {
-    const fetchUrl = await resolveProductImageFetchUrl(url);
-    const res = await fetch(fetchUrl, {
-      headers: {
-        Accept: 'image/*,*/*',
-        'User-Agent': 'Mozilla/5.0 (compatible; admirror/1.0)',
-        Referer: 'https://imgbb.com/',
-      },
-      cache: 'no-store',
-      signal: AbortSignal.timeout(fetchTimeoutMs),
-    });
-    if (!res.ok) {
-      return NextResponse.json({ error: 'Failed to fetch image' }, { status: 502 });
-    }
-    const contentType = res.headers.get('content-type');
-    if (!isImageContentType(contentType)) {
-      if (!isDirectImageUrl(fetchUrl) && fetchUrl === url) {
-        return NextResponse.json({ error: 'URL did not return an image' }, { status: 400 });
-      }
-      return NextResponse.json({ error: 'URL did not return an image' }, { status: 400 });
-    }
-    const blob = await res.arrayBuffer();
+    const { body, contentType } = await fetchRemoteImage(url, { timeoutMs: fetchTimeoutMs });
 
-    return new NextResponse(blob, {
+    return new NextResponse(body, {
       status: 200,
       headers: {
         'Content-Type': contentType || 'image/jpeg',

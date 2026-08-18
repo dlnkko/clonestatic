@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { displayImageUrl, shouldBypassImageProxy } from '@/lib/display-image-url';
 import { cn } from '@/lib/cn';
 
@@ -30,26 +30,33 @@ export function ProxiedImage({
   ...rest
 }: ProxiedImageProps) {
   const [mode, setMode] = useState<LoadMode>(() => initialMode(src, preferDirect));
+  const modeRef = useRef<LoadMode>(mode);
+  modeRef.current = mode;
 
   useEffect(() => {
-    setMode(initialMode(src, preferDirect));
+    const next = initialMode(src, preferDirect);
+    modeRef.current = next;
+    setMode(next);
   }, [src, preferDirect]);
 
   const handleError = useCallback(
     (e: React.SyntheticEvent<HTMLImageElement>) => {
-      if (preferDirect) {
-        if (mode === 'direct' && src.startsWith('http')) {
-          setMode('proxy');
-          return;
-        }
-      } else if (mode === 'proxy' && src.startsWith('http')) {
+      const current = modeRef.current;
+      if (current === 'direct' && src.startsWith('http')) {
+        modeRef.current = 'proxy';
+        setMode('proxy');
+        return;
+      }
+      if (current === 'proxy' && src.startsWith('http') && !preferDirect) {
+        modeRef.current = 'direct';
         setMode('direct');
         return;
       }
+      modeRef.current = 'failed';
       setMode('failed');
       onError?.(e);
     },
-    [mode, onError, preferDirect, src]
+    [onError, preferDirect, src]
   );
 
   if (!src) {
@@ -84,11 +91,13 @@ export function ProxiedImage({
     );
   }
 
-  const resolvedSrc = mode === 'direct' ? src : displayImageUrl(src);
+  // When falling back, always hit the proxy — bypass hosts (ImgBB/Shopify) must not reuse the same broken src.
+  const resolvedSrc = mode === 'direct' ? src : displayImageUrl(src, { forceProxy: true });
 
   return (
     <img
       {...rest}
+      key={resolvedSrc}
       src={resolvedSrc}
       alt={alt}
       className={cn('block object-cover', className)}

@@ -10,11 +10,14 @@ export function shouldBypassImageProxy(url: string): boolean {
   return false;
 }
 
-export function displayImageUrl(remoteUrl: string | null | undefined): string {
+export function displayImageUrl(
+  remoteUrl: string | null | undefined,
+  opts?: { forceProxy?: boolean }
+): string {
   if (!remoteUrl) return '';
   if (remoteUrl.startsWith('data:') || remoteUrl.startsWith('blob:')) return remoteUrl;
   if (remoteUrl.startsWith('/api/download-image')) return remoteUrl;
-  if (shouldBypassImageProxy(remoteUrl)) return remoteUrl;
+  if (!opts?.forceProxy && shouldBypassImageProxy(remoteUrl)) return remoteUrl;
   return `/api/download-image?url=${encodeURIComponent(remoteUrl)}&display=1`;
 }
 
