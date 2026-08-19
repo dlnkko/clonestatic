@@ -18,7 +18,7 @@ import {
   pricingConfigFromExtracted,
 } from '@/lib/products/pricing-config';
 import { slimBranding } from '@/lib/products/preview-payload';
-import { compressFileToDataUrl, compressFileToFile, parseFetchJson, uploadProductImageDataUrl } from '@/lib/images/compress-client';
+import { compressFileToFile, parseFetchJson, uploadProductImageFile, userFacingUploadError } from '@/lib/images/compress-client';
 
 type Mode = 'url' | 'manual';
 type UrlStep = 'input' | 'info' | 'logo' | 'products';
@@ -86,9 +86,6 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     }
     return uniq;
   };
-
-  const readFileAsDataUrl = (file: File, keepAlpha = false) =>
-    compressFileToDataUrl(file, { keepAlpha });
 
   const appendLogos = (incoming: File[]) => {
     const room = 2 - logoFiles.length;
@@ -258,13 +255,11 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     try {
       const uploadedProductUrls: string[] = [];
       for (const file of extraFiles) {
-        const dataUrl = await readFileAsDataUrl(file);
-        uploadedProductUrls.push(await uploadProductImageDataUrl(dataUrl));
+        uploadedProductUrls.push(await uploadProductImageFile(file, { keepAlpha: false }));
       }
       const uploadedLogoUrls: string[] = [];
       for (const file of logoFiles) {
-        const dataUrl = await readFileAsDataUrl(file, true);
-        uploadedLogoUrls.push(await uploadProductImageDataUrl(dataUrl));
+        uploadedLogoUrls.push(await uploadProductImageFile(file, { keepAlpha: true }));
       }
       const syncedPricing = finalizePricingConfig(pricingConfig);
       const res = await fetch('/api/products', {
@@ -315,7 +310,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
       resetForm();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : USER_MESSAGES.saveProductFailed);
+      setError(userFacingUploadError(e));
     } finally {
       setLoading(false);
     }
@@ -332,13 +327,11 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
 
       const imageUrls: string[] = [];
       for (const file of imageFiles) {
-        const dataUrl = await readFileAsDataUrl(file);
-        imageUrls.push(await uploadProductImageDataUrl(dataUrl));
+        imageUrls.push(await uploadProductImageFile(file, { keepAlpha: false }));
       }
       const logoUrls: string[] = [];
       for (const file of logoFiles) {
-        const dataUrl = await readFileAsDataUrl(file, true);
-        logoUrls.push(await uploadProductImageDataUrl(dataUrl));
+        logoUrls.push(await uploadProductImageFile(file, { keepAlpha: true }));
       }
       const syncedPricing = finalizePricingConfig(pricingConfig);
       const res = await fetch('/api/products', {
@@ -377,7 +370,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
       if (e instanceof Error && e.message.includes('required')) {
         setError(e.message);
       } else {
-        setError(e instanceof Error ? e.message : USER_MESSAGES.tryAgain);
+        setError(userFacingUploadError(e));
       }
     } finally {
       setLoading(false);

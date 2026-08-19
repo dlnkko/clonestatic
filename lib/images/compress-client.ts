@@ -130,6 +130,34 @@ export async function parseFetchJson<T = Record<string, unknown>>(
   }
 }
 
+export function userFacingUploadError(err: unknown): string {
+  const message = err instanceof Error ? err.message : 'Could not save. Please try again.';
+  if (/unexpected token|not valid json|<!doctype|<html|body exceeded|too large|413/i.test(message)) {
+    return 'Could not upload that image. Try a smaller PNG or JPEG.';
+  }
+  return message;
+}
+
+export async function uploadProductImageFile(
+  file: File,
+  options?: { keepAlpha?: boolean }
+): Promise<string> {
+  const compressed = await compressFileToFile(file, options);
+  const form = new FormData();
+  form.set('file', compressed);
+  const res = await fetch('/api/upload-product-image', {
+    method: 'POST',
+    credentials: 'include',
+    body: form,
+  });
+  const { data, error } = await parseFetchJson<{ url?: string; error?: string }>(res);
+  if (error) throw new Error(error);
+  if (!res.ok || !data.url) {
+    throw new Error(userFacingUploadError(data.error || 'Upload failed'));
+  }
+  return data.url;
+}
+
 export async function uploadProductImageDataUrl(dataUrl: string): Promise<string> {
   const res = await fetch('/api/upload-product-image', {
     method: 'POST',
@@ -140,7 +168,7 @@ export async function uploadProductImageDataUrl(dataUrl: string): Promise<string
   const { data, error } = await parseFetchJson<{ url?: string; error?: string }>(res);
   if (error) throw new Error(error);
   if (!res.ok || !data.url) {
-    throw new Error(typeof data.error === 'string' ? data.error : 'Upload failed');
+    throw new Error(userFacingUploadError(data.error || 'Upload failed'));
   }
   return data.url;
 }

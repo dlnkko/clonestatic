@@ -15,10 +15,9 @@ import { ConfirmModal } from '@/app/components/dashboard/ConfirmModal';
 import {
   ProductImagesEditor,
   productImagesFromRecord,
-  readEditableImagesAsPayload,
   type EditableProductImage,
 } from '@/app/components/products/ProductImagesEditor';
-import { parseFetchJson, uploadProductImageDataUrl } from '@/lib/images/compress-client';
+import { parseFetchJson, uploadProductImageFile, userFacingUploadError } from '@/lib/images/compress-client';
 
 type Props = {
   product: ProductRecord | null;
@@ -76,17 +75,20 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
     try {
       const syncedPricing = finalizePricingConfig(pricingConfig);
 
-      const imageSlots = await readEditableImagesAsPayload(productImages, logoImages);
-      const uploadedSlots: typeof imageSlots = [];
-      for (const slot of imageSlots) {
-        if (slot.url?.startsWith('http')) {
-          uploadedSlots.push(slot);
+      const uploadedSlots: Array<{ url: string; kind?: (typeof productImages)[number]['kind'] }> = [];
+      for (const img of productImages) {
+        if (img.source === 'remote') {
+          uploadedSlots.push({ url: img.url, kind: img.kind });
           continue;
         }
-        if (slot.base64) {
-          const url = await uploadProductImageDataUrl(slot.base64);
-          uploadedSlots.push({ url, kind: slot.kind });
+        uploadedSlots.push({ url: await uploadProductImageFile(img.file, { keepAlpha: false }), kind: img.kind });
+      }
+      for (const img of logoImages) {
+        if (img.source === 'remote') {
+          uploadedSlots.push({ url: img.url, kind: 'logo' });
+          continue;
         }
+        uploadedSlots.push({ url: await uploadProductImageFile(img.file, { keepAlpha: true }), kind: 'logo' });
       }
 
       const res = await fetch(`/api/products/${product.id}`, {
@@ -109,7 +111,7 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
       if (!data.product) throw new Error('Failed to save');
       onSaved(data.product);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Save failed');
+      setError(userFacingUploadError(e));
     } finally {
       setSaving(false);
     }

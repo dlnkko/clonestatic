@@ -5,6 +5,7 @@ import { resolveProductImageSlots, type ProductImageSlotInput } from '@/lib/prod
 import type { ProductScrapeCache } from '@/lib/products/types';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
 
 export async function GET(
   _request: NextRequest,
@@ -54,7 +55,15 @@ export async function PATCH(
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    const body = await request.json();
+    let body: Record<string, unknown>;
+    try {
+      body = (await request.json()) as Record<string, unknown>;
+    } catch {
+      return NextResponse.json(
+        { error: 'Could not save. Try uploading a smaller PNG or JPEG.' },
+        { status: 413 }
+      );
+    }
     const {
       name,
       description,
@@ -62,7 +71,6 @@ export async function PATCH(
       color_palette,
       priceDisplay,
       pricingConfig,
-      scrape_cache,
       imageSlots,
     } = body as {
       name?: string;
@@ -71,7 +79,6 @@ export async function PATCH(
       color_palette?: { colors?: string[]; notes?: string } | string;
       priceDisplay?: string | null;
       pricingConfig?: ProductScrapeCache['pricingConfig'];
-      scrape_cache?: ProductScrapeCache;
       imageSlots?: ProductImageSlotInput[];
     };
 
@@ -106,9 +113,6 @@ export async function PATCH(
     }
 
     let cache = (existing.scrape_cache as ProductScrapeCache) || null;
-    if (scrape_cache && typeof scrape_cache === 'object') {
-      cache = { ...cache, ...scrape_cache } as ProductScrapeCache;
-    }
     if (priceDisplay !== undefined && cache) {
       cache = { ...cache, priceDisplay: priceDisplay?.trim() || null };
     }
@@ -155,6 +159,12 @@ export async function PATCH(
     return NextResponse.json({ product: rowToProduct(data as Record<string, unknown>) });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to update product';
+    if (/unexpected token|not valid json|<!doctype|<html|too large|413/i.test(message)) {
+      return NextResponse.json(
+        { error: 'Could not save. Try a smaller PNG or JPEG.' },
+        { status: 500 }
+      );
+    }
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
