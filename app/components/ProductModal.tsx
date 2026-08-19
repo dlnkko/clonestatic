@@ -18,6 +18,7 @@ import {
   pricingConfigFromExtracted,
 } from '@/lib/products/pricing-config';
 import { slimBranding } from '@/lib/products/preview-payload';
+import { compressFileToDataUrl } from '@/lib/images/compress-client';
 
 type Mode = 'url' | 'manual';
 type UrlStep = 'input' | 'info' | 'logo' | 'products';
@@ -86,13 +87,8 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     return uniq;
   };
 
-  const readFileAsDataUrl = (file: File) =>
-    new Promise<string>((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(r.result as string);
-      r.onerror = () => reject(new Error('Read failed'));
-      r.readAsDataURL(file);
-    });
+  const readFileAsDataUrl = (file: File, keepAlpha = false) =>
+    compressFileToDataUrl(file, { keepAlpha });
 
   const appendLogos = (incoming: File[]) => {
     const room = 2 - logoFiles.length;
@@ -239,9 +235,9 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     setError(null);
     try {
       const imageBase64List =
-        extraFiles.length > 0 ? await Promise.all(extraFiles.map(readFileAsDataUrl)) : undefined;
+        extraFiles.length > 0 ? await Promise.all(extraFiles.map((f) => readFileAsDataUrl(f))) : undefined;
       const logoBase64List =
-        logoFiles.length > 0 ? await Promise.all(logoFiles.map(readFileAsDataUrl)) : undefined;
+        logoFiles.length > 0 ? await Promise.all(logoFiles.map((f) => readFileAsDataUrl(f, true))) : undefined;
       const syncedPricing = finalizePricingConfig(pricingConfig);
       const res = await fetch('/api/products', {
         method: 'POST',
@@ -304,9 +300,9 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
       if (paletteColors.length < 1) throw new Error('Select at least one brand color');
       if (imageFiles.length < 1) throw new Error('Upload at least one product image');
 
-      const imageBase64List = await Promise.all(imageFiles.map(readFileAsDataUrl));
+      const imageBase64List = await Promise.all(imageFiles.map((f) => readFileAsDataUrl(f)));
       const logoBase64List =
-        logoFiles.length > 0 ? await Promise.all(logoFiles.map(readFileAsDataUrl)) : undefined;
+        logoFiles.length > 0 ? await Promise.all(logoFiles.map((f) => readFileAsDataUrl(f, true))) : undefined;
       const syncedPricing = finalizePricingConfig(pricingConfig);
       const res = await fetch('/api/products', {
         method: 'POST',

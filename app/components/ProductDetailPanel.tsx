@@ -18,6 +18,7 @@ import {
   readEditableImagesAsPayload,
   type EditableProductImage,
 } from '@/app/components/products/ProductImagesEditor';
+import { parseFetchJson, uploadProductImageDataUrl } from '@/lib/images/compress-client';
 
 type Props = {
   product: ProductRecord | null;
@@ -83,6 +84,17 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
         : null;
 
       const imageSlots = await readEditableImagesAsPayload(productImages, logoImages);
+      const uploadedSlots: typeof imageSlots = [];
+      for (const slot of imageSlots) {
+        if (slot.url?.startsWith('http')) {
+          uploadedSlots.push(slot);
+          continue;
+        }
+        if (slot.base64) {
+          const url = await uploadProductImageDataUrl(slot.base64);
+          uploadedSlots.push({ url, kind: slot.kind });
+        }
+      }
 
       const res = await fetch(`/api/products/${product.id}`, {
         method: 'PATCH',
@@ -96,11 +108,13 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
           priceDisplay: syncedPricing.priceDisplay,
           pricingConfig: syncedPricing,
           scrape_cache,
-          imageSlots,
+          imageSlots: uploadedSlots,
         }),
       });
-      const data = await res.json();
+      const { data, error: parseError } = await parseFetchJson<{ product?: ProductRecord; error?: string }>(res);
+      if (parseError) throw new Error(parseError);
       if (!res.ok) throw new Error(data.error || 'Failed to save');
+      if (!data.product) throw new Error('Failed to save');
       onSaved(data.product);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Save failed');

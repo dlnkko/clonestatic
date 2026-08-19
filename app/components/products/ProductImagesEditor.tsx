@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
+import { compressFileToDataUrl } from '@/lib/images/compress-client';
 import type { ProductImageKind } from '@/lib/products/types';
 import { ProxiedImage } from '@/app/components/ProxiedImage';
 
@@ -226,23 +227,25 @@ export async function readEditableImagesAsPayload(
   productImages: EditableProductImage[],
   logoImages: EditableProductImage[]
 ): Promise<Array<{ url?: string; base64?: string; kind?: ProductImageKind }>> {
-  const readFile = (file: File) =>
-    new Promise<string>((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(r.result as string);
-      r.onerror = () => reject(new Error('Read failed'));
-      r.readAsDataURL(file);
-    });
-
   const slots: Array<{ url?: string; base64?: string; kind?: ProductImageKind }> = [];
 
   for (const img of productImages) {
     if (img.source === 'remote') slots.push({ url: img.url, kind: img.kind });
-    else slots.push({ base64: await readFile(img.file), kind: img.kind });
+    else {
+      slots.push({
+        base64: await compressFileToDataUrl(img.file, { keepAlpha: false }),
+        kind: img.kind,
+      });
+    }
   }
   for (const img of logoImages) {
     if (img.source === 'remote') slots.push({ url: img.url, kind: 'logo' });
-    else slots.push({ base64: await readFile(img.file), kind: 'logo' });
+    else {
+      slots.push({
+        base64: await compressFileToDataUrl(img.file, { keepAlpha: true }),
+        kind: 'logo',
+      });
+    }
   }
 
   return slots;
