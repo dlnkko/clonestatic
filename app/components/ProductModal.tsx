@@ -17,6 +17,7 @@ import {
   finalizePricingConfig,
   pricingConfigFromExtracted,
 } from '@/lib/products/pricing-config';
+import { slimBranding } from '@/lib/products/save-from-preview';
 
 type Mode = 'url' | 'manual';
 type UrlStep = 'input' | 'info' | 'logo' | 'products';
@@ -261,21 +262,30 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
           imageBase64List,
           logoBase64List,
           scrapeSummary: preview.summary,
-          branding: preview.branding,
+          branding: slimBranding(preview.branding),
           extractedPricing: preview.extractedPricing,
-          markdown: preview.markdown,
+          markdown: preview.markdown?.slice(0, 12000) ?? null,
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(userMessageForProductSave(res.status));
+        const apiError = typeof data.error === 'string' ? data.error.trim() : '';
+        setError(
+          apiError && apiError.length < 180
+            ? apiError
+            : userMessageForProductSave(res.status)
+        );
         return;
       }
       if (!data.product?.id) {
         setError(USER_MESSAGES.saveProductFailed);
         return;
       }
-      onCreated(data.product);
+      try {
+        onCreated(data.product);
+      } catch (err) {
+        console.error('onCreated after product save', err);
+      }
       resetForm();
       onClose();
     } catch {

@@ -11,10 +11,15 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { assertCanAddProduct } from '@/lib/subscription-limits';
 import { buildScrapeCacheFromPageScrape } from '@/lib/products/build-scrape-cache';
 import { pageDescriptionFromMetadata } from '@/lib/products/compare-scrape-cache';
-import { hostExternalImageUrl, hostExternalImageUrls } from '@/lib/products/host-scraped-image';
-import { dbPrimaryImageUrl } from '@/lib/products/placeholder-image';
+import { hostExternalImageUrl } from '@/lib/products/host-scraped-image';
+import {
+  buildPreviewSaveRow,
+  isPreviewSaveBody,
+  type PreviewSaveInput,
+} from '@/lib/products/save-from-preview';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 export async function GET() {
   try {
@@ -62,33 +67,8 @@ type CreateUrlBody = {
   name?: string;
 };
 
-type CreateUrlFromPreviewBody = {
-  source: 'url';
-  saveFromPreview: true;
-  productUrl: string;
-  name: string;
-  description?: string;
-  targetAudience?: string;
-  colorPalette?: string;
-  priceDisplay?: string;
-  pricingConfig?: ProductScrapeCache['pricingConfig'];
-  logoBase64List?: string[];
-  imageBase64List?: string[];
-  selectedLogoUrls?: string[];
-  selectedProductUrls?: string[];
-  branding?: Record<string, unknown> | null;
-  extractedPricing?: ProductScrapeCache['extractedPricing'];
-  markdown?: string | null;
-  scrapeSummary?: string | null;
-};
-
 export async function POST(request: NextRequest) {
   try {
-    const rateLimitResult = await checkRateLimit('scrapeUrl', request);
-    if (!rateLimitResult.success) {
-      return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
-    }
-
     const supabase = await createClient();
     const {
       data: { user },
@@ -98,8 +78,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    const body = await request.json();
+    let body: Record<string, unknown>;
+    try {
+      body = (await request.json()) as Record<string, unknown>;
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
     const source = body?.source as string;
+    const previewSave = isPreviewSaveBody(body);
+
+    if (!previewSave) {
+      const rateLimitResult = await checkRateLimit('scrapeUrl', request);
+      if (!rateLimitResult.success) {
+        return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+      }
+    }
 
     const admin = createAdminClient();
     const productLimit = await assertCanAddProduct(admin, user.id, user.email ?? '');
@@ -115,106 +108,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (source === 'url' && body.saveFromPreview) {
-      const b = body as CreateUrlFromPreviewBody;
+    if (previewSave) {
+      const b = body as PreviewSaveInput;
       if (!b.productUrl?.trim() || !b.name?.trim()) {
         return NextResponse.json({ error: 'Invalid preview save payload' }, { status: 400 });
       }
 
-      const productUrlList = Array.isArray(b.selectedProductUrls)
-        ? b.selectedProductUrls.filter((u) => typeof u === 'string' && u.trim())
-        : [];
-      const logoUrlList = Array.isArray(b.selectedLogoUrls)
-        ? b.selectedLogoUrls.filter((u) => typeof u === 'string' && u.trim()).slice(0, 2)
-        : [];
-      const base64Products = Array.isArray(b.imageBase64List) ? b.imageBase64List : [];
-      const base64Logos = Array.isArray(b.logoBase64List) ? b.logoBase64List : [];
-
-      if (productUrlList.length + base64Products.length > 10) {
-        return NextResponse.json({ error: 'Maximum 10 product images' }, { status: 400 });
+      let row;
+      try {
+        row = await buildPreviewSaveRow(user.id, b);
+      } catch (err) {
+        const status = (err as { status?: number }).status;
+        const message = err instanceof Error ? err.message : 'Failed to prepare product';
+        return NextResponse.json({ error: message }, { status: status === 400 ? 400 : 500 });
       }
 
-      const images: ProductImage[] = [];
-
-      const hostedProducts = await hostExternalImageUrls(productUrlList.slice(0, 10));
-      for (let i = 0; i < hostedProducts.length; i++) {
-        images.push({
-          url: hostedProducts[i],
-          kind: i === 0 ? 'product' : 'packaging',
-          alt: `${b.name.trim()} image ${i + 1}`,
-        });
-      }
-
-
-      for (let i = 0; i < base64Products.length; i++) {
-        const nonLogoCount = images.filter((img) => img.kind !== 'logo').length;
-        if (nonLogoCount >= 10) break;
-        const url = await uploadBase64ToImgBB(base64Products[i]);
-        images.push({
-          url,
-          kind: nonLogoCount === 0 ? 'product' : 'packaging',
-          alt: `${b.name.trim()} image ${nonLogoCount + 1}`,
-        });
-      }
-
-      const logoUrls: string[] = [];
-      const hostedLogos = await hostExternalImageUrls(logoUrlList);
-      for (const url of hostedLogos) {
-        logoUrls.push(url);
-        images.push({ url, kind: 'logo', alt: `${b.name.trim()} logo` });
-      }
-      for (const base64 of base64Logos.slice(0, 2)) {
-        if (!base64) continue;
-        const url = await uploadBase64ToImgBB(base64);
-        logoUrls.push(url);
-        images.push({ url, kind: 'logo', alt: `${b.name.trim()} logo` });
-      }
-
-      const classifiedImages = classifyProductImagesHeuristic(images);
-      const primary = dbPrimaryImageUrl(classifiedImages);
-
-      const colors = b.colorPalette
-        ?.split(/[,;\n]+/)
-        .map((c) => c.trim())
-        .filter(Boolean)
-        .slice(0, 8);
-
-      const mergedImages = classifiedImages;
-
-      const scrapeCache: ProductScrapeCache = {
-        summary: (b.scrapeSummary || b.description || b.name).trim(),
-        branding: b.branding ?? null,
-        markdown: b.markdown?.trim() ? b.markdown.trim().slice(0, 12000) : null,
-        scrapedAt: new Date().toISOString(),
-        productUrl: b.productUrl.trim(),
-        extractedPricing: b.extractedPricing,
-        priceDisplay: b.priceDisplay?.trim() || b.pricingConfig?.priceDisplay?.trim() || null,
-        pricingConfig: b.pricingConfig ?? undefined,
-      };
-
-      const { data, error } = await supabase
-        .from('products')
-        .insert({
-          user_id: user.id,
-          name: b.name.trim().slice(0, 200),
-          source: 'url',
-          product_url: b.productUrl.trim(),
-          description: (b.description || '').trim().slice(0, 4000) || null,
-          target_audience: b.targetAudience?.trim().slice(0, 1000) || null,
-          color_palette: colors?.length ? { colors } : null,
-          logo_url: logoUrls[0] ?? null,
-          primary_image_url: primary,
-          images: mergedImages,
-          scrape_cache: JSON.parse(JSON.stringify(scrapeCache)),
-        })
-        .select('*')
-        .single();
+      const { data, error } = await supabase.from('products').insert(row).select('*').single();
 
       if (error) {
         console.error('products preview insert failed', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
-      return NextResponse.json({ product: rowToProduct(data as Record<string, unknown>) });
+      try {
+        return NextResponse.json({ product: rowToProduct(data as Record<string, unknown>) });
+      } catch (err) {
+        console.error('rowToProduct failed after insert', err);
+        return NextResponse.json({ product: { ...row, id: data.id, created_at: data.created_at, updated_at: data.updated_at, user_id: user.id } });
+      }
     }
 
     if (source === 'url') {
@@ -292,6 +212,7 @@ export async function POST(request: NextRequest) {
         targetAudience,
         colorPalette,
         priceDisplay,
+        pricingConfig,
         logoBase64List,
         imageBase64List,
       } = body as CreateManualBody & {
@@ -338,14 +259,14 @@ export async function POST(request: NextRequest) {
         .slice(0, 8);
 
       const manualCache: ProductScrapeCache | null =
-        priceDisplay?.trim() || body.pricingConfig
+        priceDisplay?.trim() || pricingConfig
           ? {
               summary: description?.trim() || name.trim(),
               branding: null,
               markdown: null,
               scrapedAt: new Date().toISOString(),
-              priceDisplay: priceDisplay?.trim() || body.pricingConfig?.priceDisplay?.trim() || null,
-              pricingConfig: body.pricingConfig ?? undefined,
+              priceDisplay: priceDisplay?.trim() || pricingConfig?.priceDisplay?.trim() || null,
+              pricingConfig: pricingConfig ?? undefined,
             }
           : null;
 
