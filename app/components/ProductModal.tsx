@@ -11,6 +11,7 @@ import {
   userMessageForProductSave,
   userMessageForProductScrape,
 } from '@/lib/api-error-message';
+import { ConfirmModal } from '@/app/components/dashboard/ConfirmModal';
 import {
   emptyPricingConfig,
   finalizePricingConfig,
@@ -62,6 +63,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
   const [logoPreviews, setLogoPreviews] = useState<string[]>([]);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [pendingSave, setPendingSave] = useState<{ skipProductImages?: boolean } | null>(null);
 
   if (!open) return null;
 
@@ -139,6 +141,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     setImageFiles([]);
     imagePreviews.forEach((u) => URL.revokeObjectURL(u));
     setImagePreviews([]);
+    setPendingSave(null);
   };
 
   const applyScrapedPricing = (p: ScrapePreview) => {
@@ -213,6 +216,18 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
   const handleContinueToProducts = () => {
     setError(null);
     setUrlStep('products');
+  };
+
+  const requestSaveFromPreview = (opts?: { skipProductImages?: boolean }) => {
+    const productUrls = opts?.skipProductImages ? [] : selectedProductUrls;
+    const extraFiles = opts?.skipProductImages ? [] : imageFiles;
+    const hasProductPhotos = productUrls.length + extraFiles.length > 0;
+    const hasLogo = selectedLogoUrls.length + logoFiles.length > 0;
+    if (!hasProductPhotos && !hasLogo) {
+      setPendingSave(opts ?? {});
+      return;
+    }
+    void handleSaveFromPreview(opts);
   };
 
   const handleSaveFromPreview = async (opts?: { skipProductImages?: boolean }) => {
@@ -457,6 +472,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
   );
 
   return (
+    <>
     <div className="dash-modal-root">
       <div className="dash-modal-backdrop" aria-hidden onClick={() => { resetForm(); onClose(); }} />
       <div className="dash-modal dash-modal-wide dash-animate-scale max-h-[92vh] overflow-hidden flex flex-col">
@@ -509,13 +525,13 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
               <button type="button" onClick={() => setUrlStep('logo')} className="dash-btn dash-btn-secondary">Back</button>
               <button
                 type="button"
-                onClick={() => void handleSaveFromPreview({ skipProductImages: true })}
+                onClick={() => requestSaveFromPreview({ skipProductImages: true })}
                 disabled={loading}
                 className="dash-btn dash-btn-secondary"
               >
                 Skip images
               </button>
-              <button type="button" onClick={() => void handleSaveFromPreview()} disabled={loading} className="dash-btn dash-btn-primary flex-1">
+              <button type="button" onClick={() => requestSaveFromPreview()} disabled={loading} className="dash-btn dash-btn-primary flex-1">
                 {loading ? 'Saving…' : 'Save product'}
               </button>
             </div>
@@ -556,5 +572,21 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
         </div>
       </div>
     </div>
+      <ConfirmModal
+        open={pendingSave !== null}
+        title="Are you sure?"
+        description="Ads with your product and logo convert about 10x better. You can add photos later."
+        confirmLabel="Save anyway"
+        cancelLabel="Go back"
+        danger={false}
+        busy={loading}
+        onClose={() => setPendingSave(null)}
+        onConfirm={() => {
+          const opts = pendingSave ?? undefined;
+          setPendingSave(null);
+          void handleSaveFromPreview(opts);
+        }}
+      />
+    </>
   );
 }
