@@ -12,6 +12,7 @@ import { assertCanAddProduct } from '@/lib/subscription-limits';
 import { buildScrapeCacheFromPageScrape } from '@/lib/products/build-scrape-cache';
 import { pageDescriptionFromMetadata } from '@/lib/products/compare-scrape-cache';
 import { hostExternalImageUrl, hostExternalImageUrls } from '@/lib/products/host-scraped-image';
+import { dbPrimaryImageUrl } from '@/lib/products/placeholder-image';
 
 export const dynamic = 'force-dynamic';
 
@@ -170,7 +171,7 @@ export async function POST(request: NextRequest) {
       }
 
       const classifiedImages = classifyProductImagesHeuristic(images);
-      const primary = primaryProductImageUrl(classifiedImages) ?? '';
+      const primary = dbPrimaryImageUrl(classifiedImages);
 
       const colors = b.colorPalette
         ?.split(/[,;\n]+/)
@@ -204,12 +205,15 @@ export async function POST(request: NextRequest) {
           logo_url: logoUrls[0] ?? null,
           primary_image_url: primary,
           images: mergedImages,
-          scrape_cache: scrapeCache,
+          scrape_cache: JSON.parse(JSON.stringify(scrapeCache)),
         })
         .select('*')
         .single();
 
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (error) {
+        console.error('products preview insert failed', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
       return NextResponse.json({ product: rowToProduct(data as Record<string, unknown>) });
     }
 

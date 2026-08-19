@@ -17,7 +17,7 @@ function sanitizeProductImages(images: ProductImage[]): ProductImage[] {
 
 function sanitizePrimaryImageUrl(primary: unknown, images: ProductImage[]): string {
   const raw = normalizeStoredImageUrl(typeof primary === 'string' ? primary : '');
-  if (raw.startsWith('http')) return raw;
+  if (raw.startsWith('http') || raw.startsWith('/')) return raw;
   const fromCatalog =
     images.find((i) => i.kind !== 'logo')?.url ?? images.find((i) => i.url)?.url ?? '';
   return fromCatalog || raw;

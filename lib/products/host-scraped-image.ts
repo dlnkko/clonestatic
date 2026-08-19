@@ -1,11 +1,12 @@
 import { uploadBase64ToImgBB } from '@/lib/imgbb';
 import { fetchRemoteImage } from '@/lib/images/fetch-remote-image';
+import { normalizeStoredImageUrl } from './media-url';
 
 /** Fetch an external image URL and host on ImgBB for stable catalog storage. */
 export async function hostExternalImageUrl(url: string): Promise<string> {
-  const trimmed = url.trim();
+  const trimmed = normalizeStoredImageUrl(url);
   if (!trimmed.startsWith('http')) {
-    throw new Error('Invalid image URL');
+    return trimmed;
   }
   try {
     const { body, contentType } = await fetchRemoteImage(trimmed, { timeoutMs: 20_000 });
@@ -20,7 +21,12 @@ export async function hostExternalImageUrls(urls: string[]): Promise<string[]> {
   const out: string[] = [];
   for (const url of urls) {
     if (!url?.trim()) continue;
-    out.push(await hostExternalImageUrl(url));
+    try {
+      out.push(await hostExternalImageUrl(url));
+    } catch {
+      const fallback = normalizeStoredImageUrl(url);
+      if (fallback) out.push(fallback);
+    }
   }
   return out;
 }

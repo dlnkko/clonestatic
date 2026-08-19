@@ -256,6 +256,10 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
         setError(userMessageForProductSave(res.status));
         return;
       }
+      if (!data.product?.id) {
+        setError(USER_MESSAGES.saveProductFailed);
+        return;
+      }
       onCreated(data.product);
       resetForm();
       onClose();

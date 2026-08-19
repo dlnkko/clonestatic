@@ -1,6 +1,6 @@
 import { uploadBase64ToImgBB } from '@/lib/imgbb';
 import { classifyProductImagesHeuristic } from './classify-images';
-import { primaryProductImageUrl } from './prepare-catalog';
+import { dbPrimaryImageUrl } from './placeholder-image';
 import type { ProductImage, ProductImageKind } from './types';
 
 export type ProductImageSlotInput =
@@ -34,7 +34,7 @@ export async function resolveProductImageSlots(
   }
 
   const classified = classifyProductImagesHeuristic(images);
-  const primary = primaryProductImageUrl(classified) ?? '';
+  const primary = dbPrimaryImageUrl(classified);
 
   const logo_url = classified.find((img) => img.kind === 'logo')?.url ?? null;
 

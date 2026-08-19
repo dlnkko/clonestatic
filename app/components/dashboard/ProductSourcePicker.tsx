@@ -24,7 +24,7 @@ function formatProductLabel(name: string): string {
 
 function productThumbUrl(p: ProductRecord): string {
   const primary = p.primary_image_url?.trim() ?? '';
-  if (primary.startsWith('http')) return primary;
+  if (primary.startsWith('http') || primary.startsWith('/')) return primary;
   const fromImages =
     p.images.find((i) => i.kind !== 'logo' && i.url?.startsWith('http'))?.url ??
     p.images.find((i) => i.url?.startsWith('http'))?.url ??
