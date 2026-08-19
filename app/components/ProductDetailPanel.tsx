@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { ProductRecord, ProductScrapeCache, ProductPricingConfig } from '@/lib/products/types';
+import type { ProductRecord, ProductPricingConfig } from '@/lib/products/types';
 import { useI18n } from '@/lib/i18n/LocaleProvider';
 import { BrandColorPicker } from '@/app/components/products/BrandColorPicker';
 import { ProductPricingEditor } from '@/app/components/products/ProductPricingEditor';
@@ -75,13 +75,6 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
     setError(null);
     try {
       const syncedPricing = finalizePricingConfig(pricingConfig);
-      const scrape_cache: ProductScrapeCache | null = product.scrape_cache
-        ? {
-            ...product.scrape_cache,
-            priceDisplay: syncedPricing.priceDisplay,
-            pricingConfig: syncedPricing,
-          }
-        : null;
 
       const imageSlots = await readEditableImagesAsPayload(productImages, logoImages);
       const uploadedSlots: typeof imageSlots = [];
@@ -107,7 +100,6 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
           color_palette: paletteColors.join(', '),
           priceDisplay: syncedPricing.priceDisplay,
           pricingConfig: syncedPricing,
-          scrape_cache,
           imageSlots: uploadedSlots,
         }),
       });
@@ -132,7 +124,12 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
         method: 'POST',
         credentials: 'include',
       });
-      const data = await res.json();
+      const { data, error: parseError } = await parseFetchJson<{
+        product?: ProductRecord;
+        error?: string;
+        updated?: boolean;
+      }>(res);
+      if (parseError) throw new Error(parseError);
       if (!res.ok) throw new Error(data.error || 'Failed to re-sync product page');
       const updated = data.product as ProductRecord;
       if (data.updated) {
@@ -287,6 +284,7 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
               logoImages={logoImages}
               onProductImagesChange={setProductImages}
               onLogoImagesChange={setLogoImages}
+              onError={setError}
               labels={{
                 productImages: t('products', 'productImages'),
                 productImagesHint: t('products', 'productImagesEditHint'),

@@ -1,10 +1,12 @@
-const MAX_JPEG_BYTES = 280_000;
-const MAX_PNG_BYTES = 900_000;
+const MAX_JPEG_BYTES = 200_000;
+const MAX_PNG_BYTES = 250_000;
+const MIN_DIM = 160;
 
 function scaleToMax(w: number, h: number, maxDim: number): { w: number; h: number } {
+  if (w <= 0 || h <= 0) return { w: 1, h: 1 };
   if (w <= maxDim && h <= maxDim) return { w, h };
-  if (w > h) return { w: maxDim, h: Math.round((h * maxDim) / w) };
-  return { w: Math.round((w * maxDim) / h), h: maxDim };
+  if (w > h) return { w: maxDim, h: Math.max(1, Math.round((h * maxDim) / w)) };
+  return { w: Math.max(1, Math.round((w * maxDim) / h)), h: maxDim };
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
@@ -16,76 +18,99 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   });
 }
 
-/** Browser-side compress so uploads stay under Vercel’s body limit. Logos keep PNG alpha. */
-export function compressFileToDataUrl(
+function canvasToBlob(canvas: HTMLCanvasElement, mime: string, quality: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) reject(new Error('Failed to compress image'));
+      else resolve(blob);
+    }, mime, quality);
+  });
+}
+
+function wantsAlpha(file: File, keepAlpha?: boolean): boolean {
+  if (keepAlpha != null) return keepAlpha;
+  return /png|svg|webp/i.test(file.type) || /\.(png|svg|webp)$/i.test(file.name);
+}
+
+/**
+ * Shrink any image that is too wide, too tall, or too heavy.
+ * Aspect ratio is preserved (never stretched).
+ */
+export async function compressFileToBlob(
   file: File,
   options?: { keepAlpha?: boolean }
-): Promise<string> {
-  const keepAlpha =
-    options?.keepAlpha ??
-    (/png|svg|webp/i.test(file.type) || /\.(png|svg|webp)$/i.test(file.name));
-  const maxDim = keepAlpha ? 1024 : 1920;
+): Promise<Blob> {
+  const keepAlpha = wantsAlpha(file, options?.keepAlpha);
   const mime = keepAlpha ? 'image/png' : 'image/jpeg';
   const maxBytes = keepAlpha ? MAX_PNG_BYTES : MAX_JPEG_BYTES;
 
-  return new Promise((resolve, reject) => {
-    const img = new Image();
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
     const objectUrl = URL.createObjectURL(file);
-    img.onload = () => {
+    image.onload = () => {
       URL.revokeObjectURL(objectUrl);
-      const sized = scaleToMax(img.naturalWidth, img.naturalHeight, maxDim);
-      const canvas = document.createElement('canvas');
-      canvas.width = sized.w;
-      canvas.height = sized.h;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        reject(new Error('Canvas not supported'));
-        return;
-      }
-      ctx.drawImage(img, 0, 0, sized.w, sized.h);
-
-      const encode = (quality: number, dim: number): Promise<string> =>
-        new Promise((res, rej) => {
-          if (dim < sized.w || dim < sized.h) {
-            const next = scaleToMax(img.naturalWidth, img.naturalHeight, dim);
-            canvas.width = next.w;
-            canvas.height = next.h;
-            ctx.clearRect(0, 0, next.w, next.h);
-            ctx.drawImage(img, 0, 0, next.w, next.h);
-          }
-          canvas.toBlob(
-            (blob) => {
-              if (!blob) {
-                rej(new Error('Failed to compress image'));
-                return;
-              }
-              if (blob.size <= maxBytes || (keepAlpha && dim <= 512) || (!keepAlpha && quality <= 0.2)) {
-                blobToDataUrl(blob).then(res).catch(rej);
-                return;
-              }
-              if (keepAlpha) {
-                encode(quality, Math.max(512, Math.round(dim * 0.75))).then(res).catch(rej);
-                return;
-              }
-              encode(Math.max(0.2, quality - 0.15), dim).then(res).catch(rej);
-            },
-            mime,
-            quality
-          );
-        });
-
-      encode(keepAlpha ? 1 : 0.9, maxDim).then(resolve).catch(reject);
+      resolve(image);
     };
-    img.onerror = () => {
+    image.onerror = () => {
       URL.revokeObjectURL(objectUrl);
-      if (file.size <= maxBytes) {
-        blobToDataUrl(file).then(resolve).catch(reject);
-        return;
-      }
-      reject(new Error('Could not read that image. Try a smaller PNG or JPEG.'));
+      reject(new Error('Could not read that image. Try a PNG or JPEG.'));
     };
-    img.src = objectUrl;
+    image.src = objectUrl;
   });
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas not supported');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+
+  const startMax = keepAlpha ? 640 : 1280;
+  let { w, h } = scaleToMax(img.naturalWidth, img.naturalHeight, startMax);
+  let quality = 0.8;
+  let blob: Blob | null = null;
+
+  for (let i = 0; i < 12; i++) {
+    canvas.width = w;
+    canvas.height = h;
+    ctx.clearRect(0, 0, w, h);
+    if (!keepAlpha) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+    }
+    ctx.drawImage(img, 0, 0, w, h);
+    blob = await canvasToBlob(canvas, mime, quality);
+    if (blob.size <= maxBytes) return blob;
+
+    if (!keepAlpha && quality > 0.42) {
+      quality = Math.max(0.42, quality - 0.1);
+      continue;
+    }
+
+    const longSide = Math.max(w, h);
+    if (longSide <= MIN_DIM) break;
+    ({ w, h } = scaleToMax(w, h, Math.max(MIN_DIM, Math.round(longSide * 0.7))));
+  }
+
+  if (!blob) throw new Error('Failed to compress image');
+  return blob;
+}
+
+export async function compressFileToDataUrl(
+  file: File,
+  options?: { keepAlpha?: boolean }
+): Promise<string> {
+  const blob = await compressFileToBlob(file, options);
+  return blobToDataUrl(blob);
+}
+
+export async function compressFileToFile(
+  file: File,
+  options?: { keepAlpha?: boolean }
+): Promise<File> {
+  const blob = await compressFileToBlob(file, options);
+  const ext = blob.type === 'image/png' ? 'png' : 'jpg';
+  const base = file.name.replace(/\.[^.]+$/, '') || 'image';
+  return new File([blob], `${base}.${ext}`, { type: blob.type });
 }
 
 export async function parseFetchJson<T = Record<string, unknown>>(
@@ -95,14 +120,11 @@ export async function parseFetchJson<T = Record<string, unknown>>(
   try {
     return { data: (text ? JSON.parse(text) : {}) as T, error: null };
   } catch {
-    if (res.status === 413) {
+    if (res.status === 413 || text.startsWith('<') || text.includes('<!DOCTYPE')) {
       return { data: {} as T, error: 'That file is too large. Try a smaller PNG or JPEG.' };
     }
     if (res.status === 504 || res.status === 408) {
       return { data: {} as T, error: 'Upload timed out. Try a smaller image.' };
-    }
-    if (text.startsWith('<') || text.includes('<!DOCTYPE')) {
-      return { data: {} as T, error: 'That file is too large. Try a smaller PNG or JPEG.' };
     }
     return { data: {} as T, error: 'Could not save. Please try again.' };
   }

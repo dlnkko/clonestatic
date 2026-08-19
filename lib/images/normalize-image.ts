@@ -23,33 +23,53 @@ function parseDataUrl(dataUrl: string): { mimeType: string; buffer: Buffer } {
   };
 }
 
+const MAX_EDGE = 1280;
+const MAX_OUTPUT_BYTES = 400_000;
+const MIN_EDGE = 160;
+
 export async function normalizeImageBuffer(
   input: Buffer,
   options?: { mimeHint?: string }
 ): Promise<{ buffer: Buffer; mimeType: 'image/jpeg' | 'image/png' }> {
-  const image = sharp(input, {
+  const meta = await sharp(input, {
     failOn: 'none',
     ...(options?.mimeHint?.includes('svg') ? { density: 300 } : {}),
-  });
-  const meta = await image.metadata();
-  if (meta.hasAlpha || options?.mimeHint?.includes('svg')) {
-    return {
-      buffer: await image.png({ compressionLevel: 6 }).toBuffer(),
-      mimeType: 'image/png',
-    };
+  }).metadata();
+  const keepAlpha = Boolean(meta.hasAlpha || options?.mimeHint?.includes('svg'));
+
+  let edge = MAX_EDGE;
+  let buffer: Buffer = input;
+  let mimeType: 'image/jpeg' | 'image/png' = keepAlpha ? 'image/png' : 'image/jpeg';
+
+  for (let i = 0; i < 8; i++) {
+    const pipeline = sharp(input, {
+      failOn: 'none',
+      ...(options?.mimeHint?.includes('svg') ? { density: 300 } : {}),
+    }).resize({
+      width: edge,
+      height: edge,
+      fit: 'inside',
+      withoutEnlargement: true,
+    });
+
+    if (keepAlpha) {
+      buffer = await pipeline.png({ compressionLevel: 9, adaptiveFiltering: true }).toBuffer();
+      mimeType = 'image/png';
+    } else {
+      buffer = await pipeline.jpeg({ quality: 78, mozjpeg: true }).toBuffer();
+      mimeType = 'image/jpeg';
+    }
+
+    if (buffer.length <= MAX_OUTPUT_BYTES || edge <= MIN_EDGE) break;
+    edge = Math.max(MIN_EDGE, Math.round(edge * 0.7));
   }
-  return {
-    buffer: await image.jpeg({ quality: 92, mozjpeg: true }).toBuffer(),
-    mimeType: 'image/jpeg',
-  };
+
+  return { buffer, mimeType };
 }
 
-/** Convert webp/avif/heic/svg/etc. to JPEG or PNG for Kie and ImgBB. */
+/** Convert/compress uploads for ImgBB. Always fits inside 1280px without stretching. */
 export async function normalizeBase64DataUrl(dataUrl: string): Promise<string> {
   const { mimeType, buffer } = parseDataUrl(dataUrl);
-  if (!mimeNeedsConversionForKie(mimeType)) {
-    return dataUrl;
-  }
   const normalized = await normalizeImageBuffer(buffer, { mimeHint: mimeType });
   return `data:${normalized.mimeType};base64,${normalized.buffer.toString('base64')}`;
 }

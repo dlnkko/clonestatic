@@ -18,7 +18,7 @@ import {
   pricingConfigFromExtracted,
 } from '@/lib/products/pricing-config';
 import { slimBranding } from '@/lib/products/preview-payload';
-import { compressFileToDataUrl } from '@/lib/images/compress-client';
+import { compressFileToDataUrl, compressFileToFile, parseFetchJson, uploadProductImageDataUrl } from '@/lib/images/compress-client';
 
 type Mode = 'url' | 'manual';
 type UrlStep = 'input' | 'info' | 'logo' | 'products';
@@ -94,8 +94,19 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     const room = 2 - logoFiles.length;
     if (room <= 0) return;
     const next = incoming.slice(0, room);
-    setLogoFiles((prev) => [...prev, ...next]);
-    setLogoPreviews((prev) => [...prev, ...next.map((f) => URL.createObjectURL(f))]);
+    void (async () => {
+      const compressed: File[] = [];
+      for (const file of next) {
+        try {
+          compressed.push(await compressFileToFile(file, { keepAlpha: true }));
+        } catch (e) {
+          setError(e instanceof Error ? e.message : 'Could not read that image. Try a PNG or JPEG.');
+          return;
+        }
+      }
+      setLogoFiles((prev) => [...prev, ...compressed]);
+      setLogoPreviews((prev) => [...prev, ...compressed.map((f) => URL.createObjectURL(f))]);
+    })();
   };
 
   const removeLogo = (index: number) => {
@@ -109,8 +120,19 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     const room = 10 - scrapedCount - imageFiles.length;
     if (room <= 0) return;
     const next = incoming.slice(0, room);
-    setImageFiles((prev) => [...prev, ...next]);
-    setImagePreviews((prev) => [...prev, ...next.map((f) => URL.createObjectURL(f))]);
+    void (async () => {
+      const compressed: File[] = [];
+      for (const file of next) {
+        try {
+          compressed.push(await compressFileToFile(file, { keepAlpha: false }));
+        } catch (e) {
+          setError(e instanceof Error ? e.message : 'Could not read that image. Try a PNG or JPEG.');
+          return;
+        }
+      }
+      setImageFiles((prev) => [...prev, ...compressed]);
+      setImagePreviews((prev) => [...prev, ...compressed.map((f) => URL.createObjectURL(f))]);
+    })();
   };
 
   const removeImage = (index: number) => {
@@ -234,10 +256,16 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const imageBase64List =
-        extraFiles.length > 0 ? await Promise.all(extraFiles.map((f) => readFileAsDataUrl(f))) : undefined;
-      const logoBase64List =
-        logoFiles.length > 0 ? await Promise.all(logoFiles.map((f) => readFileAsDataUrl(f, true))) : undefined;
+      const uploadedProductUrls: string[] = [];
+      for (const file of extraFiles) {
+        const dataUrl = await readFileAsDataUrl(file);
+        uploadedProductUrls.push(await uploadProductImageDataUrl(dataUrl));
+      }
+      const uploadedLogoUrls: string[] = [];
+      for (const file of logoFiles) {
+        const dataUrl = await readFileAsDataUrl(file, true);
+        uploadedLogoUrls.push(await uploadProductImageDataUrl(dataUrl));
+      }
       const syncedPricing = finalizePricingConfig(pricingConfig);
       const res = await fetch('/api/products', {
         method: 'POST',
@@ -253,17 +281,19 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
           colorPalette: paletteColors.join(', '),
           priceDisplay: syncedPricing.priceDisplay,
           pricingConfig: syncedPricing,
-          selectedLogoUrls: selectedLogoUrls,
-          selectedProductUrls: productUrls,
-          imageBase64List,
-          logoBase64List,
+          selectedLogoUrls: [...selectedLogoUrls, ...uploadedLogoUrls],
+          selectedProductUrls: [...productUrls, ...uploadedProductUrls],
           scrapeSummary: preview.summary,
           branding: slimBranding(preview.branding),
           extractedPricing: preview.extractedPricing,
           markdown: preview.markdown?.slice(0, 12000) ?? null,
         }),
       });
-      const data = await res.json().catch(() => ({}));
+      const { data, error: parseError } = await parseFetchJson<{ product?: ProductRecord; error?: string }>(res);
+      if (parseError) {
+        setError(parseError);
+        return;
+      }
       if (!res.ok) {
         const apiError = typeof data.error === 'string' ? data.error.trim() : '';
         setError(
@@ -284,8 +314,8 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
       }
       resetForm();
       onClose();
-    } catch {
-      setError(USER_MESSAGES.saveProductFailed);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : USER_MESSAGES.saveProductFailed);
     } finally {
       setLoading(false);
     }
@@ -300,9 +330,16 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
       if (paletteColors.length < 1) throw new Error('Select at least one brand color');
       if (imageFiles.length < 1) throw new Error('Upload at least one product image');
 
-      const imageBase64List = await Promise.all(imageFiles.map((f) => readFileAsDataUrl(f)));
-      const logoBase64List =
-        logoFiles.length > 0 ? await Promise.all(logoFiles.map((f) => readFileAsDataUrl(f, true))) : undefined;
+      const imageUrls: string[] = [];
+      for (const file of imageFiles) {
+        const dataUrl = await readFileAsDataUrl(file);
+        imageUrls.push(await uploadProductImageDataUrl(dataUrl));
+      }
+      const logoUrls: string[] = [];
+      for (const file of logoFiles) {
+        const dataUrl = await readFileAsDataUrl(file, true);
+        logoUrls.push(await uploadProductImageDataUrl(dataUrl));
+      }
       const syncedPricing = finalizePricingConfig(pricingConfig);
       const res = await fetch('/api/products', {
         method: 'POST',
@@ -316,13 +353,21 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
           colorPalette: paletteColors.join(', '),
           priceDisplay: syncedPricing.priceDisplay || undefined,
           pricingConfig: syncedPricing,
-          imageBase64List,
-          logoBase64List,
+          imageUrls,
+          logoUrls,
         }),
       });
-      const data = await res.json().catch(() => ({}));
+      const { data, error: parseError } = await parseFetchJson<{ product?: ProductRecord; error?: string }>(res);
+      if (parseError) {
+        setError(parseError);
+        return;
+      }
       if (!res.ok) {
-        setError(userMessageForProductSave(res.status));
+        setError(typeof data.error === 'string' ? data.error : userMessageForProductSave(res.status));
+        return;
+      }
+      if (!data.product) {
+        setError(USER_MESSAGES.saveProductFailed);
         return;
       }
       onCreated(data.product);
@@ -332,7 +377,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
       if (e instanceof Error && e.message.includes('required')) {
         setError(e.message);
       } else {
-        setError(USER_MESSAGES.tryAgain);
+        setError(e instanceof Error ? e.message : USER_MESSAGES.tryAgain);
       }
     } finally {
       setLoading(false);

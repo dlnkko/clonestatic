@@ -55,7 +55,9 @@ type CreateManualBody = {
   targetAudience: string;
   colorPalette: string;
   logoBase64List?: string[];
-  imageBase64List: string[];
+  imageBase64List?: string[];
+  imageUrls?: string[];
+  logoUrls?: string[];
 };
 
 type CreateUrlBody = {
@@ -212,6 +214,8 @@ export async function POST(request: NextRequest) {
         pricingConfig,
         logoBase64List,
         imageBase64List,
+        imageUrls,
+        logoUrls: hostedLogoUrls,
       } = body as CreateManualBody & {
         priceDisplay?: string;
         pricingConfig?: ProductScrapeCache['pricingConfig'];
@@ -220,24 +224,41 @@ export async function POST(request: NextRequest) {
       if (!name?.trim()) {
         return NextResponse.json({ error: 'name is required' }, { status: 400 });
       }
-      if (!Array.isArray(imageBase64List) || imageBase64List.length < 1) {
+      const hostedProductUrls = Array.isArray(imageUrls)
+        ? imageUrls.filter((u): u is string => typeof u === 'string' && u.startsWith('http'))
+        : [];
+      const hostedLogos = Array.isArray(hostedLogoUrls)
+        ? hostedLogoUrls.filter((u): u is string => typeof u === 'string' && u.startsWith('http'))
+        : [];
+      const base64Products = Array.isArray(imageBase64List) ? imageBase64List.filter(Boolean) : [];
+      if (hostedProductUrls.length + base64Products.length < 1) {
         return NextResponse.json({ error: 'At least one product image is required' }, { status: 400 });
       }
-      if (imageBase64List.length > 10) {
+      if (hostedProductUrls.length + base64Products.length > 10) {
         return NextResponse.json({ error: 'Maximum 10 product images' }, { status: 400 });
       }
 
       const images: ProductImage[] = [];
-      for (let i = 0; i < imageBase64List.length; i++) {
-        const url = await uploadBase64ToImgBB(imageBase64List[i]);
+      for (let i = 0; i < hostedProductUrls.length; i++) {
         images.push({
-          url,
+          url: hostedProductUrls[i],
           kind: i === 0 ? 'product' : 'packaging',
           alt: `${name.trim()} image ${i + 1}`,
         });
       }
+      for (let i = 0; i < base64Products.length; i++) {
+        const url = await uploadBase64ToImgBB(base64Products[i]);
+        images.push({
+          url,
+          kind: images.filter((img) => img.kind !== 'logo').length === 0 ? 'product' : 'packaging',
+          alt: `${name.trim()} image ${images.length + 1}`,
+        });
+      }
 
-      const logoUrls: string[] = [];
+      const logoUrls: string[] = [...hostedLogos];
+      for (const url of hostedLogos) {
+        images.push({ url, kind: 'logo', alt: `${name.trim()} logo` });
+      }
       if (Array.isArray(logoBase64List)) {
         for (const base64 of logoBase64List.slice(0, 2)) {
           if (!base64) continue;

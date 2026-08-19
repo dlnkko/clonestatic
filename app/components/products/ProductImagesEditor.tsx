@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
-import { compressFileToDataUrl } from '@/lib/images/compress-client';
+import { compressFileToDataUrl, compressFileToFile } from '@/lib/images/compress-client';
 import type { ProductImageKind } from '@/lib/products/types';
 import { ProxiedImage } from '@/app/components/ProxiedImage';
 
@@ -20,6 +20,7 @@ type SectionProps = {
   replaceLabel: string;
   removeLabel: string;
   uploadLabel: string;
+  onError?: (message: string) => void;
 };
 
 function ImageSection({
@@ -33,6 +34,7 @@ function ImageSection({
   replaceLabel,
   removeLabel,
   uploadLabel,
+  onError,
 }: SectionProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const replaceIndexRef = useRef<number | null>(null);
@@ -44,27 +46,36 @@ function ImageSection({
 
   const handleFiles = (fileList: FileList | null) => {
     if (!fileList?.length) return;
-    const file = fileList[0];
+    const original = fileList[0];
     const replaceIndex = replaceIndexRef.current;
     replaceIndexRef.current = null;
-
-    const nextItem: EditableProductImage = {
-      key: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      source: 'local',
-      preview: URL.createObjectURL(file),
-      file,
-      kind: defaultKind,
-    };
-
-    if (replaceIndex != null && replaceIndex >= 0 && replaceIndex < images.length) {
-      const prev = images[replaceIndex];
-      if (prev.source === 'local') URL.revokeObjectURL(prev.preview);
-      onChange(images.map((img, i) => (i === replaceIndex ? nextItem : img)));
-    } else if (images.length < max) {
-      onChange([...images, nextItem]);
-    }
-
     if (inputRef.current) inputRef.current.value = '';
+
+    void (async () => {
+      let file = original;
+      try {
+        file = await compressFileToFile(original, { keepAlpha: defaultKind === 'logo' });
+      } catch (e) {
+        onError?.(e instanceof Error ? e.message : 'Could not read that image. Try a PNG or JPEG.');
+        return;
+      }
+
+      const nextItem: EditableProductImage = {
+        key: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        source: 'local',
+        preview: URL.createObjectURL(file),
+        file,
+        kind: defaultKind,
+      };
+
+      if (replaceIndex != null && replaceIndex >= 0 && replaceIndex < images.length) {
+        const prev = images[replaceIndex];
+        if (prev.source === 'local') URL.revokeObjectURL(prev.preview);
+        onChange(images.map((img, i) => (i === replaceIndex ? nextItem : img)));
+      } else if (images.length < max) {
+        onChange([...images, nextItem]);
+      }
+    })();
   };
 
   const removeAt = (index: number) => {
@@ -165,6 +176,7 @@ type Props = {
     remove: string;
     upload: string;
   };
+  onError?: (message: string) => void;
 };
 
 export function productImagesFromRecord(
@@ -193,6 +205,7 @@ export function ProductImagesEditor({
   onProductImagesChange,
   onLogoImagesChange,
   labels,
+  onError,
 }: Props) {
   return (
     <div className="space-y-5">
@@ -206,6 +219,7 @@ export function ProductImagesEditor({
         replaceLabel={labels.replace}
         removeLabel={labels.remove}
         uploadLabel={labels.upload}
+        onError={onError}
       />
       <ImageSection
         label={labels.logoImages}
@@ -218,6 +232,7 @@ export function ProductImagesEditor({
         replaceLabel={labels.replace}
         removeLabel={labels.remove}
         uploadLabel={labels.upload}
+        onError={onError}
       />
     </div>
   );
