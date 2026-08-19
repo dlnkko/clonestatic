@@ -12,11 +12,8 @@ import { assertCanAddProduct } from '@/lib/subscription-limits';
 import { buildScrapeCacheFromPageScrape } from '@/lib/products/build-scrape-cache';
 import { pageDescriptionFromMetadata } from '@/lib/products/compare-scrape-cache';
 import { hostExternalImageUrl } from '@/lib/products/host-scraped-image';
-import {
-  buildPreviewSaveRow,
-  isPreviewSaveBody,
-  type PreviewSaveInput,
-} from '@/lib/products/save-from-preview';
+import { isPreviewSaveBody, type PreviewSaveInput } from '@/lib/products/preview-payload';
+import { buildPreviewSaveRow } from '@/lib/products/save-from-preview';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;

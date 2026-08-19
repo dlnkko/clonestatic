@@ -17,7 +17,7 @@ import {
   finalizePricingConfig,
   pricingConfigFromExtracted,
 } from '@/lib/products/pricing-config';
-import { slimBranding } from '@/lib/products/save-from-preview';
+import { slimBranding } from '@/lib/products/preview-payload';
 
 type Mode = 'url' | 'manual';
 type UrlStep = 'input' | 'info' | 'logo' | 'products';
