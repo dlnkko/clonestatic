@@ -215,17 +215,15 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
     setUrlStep('products');
   };
 
-  const handleSaveFromPreview = async () => {
+  const handleSaveFromPreview = async (opts?: { skipProductImages?: boolean }) => {
     if (!preview) return;
-    if (selectedProductUrls.length + imageFiles.length < 1) {
-      setError('Select or upload at least one product image');
-      return;
-    }
+    const productUrls = opts?.skipProductImages ? [] : selectedProductUrls;
+    const extraFiles = opts?.skipProductImages ? [] : imageFiles;
     setLoading(true);
     setError(null);
     try {
       const imageBase64List =
-        imageFiles.length > 0 ? await Promise.all(imageFiles.map(readFileAsDataUrl)) : undefined;
+        extraFiles.length > 0 ? await Promise.all(extraFiles.map(readFileAsDataUrl)) : undefined;
       const logoBase64List =
         logoFiles.length > 0 ? await Promise.all(logoFiles.map(readFileAsDataUrl)) : undefined;
       const syncedPricing = finalizePricingConfig(pricingConfig);
@@ -244,7 +242,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
           priceDisplay: syncedPricing.priceDisplay,
           pricingConfig: syncedPricing,
           selectedLogoUrls: selectedLogoUrls,
-          selectedProductUrls: selectedProductUrls,
+          selectedProductUrls: productUrls,
           imageBase64List,
           logoBase64List,
           scrapeSummary: preview.summary,
@@ -350,7 +348,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
   const infoFields = (
     <div className="product-modal-scroll space-y-5 max-h-[58vh] overflow-y-auto pr-1">
       <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-4 py-3 text-xs leading-relaxed text-indigo-900">
-        Review scraped pricing and brand colors. Page copy for AI is saved automatically — not shown here. Next: pick logo and product images.
+        Review scraped pricing and brand colors. Page copy for AI is saved automatically — not shown here. Next: pick a logo and optional product images.
       </div>
       <div className="product-modal-section space-y-4">
         <div>
@@ -396,11 +394,11 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
   const productStepFields = (
     <div className="product-modal-scroll space-y-5 max-h-[58vh] overflow-y-auto pr-1">
       <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-4 py-3 text-xs leading-relaxed text-indigo-900">
-        Step 2 of 2 — Select product photos from the page (packaging, hero shots, lifestyle). Images marked as logo are excluded.
+        Step 2 of 2 — Optionally select product photos from the page (packaging, hero shots, lifestyle). You can skip this and add images later.
       </div>
       <div className="product-modal-section space-y-4">
         <div className="flex items-center justify-between gap-2">
-          <label className="text-xs font-medium text-slate-600">Select product images</label>
+          <label className="text-xs font-medium text-slate-600">Select product images (optional)</label>
           <span className="text-[10px] text-slate-400">
             {selectedProductUrls.length + imageFiles.length}/10
           </span>
@@ -500,12 +498,20 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
           </>
         ) : mode === 'url' && urlStep === 'products' ? (
           <>
-            <h3 className="mb-3 text-sm font-semibold text-slate-800">Choose product images</h3>
+            <h3 className="mb-3 text-sm font-semibold text-slate-800">Choose product images (optional)</h3>
             {productStepFields}
             {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
             <div className="mt-5 flex gap-2">
               <button type="button" onClick={() => setUrlStep('logo')} className="dash-btn dash-btn-secondary">Back</button>
-              <button type="button" onClick={handleSaveFromPreview} disabled={loading} className="dash-btn dash-btn-primary flex-1">
+              <button
+                type="button"
+                onClick={() => void handleSaveFromPreview({ skipProductImages: true })}
+                disabled={loading}
+                className="dash-btn dash-btn-secondary"
+              >
+                Skip images
+              </button>
+              <button type="button" onClick={() => void handleSaveFromPreview()} disabled={loading} className="dash-btn dash-btn-primary flex-1">
                 {loading ? 'Saving…' : 'Save product'}
               </button>
             </div>
@@ -520,7 +526,7 @@ export function ProductModal({ open, onClose, onCreated }: Props) {
             {mode === 'url' ? (
               <div className="product-modal-section space-y-3">
                 <p className="text-xs leading-relaxed text-slate-500">
-                  Paste a product page URL. We scrape copy, branding, pricing, and images — then you pick your logo and product photos.
+                  Paste a product page URL. We scrape copy, branding, pricing, and images — then you pick a logo and optional product photos.
                 </p>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-slate-600">Product page URL</label>

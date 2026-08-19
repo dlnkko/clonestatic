@@ -118,14 +118,8 @@ export async function PATCH(
     if (cache) updates.scrape_cache = cache;
 
     if (Array.isArray(imageSlots)) {
-      if (imageSlots.length < 1) {
-        return NextResponse.json({ error: 'At least one product image is required' }, { status: 400 });
-      }
       const logoCount = imageSlots.filter((s) => s.kind === 'logo').length;
       const productCount = imageSlots.length - logoCount;
-      if (productCount < 1) {
-        return NextResponse.json({ error: 'At least one product image is required' }, { status: 400 });
-      }
       if (productCount > 10) {
         return NextResponse.json({ error: 'Maximum 10 product images' }, { status: 400 });
       }

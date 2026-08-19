@@ -129,9 +129,6 @@ export async function POST(request: NextRequest) {
       const base64Products = Array.isArray(b.imageBase64List) ? b.imageBase64List : [];
       const base64Logos = Array.isArray(b.logoBase64List) ? b.logoBase64List : [];
 
-      if (productUrlList.length + base64Products.length < 1) {
-        return NextResponse.json({ error: 'Select or upload at least one product image' }, { status: 400 });
-      }
       if (productUrlList.length + base64Products.length > 10) {
         return NextResponse.json({ error: 'Maximum 10 product images' }, { status: 400 });
       }
@@ -173,10 +170,7 @@ export async function POST(request: NextRequest) {
       }
 
       const classifiedImages = classifyProductImagesHeuristic(images);
-      const primary = primaryProductImageUrl(classifiedImages);
-      if (!primary) {
-        return NextResponse.json({ error: 'No images to save' }, { status: 400 });
-      }
+      const primary = primaryProductImageUrl(classifiedImages) ?? '';
 
       const colors = b.colorPalette
         ?.split(/[,;\n]+/)

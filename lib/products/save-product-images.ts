@@ -34,10 +34,7 @@ export async function resolveProductImageSlots(
   }
 
   const classified = classifyProductImagesHeuristic(images);
-  const primary = primaryProductImageUrl(classified);
-  if (!primary) {
-    throw new Error('At least one product image is required');
-  }
+  const primary = primaryProductImageUrl(classified) ?? '';
 
   const logo_url = classified.find((img) => img.kind === 'logo')?.url ?? null;
 

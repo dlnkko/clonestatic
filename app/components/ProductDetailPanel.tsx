@@ -70,11 +70,6 @@ export function ProductDetailPanel({ product, onClose, onSaved, onDeleted }: Pro
   if (!product) return null;
 
   const handleSave = async () => {
-    if (productImages.length < 1) {
-      setError(t('products', 'productImagesRequired'));
-      return;
-    }
-
     setSaving(true);
     setError(null);
     try {
